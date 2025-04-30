@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Data Viewer</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f7fa;
+        }
+        h1, h2 {
+            color: #343a40;
+        }
+        .card {
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .item {
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            border-left: 4px solid #00a8ff;
+            background-color: #f8f9fa;
+        }
+        pre {
+            background-color: #f1f1f1;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        button {
+            background-color: #00a8ff;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background-color: #0088cc;
+        }
+        .flex {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        th, td {
+            padding: 8px 12px;
+            text-align: left;
+            border-bottom: 1px solid #e9ecef;
+        }
+        th {
+            background-color: #e9ecef;
+            font-weight: 600;
+        }
+        tr:hover {
+            background-color: #f1f3f5;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test Data Viewer</h1>
+    <p>This page displays the data for the test user directly from the debug endpoints.</p>
+
+    <div class="card">
+        <h2>Data Fetching</h2>
+        <div class="flex">
+            <button id="fetch-logs">Fetch Food Logs</button>
+            <button id="fetch-foods">Fetch Food Index</button>
+            <button id="fetch-goals">Fetch Goals</button>
+            <button id="fetch-all">Fetch All Data</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Food Logs</h2>
+        <div id="logs-content">
+            <p>Click "Fetch Food Logs" to load data...</p>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Food Index</h2>
+        <div id="foods-content">
+            <p>Click "Fetch Food Index" to load data...</p>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>Goals</h2>
+        <div id="goals-content">
+            <p>Click "Fetch Goals" to load data...</p>
+        </div>
+    </div>
+
+    <script>
+        // Define the base URL for the debug API
+        const API_BASE_URL = 'http://localhost:5001/debug';
+        
+        // Helper to format dates
+        function formatDate(dateStr) {
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('en-US', { 
+                year: 'numeric', 
+                month: 'short', 
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        // Helper to create tables
+        function createTable(data, columns) {
+            const table = document.createElement('table');
+            
+            // Header row
+            const thead = document.createElement('thead');
+            const headerRow = document.createElement('tr');
+            columns.forEach(col => {
+                const th = document.createElement('th');
+                th.textContent = col.label;
+                headerRow.appendChild(th);
+            });
+            thead.appendChild(headerRow);
+            table.appendChild(thead);
+            
+            // Body rows
+            const tbody = document.createElement('tbody');
+            data.forEach(item => {
+                const row = document.createElement('tr');
+                columns.forEach(col => {
+                    const td = document.createElement('td');
+                    if (col.format) {
+                        td.textContent = col.format(item[col.key]);
+                    } else {
+                        td.textContent = item[col.key];
+                    }
+                    row.appendChild(td);
+                });
+                tbody.appendChild(row);
+            });
+            table.appendChild(tbody);
+            
+            return table;
+        }
+
+        // Fetch food logs
+        document.getElementById('fetch-logs').addEventListener('click', async () => {
+            const logsContent = document.getElementById('logs-content');
+            logsContent.innerHTML = '<p>Loading...</p>';
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/logs?date=2025-04-27`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                
+                if (data.logs && data.logs.length > 0) {
+                    // Create a table of logs
+                    const columns = [
+                        { key: 'meal_type', label: 'Meal' },
+                        { key: 'name', label: 'Food' },
+                        { key: 'amount', label: 'Amount' },
+                        { key: 'unit', label: 'Unit' },
+                        { key: 'calories', label: 'Calories' },
+                        { key: 'proteins', label: 'Protein' },
+                        { key: 'carbs', label: 'Carbs' },
+                        { key: 'fats', label: 'Fats' }
+                    ];
+                    
+                    const table = createTable(data.logs, columns);
+                    
+                    logsContent.innerHTML = '';
+                    logsContent.appendChild(document.createElement('p')).textContent = 
+                        `Found ${data.logs.length} food logs for April 27, 2025`;
+                    logsContent.appendChild(table);
+                } else {
+                    logsContent.innerHTML = '<p>No food logs found.</p>';
+                }
+            } catch (error) {
+                console.error('Error fetching logs:', error);
+                logsContent.innerHTML = `<p>Error: ${error.message}</p>`;
+            }
+        });
+
+        // Fetch food index
+        document.getElementById('fetch-foods').addEventListener('click', async () => {
+            const foodsContent = document.getElementById('foods-content');
+            foodsContent.innerHTML = '<p>Loading...</p>';
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/foods`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                
+                if (data.foods && data.foods.length > 0) {
+                    // Create a table of foods
+                    const columns = [
+                        { key: 'name', label: 'Food' },
+                        { key: 'serving_size', label: 'Serving Size' },
+                        { key: 'serving_unit', label: 'Unit' },
+                        { key: 'calories', label: 'Calories' },
+                        { key: 'proteins', label: 'Protein' },
+                        { key: 'carbs', label: 'Carbs' },
+                        { key: 'fats', label: 'Fats' }
+                    ];
+                    
+                    const table = createTable(data.foods, columns);
+                    
+                    foodsContent.innerHTML = '';
+                    foodsContent.appendChild(document.createElement('p')).textContent = 
+                        `Found ${data.foods.length} foods in the index`;
+                    foodsContent.appendChild(table);
+                } else {
+                    foodsContent.innerHTML = '<p>No foods found in the index.</p>';
+                }
+            } catch (error) {
+                console.error('Error fetching foods:', error);
+                foodsContent.innerHTML = `<p>Error: ${error.message}</p>`;
+            }
+        });
+
+        // Fetch goals
+        document.getElementById('fetch-goals').addEventListener('click', async () => {
+            const goalsContent = document.getElementById('goals-content');
+            goalsContent.innerHTML = '<p>Loading...</p>';
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/goals`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                
+                goalsContent.innerHTML = '';
+                
+                if (data.active_goal) {
+                    const activeGoalDiv = document.createElement('div');
+                    activeGoalDiv.innerHTML = `
+                        <h3>Active Goal</h3>
+                        <pre>${JSON.stringify(data.active_goal, null, 2)}</pre>
+                    `;
+                    goalsContent.appendChild(activeGoalDiv);
+                } else {
+                    goalsContent.appendChild(document.createElement('p')).textContent = 
+                        'No active goal found.';
+                }
+                
+                if (data.all_goals && data.all_goals.length > 0) {
+                    const allGoalsDiv = document.createElement('div');
+                    allGoalsDiv.innerHTML = `
+                        <h3>All Goals (${data.all_goals.length})</h3>
+                        <pre>${JSON.stringify(data.all_goals, null, 2)}</pre>
+                    `;
+                    goalsContent.appendChild(allGoalsDiv);
+                } else {
+                    goalsContent.appendChild(document.createElement('p')).textContent = 
+                        'No goals found.';
+                }
+            } catch (error) {
+                console.error('Error fetching goals:', error);
+                goalsContent.innerHTML = `<p>Error: ${error.message}</p>`;
+            }
+        });
+
+        // Fetch all data
+        document.getElementById('fetch-all').addEventListener('click', () => {
+            document.getElementById('fetch-logs').click();
+            document.getElementById('fetch-foods').click();
+            document.getElementById('fetch-goals').click();
+        });
+    </script>
+</body>
+</html> 

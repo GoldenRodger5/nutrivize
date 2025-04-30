@@ -1,0 +1,14 @@
+{
+  "user_id": "test_user",
+  "meal_type": "snack",
+  "time_of_day": "15:00",
+  "preference": "healthy",
+  "remaining_macros": {
+    "calories": 500,
+    "protein": 30,
+    "carbs": 50,
+    "fat": 20
+  },
+  "use_food_index_only": false,
+  "specific_ingredients": ["yogurt", "berries"]
+}

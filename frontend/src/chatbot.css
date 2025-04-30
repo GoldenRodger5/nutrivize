@@ -1,0 +1,150 @@
+.chatbot-container {
+  display: flex;
+  flex-direction: column;
+  height: 600px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  overflow: hidden;
+  background-color: #f9fafb;
+  margin-top: 20px;
+}
+
+.chatbot-messages {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.message {
+  padding: 12px 16px;
+  border-radius: 8px;
+  max-width: 85%;
+  line-height: 1.5;
+}
+
+.message.user {
+  align-self: flex-end;
+  background-color: #3182ce;
+  color: white;
+}
+
+.message.assistant {
+  align-self: flex-start;
+  background-color: white;
+  border: 1px solid #e2e8f0;
+  color: #2d3748;
+}
+
+.message strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+.message-content {
+  white-space: pre-wrap;
+}
+
+.chatbot-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 16px;
+  background-color: #edf2f7;
+  border-top: 1px solid #e2e8f0;
+}
+
+.suggestion-button {
+  background-color: white;
+  border: 1px solid #cbd5e0;
+  border-radius: 16px;
+  padding: 6px 12px;
+  font-size: 0.9rem;
+  color: #4a5568;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.suggestion-button:hover {
+  background-color: #ebf8ff;
+  border-color: #90cdf4;
+  color: #2b6cb0;
+}
+
+.chatbot-input {
+  display: flex;
+  padding: 12px 16px;
+  border-top: 1px solid #e2e8f0;
+  background-color: white;
+}
+
+.chatbot-input input {
+  flex: 1;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  margin-right: 8px;
+  font-size: 1rem;
+}
+
+.chatbot-input input:focus {
+  outline: none;
+  border-color: #90cdf4;
+  box-shadow: 0 0 0 3px rgba(66, 153, 225, 0.1);
+}
+
+.chatbot-input button {
+  padding: 0 20px;
+  background-color: #3182ce;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background-color 0.2s;
+}
+
+.chatbot-input button:hover {
+  background-color: #2c5282;
+}
+
+.chatbot-input button:disabled {
+  background-color: #cbd5e0;
+}
+
+.loading-dots {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  margin-top: 8px;
+  padding-left: 4px;
+}
+
+.loading-dots span {
+  width: 8px;
+  height: 8px;
+  background-color: #a0aec0;
+  border-radius: 50%;
+  animation: bounce 1.4s infinite ease-in-out both;
+}
+
+.loading-dots span:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.loading-dots span:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+@keyframes bounce {
+  0%, 80%, 100% {
+    transform: scale(0);
+  }
+  40% {
+    transform: scale(1);
+  }
+} 
