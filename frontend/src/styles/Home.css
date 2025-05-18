@@ -1,0 +1,386 @@
+.home-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 16px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.welcome-panel {
+  background: linear-gradient(135deg, #4a90e2, #7c4dff);
+  border-radius: 12px;
+  padding: 24px;
+  color: white;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.welcome-panel h2 {
+  margin: 0 0 8px 0;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.welcome-panel p {
+  margin: 0 0 16px 0;
+  opacity: 0.9;
+}
+
+.refresh-button {
+  background-color: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.refresh-button:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.widget-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.widget {
+  background-color: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.widget-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.widget-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+}
+
+.view-all-button {
+  background: none;
+  border: none;
+  color: #4a90e2;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0;
+  font-weight: 500;
+}
+
+.view-all-button:hover {
+  text-decoration: underline;
+}
+
+.widget-content {
+  padding: 16px;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Today's Nutrition Widget */
+.nutrition-summary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.macro-circle {
+  position: relative;
+  width: 100px;
+  height: 100px;
+  margin-bottom: 8px;
+}
+
+.circular-chart {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.circle-bg {
+  fill: none;
+  stroke: #eee;
+  stroke-width: 3.8;
+}
+
+.circle {
+  fill: none;
+  stroke: #4a90e2;
+  stroke-width: 3.8;
+  stroke-linecap: round;
+  animation: progress 1s ease-out forwards;
+}
+
+.calories .circle {
+  stroke: #4a90e2;
+}
+
+.percentage {
+  fill: #333;
+  font-size: 0.5em;
+  text-anchor: middle;
+  font-weight: bold;
+}
+
+.macro-label {
+  text-align: center;
+  font-size: 14px;
+  color: #666;
+}
+
+.macro-value {
+  text-align: center;
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+}
+
+.macro-details {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.macro-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.macro-name {
+  color: #666;
+  width: 60px;
+}
+
+.progress-bar {
+  flex-grow: 1;
+  height: 8px;
+  background-color: #f0f0f0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.5s ease-out;
+}
+
+.protein {
+  background-color: #5e97f6;
+}
+
+.carbs {
+  background-color: #66bb6a;
+}
+
+.fats {
+  background-color: #ffa726;
+}
+
+.macro-value {
+  width: 50px;
+  text-align: right;
+  font-weight: 500;
+}
+
+.empty-nutrition, .empty-goal, .empty-meals {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 150px;
+  color: #666;
+  text-align: center;
+}
+
+.log-food-button, .set-goal-button, .log-meal-button {
+  margin-top: 12px;
+  background-color: #4a90e2;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+/* Weight Goal Widget */
+.goal-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.weight-progress {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.current-weight, .goal-weight {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.weight-label {
+  font-size: 12px;
+  color: #666;
+}
+
+.weight-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+}
+
+.progress-container {
+  flex-grow: 1;
+  margin: 0 12px;
+}
+
+.goal-details {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  color: #666;
+}
+
+/* Quick Actions Widget */
+.actions-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.action-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: #f8f9fa;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.action-button:hover {
+  background-color: #f0f0f0;
+  transform: translateY(-2px);
+}
+
+.action-icon {
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+
+.action-label {
+  font-size: 14px;
+  color: #333;
+  font-weight: 500;
+}
+
+/* Recent Meals Widget */
+.meals-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.meal-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+}
+
+.meal-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.meal-name {
+  font-weight: 500;
+  color: #333;
+  font-size: 14px;
+}
+
+.meal-type {
+  font-size: 12px;
+  color: #666;
+}
+
+.meal-nutrition {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #666;
+}
+
+.calories {
+  font-weight: 600;
+  color: #4a90e2;
+}
+
+.more-meals {
+  text-align: center;
+  padding: 8px;
+  font-size: 14px;
+  color: #666;
+  margin-top: 4px;
+}
+
+@keyframes progress {
+  0% {
+    stroke-dasharray: 0 100;
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .widget-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .welcome-panel {
+    padding: 16px;
+  }
+  
+  .welcome-panel h2 {
+    font-size: 20px;
+  }
+} 

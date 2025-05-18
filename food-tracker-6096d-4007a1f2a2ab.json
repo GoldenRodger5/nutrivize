@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "food-tracker-6096d",
+  "private_key_id": "4007a1f2a2ab535dfdf2a18f19055ed48daf997c",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCyM7HUmoG0Oqcn\ndzF3YUbLCaYTTGG+mMcuF0+oHwPrn0KMuCK6+2jzLRjpZdl5sDJ1IQT9wPm8JWvW\n6dNgdh8Hf/E8VIv4/6/utmFxPX1TkDx5M+ZVwrScFCjQvztzBPYnhx3pB8lw8RU8\nGD13ljYAGHtmvg8Qc2zT/mTD3iy1SDGMRZxkXMMN2q8QjCsxKa8JYx8Bxr4FyXZl\nYgGQYRYYYoN6nZ/G30AkOnh/9RPVCENi0sXE5ULM2XVYp/TPCeYUXOgpwviHFMz3\nVPdZ3TVJr+vrvTnePGj9Nwz0j5f1RZw6D4ob2wQ3wCE8jCj6sBvl9c5OWiuEV6Ef\nf3U0jYk1AgMBAAECggEAC6T+5yMzBbMU3EYP0T+uxhZnM1RDxZHoYnU9VTrdXA6m\nDm3TpOJKj6kRqdMlUPSHZ+7dfjYnIjkHfFRqBSQ0dUCl+50xZ2eZldj9ajI/R14l\nprCYuTRUfTI75IDnQkgkJhZax1Z3OUFFKVpJpJVmrQBLGCUi/+XLHP4HZsKWxC0k\nhG14sIQtpAe9YYkMXY0GbMixdGHk+5ZakKLXI9QYHMHEPKEpQWj29OCQGLmBd9F3\nj9hkDQUwM/vUy3DprQzhxL3HH4hM7QX9jmyh7PqvNcH8Vjm2IUY3Hm9P5+q4wDih\n0OVQwfBWAAn70ISHhRD6BdyXOQF+NrUFpjEsrRYwQQKBgQD1zWIbJsDkY6vL2E4e\n6QLPuT6DdST0jCrMGh5yrA4zJYpJnQL6ZekG9aMZ68rLCT0DfNbfjLNffVZBzCRy\niydK1bYjsC9fXA6J+qAVLXAD/xYRbEqX3vnNfRPDKlRhCRM+5I7VWgH8KzPdIKkw\n7Pd83jA+S+wBGpK4rvPHdsOkdQKBgQC5l+yk+khT67iFwKW13SpfIrST5TXDvLfX\nCxrHY8vLKZZJGQfK0ZtZ3A6Jv+iNvPr/bNxbD8pK8EZCN3Vm2r+wZnbE14xjZRgs\n47TATlCW5j9D+W5F0eVJU58LaV2WSHXlNtG3bh02BQbpJzK4zAl3UZXHEqV7n9JH\nAuXsvHKVYQKBgAc5jJVhVAZUCUZTmQkLKYtVJZm6CFrLbe9X4iEGcz8P+yQNzQSn\nPZsLjZBKf6rN5QT/xBe9EwXtKfZUTOaY0sH3x6r7w6mENsRvEKbVFMIr2ntMZ13H\nLONvoO7AYcO7+QA+eaGdqQs6dQ1E2nQELHhBCdMAo/oiQdUImS+rJWyxAoGAI/kG\n4MyJ0Io/QfITjZFzsy7fEQMUYnEZUbKpzRxNXDa2RPd+1HjxKFSmjUeBxPrlLyNY\nHMnqh1TBVcoVLYmrGZa/RJyMMGtzl9ME3NEQ5jUoVdZQbZTgdJO8WEI4cd2dLnXT\nLuBVeUJZNnQdv6B+QjqjrhCyXMt8i++jCIbw/eECgYEAkZe8DZdvHjbZALZvRHyf\nM0B6gLtYoEwylGGq1vX14vZDMzGS9/odhJZz7AlRDoMyVeJJhymBQZ7WKVbAYQy+\nyHjuRn/2TSdtoRCkpzRc3PqnoliMZC3xQvIr1D99aXR87Jp3LKqIKWzfaLzK/crv\nU+FFQzjWkzqOuAN4JhKPX0o=\n-----END PRIVATE KEY-----\n",
+  "client_email": "ocr-service-account@food-tracker-6096d.iam.gserviceaccount.com",
+  "client_id": "123456789012345678901",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/ocr-service-account%40food-tracker-6096d.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+} 

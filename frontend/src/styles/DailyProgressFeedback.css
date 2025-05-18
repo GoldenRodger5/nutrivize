@@ -1,0 +1,431 @@
+.daily-progress-feedback {
+  background-color: var(--bg-primary);
+  border-radius: var(--radius-lg);
+  padding: 1.75rem;
+  box-shadow: var(--shadow-md);
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--border-color);
+}
+
+.daily-progress-feedback h2 {
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+.daily-progress-loading, 
+.daily-progress-error {
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-secondary);
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  min-height: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.daily-progress-error {
+  color: var(--danger-color);
+  background-color: rgba(244, 63, 94, 0.1);
+  border-left: 4px solid var(--danger-color);
+}
+
+/* Calorie progress section */
+.calorie-progress {
+  padding: 1.5rem;
+  border-radius: var(--radius-lg);
+  margin-bottom: 1.75rem;
+  background-color: var(--glass-background);
+  backdrop-filter: var(--glass-blur);
+  border: var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  transition: var(--transition-normal);
+}
+
+.calorie-progress.status-under {
+  background-color: rgba(59, 130, 246, 0.04);
+  border-left: 4px solid var(--info-color);
+}
+
+.calorie-progress.status-on-track {
+  background-color: rgba(16, 185, 129, 0.04);
+  border-left: 4px solid var(--success-color);
+}
+
+.calorie-progress.status-over {
+  background-color: rgba(244, 63, 94, 0.04);
+  border-left: 4px solid var(--danger-color);
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.progress-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+.progress-numbers {
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.progress-numbers .consumed {
+  color: var(--text-primary);
+}
+
+.progress-numbers .divider {
+  color: var(--text-tertiary);
+  margin: 0 0.25rem;
+}
+
+.progress-numbers .target {
+  color: var(--text-secondary);
+}
+
+.progress-bar-container {
+  height: 10px;
+  background-color: var(--bg-tertiary);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  margin-bottom: 1.25rem;
+}
+
+.status-under .progress-bar-fill {
+  background-color: var(--info-color);
+}
+
+.status-on-track .progress-bar-fill {
+  background-color: var(--success-color);
+}
+
+.status-over .progress-bar-fill {
+  background-color: var(--danger-color);
+}
+
+.progress-message {
+  font-size: 1rem;
+  margin-bottom: 0.75rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.progress-recommendation {
+  font-size: 0.9375rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* Macros section */
+.macros-progress {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+  margin-bottom: 1.75rem;
+}
+
+.macro-progress {
+  padding: 1.25rem;
+  border-radius: var(--radius-lg);
+  background-color: var(--glass-background);
+  backdrop-filter: var(--glass-blur);
+  border: var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  transition: var(--transition-normal);
+}
+
+.macro-progress.protein {
+  background-color: rgba(59, 130, 246, 0.04);
+}
+
+.macro-progress.carbs {
+  background-color: rgba(16, 185, 129, 0.04);
+}
+
+.macro-progress.fat {
+  background-color: rgba(245, 158, 11, 0.04);
+}
+
+.macro-progress.status-under {
+  border-left: 3px solid var(--info-color);
+}
+
+.macro-progress.status-on-track {
+  border-left: 3px solid var(--success-color);
+}
+
+.macro-progress.status-over {
+  border-left: 3px solid var(--danger-color);
+}
+
+.macro-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.macro-header h4 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+.macro-numbers {
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.macro-bar-container {
+  height: 8px;
+  background-color: var(--bg-tertiary);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+  margin-bottom: 0.75rem;
+}
+
+.protein .macro-bar-fill {
+  background-color: var(--info-color);
+}
+
+.carbs .macro-bar-fill {
+  background-color: var(--success-color);
+}
+
+.fat .macro-bar-fill {
+  background-color: var(--warning-color);
+}
+
+.macro-percentage {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  text-align: right;
+}
+
+/* Refresh button */
+.refresh-button {
+  background: var(--primary-gradient);
+  border: none;
+  color: white;
+  padding: 0.625rem 1.25rem;
+  border-radius: var(--radius-md);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition-normal);
+  box-shadow: var(--shadow-sm);
+}
+
+.refresh-button:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.refresh-button:active {
+  transform: translateY(0);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .macros-progress {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Loading state with spinner */
+.daily-progress-loading {
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-secondary);
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  min-height: 150px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.loading-spinner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.spinner {
+  width: 30px;
+  height: 30px;
+  border: 3px solid rgba(142, 45, 226, 0.1);
+  border-radius: 50%;
+  border-top-color: var(--primary-color);
+  animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Progress header with date */
+.progress-header-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.75rem;
+}
+
+.today-date {
+  color: var(--text-tertiary);
+  font-size: 0.9375rem;
+  background-color: var(--bg-secondary);
+  padding: 0.5rem 0.875rem;
+  border-radius: var(--radius-md);
+  font-weight: 500;
+}
+
+/* Icons in headers */
+.progress-title, .macro-title {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.progress-icon, .macro-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary-color);
+}
+
+/* Status badges */
+.status-badge {
+  margin-left: 0.75rem;
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-full);
+  font-weight: 500;
+}
+
+.status-badge.under {
+  background-color: rgba(59, 130, 246, 0.1);
+  color: var(--info-color);
+}
+
+.status-badge.on-track {
+  background-color: rgba(16, 185, 129, 0.1);
+  color: var(--success-color);
+}
+
+.status-badge.over {
+  background-color: rgba(244, 63, 94, 0.1);
+  color: var(--danger-color);
+}
+
+/* Progress details */
+.progress-detail {
+  background-color: rgba(255, 255, 255, 0.5);
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  margin-top: 0.5rem;
+}
+
+/* Macro footer with status */
+.macro-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.75rem;
+}
+
+.macro-status {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-full);
+  font-weight: 500;
+}
+
+.macro-status.under {
+  background-color: rgba(59, 130, 246, 0.1);
+  color: var(--info-color);
+}
+
+.macro-status.on-track {
+  background-color: rgba(16, 185, 129, 0.1);
+  color: var(--success-color);
+}
+
+.macro-status.over {
+  background-color: rgba(244, 63, 94, 0.1);
+  color: var(--danger-color);
+}
+
+/* Refresh button with icon */
+.refresh-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.refresh-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Animations */
+.calorie-progress, .macro-progress {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.calorie-progress:hover, .macro-progress:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Dark mode adjustments */
+@media (prefers-color-scheme: dark) {
+  .progress-detail {
+    background-color: rgba(30, 41, 59, 0.5);
+  }
+  
+  .status-badge.under {
+    background-color: rgba(59, 130, 246, 0.2);
+  }
+  
+  .status-badge.on-track {
+    background-color: rgba(16, 185, 129, 0.2);
+  }
+  
+  .status-badge.over {
+    background-color: rgba(244, 63, 94, 0.2);
+  }
+  
+  .macro-status.under {
+    background-color: rgba(59, 130, 246, 0.2);
+  }
+  
+  .macro-status.on-track {
+    background-color: rgba(16, 185, 129, 0.2);
+  }
+  
+  .macro-status.over {
+    background-color: rgba(244, 63, 94, 0.2);
+  }
+} 

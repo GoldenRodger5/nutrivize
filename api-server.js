@@ -3,11 +3,11 @@ import cors from 'cors';
 
 // Create Express app
 const app = express();
-const PORT = 8000;
+const PORT = 5001;
 
 // Middleware
 app.use(cors({
-  origin: '*',  // Allow all origins
+  origin: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3012', 'http://localhost:3013', 'http://localhost:3014'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -548,6 +548,245 @@ app.get('/goals/active', (req, res) => {
       fiber: 25
     }]
   });
+});
+
+// Insights & Trends AI endpoint
+app.post('/api/insights-trends', async (req, res) => {
+  console.log('POST /api/insights-trends requested with body:', req.body);
+  
+  const { user_id, days_to_analyze = 14, force_refresh = false } = req.body;
+  
+  if (!user_id) {
+    return res.status(400).json({ 
+      success: false,
+      message: 'Missing required parameter: user_id' 
+    });
+  }
+  
+  try {
+    // Check if we have cached results that we can return (if not forcing refresh)
+    if (!force_refresh) {
+      // In a real implementation, check a database for cached results
+      // For demo, we'll just return the mock data directly
+    }
+    
+    // 1. Get the user's food logs for the specified time period
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(endDate.getDate() - days_to_analyze + 1);
+    
+    const startDateStr = startDate.toISOString().split('T')[0];
+    const endDateStr = endDate.toISOString().split('T')[0];
+    
+    // In a real implementation, fetch actual food logs here
+    // For demo, we'll generate mock data similar to the nutrition endpoint
+    
+    // 2. Get the user's nutrition goals
+    // In a real implementation, fetch from database
+    // For demo, use mock goals data
+    const userGoals = {
+      daily_calories: 2000,
+      proteins: 150,
+      carbs: 200,
+      fats: 65,
+      fiber: 25
+    };
+    
+    // 3. Generate mock food log data (in a real implementation, this would be from DB)
+    const mockLogs = [];
+    const currentDate = new Date(startDate);
+    
+    for (let i = 0; i < days_to_analyze; i++) {
+      // Generate 2-4 food logs per day
+      const logsPerDay = Math.floor(Math.random() * 3) + 2;
+      
+      for (let j = 0; j < logsPerDay; j++) {
+        mockLogs.push({
+          date: currentDate.toISOString().split('T')[0],
+          meal_type: ['breakfast', 'lunch', 'dinner', 'snack'][Math.floor(Math.random() * 4)],
+          food: ['Chicken Breast', 'Salmon', 'Brown Rice', 'Avocado', 'Greek Yogurt', 'Spinach', 'Sweet Potato', 'Almonds'][Math.floor(Math.random() * 8)],
+          amount: Math.floor(Math.random() * 200) + 100,
+          unit: 'g',
+          calories: Math.floor(Math.random() * 500) + 100,
+          proteins: Math.floor(Math.random() * 30) + 5,
+          carbs: Math.floor(Math.random() * 50) + 10,
+          fats: Math.floor(Math.random() * 20) + 2
+        });
+      }
+      
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    
+    // 4. In a real implementation, you would call an AI service with the logs and goals
+    // Here, we'll generate mock AI insights
+
+    // Mock AI-generated insights and trends
+    const aiInsights = [
+      {
+        title: "Protein Intake Exceeding Goals",
+        content: "You've consistently exceeded your daily protein goal by an average of 15g over the past 2 weeks. This is excellent for muscle recovery and satiety. Consider maintaining this level if your fitness goals include strength training.",
+        type: "insight",
+        importance: 9,
+        category: "Macronutrients"
+      },
+      {
+        title: "Missed Breakfast Pattern",
+        content: "You've skipped breakfast on 5 out of the last 14 days. Research suggests that eating breakfast may help with energy levels and concentration throughout the day. Consider a quick protein-rich option on busy mornings.",
+        type: "insight",
+        importance: 7,
+        category: "Meal Timing"
+      },
+      {
+        title: "Carbohydrate Intake Trending Down",
+        content: "Your carbohydrate intake has decreased by approximately 12% over the past two weeks. This could impact your energy levels during workouts. Consider adding more complex carbs if you've been feeling fatigued.",
+        type: "trend",
+        importance: 8,
+        category: "Macronutrients"
+      },
+      {
+        title: "Healthy Fat Consistency",
+        content: "Your healthy fat intake has been very consistent, staying within 5g of your daily target. This balance is beneficial for hormone regulation and vitamin absorption.",
+        type: "trend",
+        importance: 6,
+        category: "Macronutrients"
+      },
+      {
+        title: "Weekday vs Weekend Patterns",
+        content: "Your calorie intake increases by an average of 23% on weekends compared to weekdays. This is a common pattern and not concerning if it aligns with your social activities. Consider balancing with lighter meals before or after weekend gatherings.",
+        type: "trend",
+        importance: 7,
+        category: "Eating Patterns"
+      },
+      {
+        title: "Fiber Intake Below Target",
+        content: "Your fiber intake is consistently below your daily target of 25g, averaging around 18g daily. Increasing fiber intake could improve digestive health and help with feeling full longer. Try adding more vegetables, fruits, and whole grains to your meals.",
+        type: "insight",
+        importance: 8,
+        category: "Micronutrients"
+      }
+    ];
+    
+    // Generate chart data for visualizations
+    // Daily calorie trend chart
+    const calorieChartData = {
+      chart_type: "line",
+      title: "Daily Calorie Intake",
+      data: {
+        labels: Array.from({ length: days_to_analyze }, (_, i) => {
+          const date = new Date(startDate);
+          date.setDate(date.getDate() + i);
+          return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        }),
+        datasets: [{
+          label: 'Calories',
+          data: Array.from({ length: days_to_analyze }, () => Math.floor(Math.random() * 500) + 1700),
+          borderColor: '#e67e22',
+          backgroundColor: 'rgba(230, 126, 34, 0.1)',
+          tension: 0.4
+        },
+        {
+          label: 'Target',
+          data: Array(days_to_analyze).fill(userGoals.daily_calories),
+          borderColor: '#3498db',
+          backgroundColor: 'transparent',
+          borderDash: [5, 5],
+          borderWidth: 1,
+          pointRadius: 0
+        }]
+      }
+    };
+    
+    // Macronutrient distribution chart
+    const macroChartData = {
+      chart_type: "pie",
+      title: "Average Macronutrient Distribution",
+      data: {
+        labels: ['Protein', 'Carbs', 'Fat'],
+        datasets: [{
+          data: [27, 45, 28], // Percentages
+          backgroundColor: ['#27ae60', '#3498db', '#f39c12'],
+          borderWidth: 1,
+          borderColor: '#fff'
+        }]
+      }
+    };
+    
+    // Weekly protein trend
+    const proteinChartData = {
+      chart_type: "bar",
+      title: "Weekly Protein Intake",
+      data: {
+        labels: ['Week 1', 'Week 2'],
+        datasets: [{
+          label: 'Average Daily Protein (g)',
+          data: [132, 164],
+          backgroundColor: '#27ae60',
+          borderWidth: 1,
+          borderColor: '#fff'
+        },
+        {
+          label: 'Target (g)',
+          data: [150, 150],
+          type: 'line',
+          backgroundColor: 'transparent',
+          borderColor: '#3498db',
+          borderDash: [5, 5],
+          borderWidth: 2
+        }]
+      }
+    };
+    
+    // Meal composition radar chart
+    const mealCompositionChart = {
+      chart_type: "radar",
+      title: "Meal Nutritional Balance",
+      data: {
+        labels: ['Protein', 'Carbs', 'Fat', 'Fiber', 'Vitamins', 'Minerals'],
+        datasets: [{
+          label: 'Your Average',
+          data: [85, 70, 90, 65, 75, 80],
+          fill: true,
+          backgroundColor: 'rgba(52, 152, 219, 0.2)',
+          borderColor: '#3498db',
+          pointBackgroundColor: '#3498db',
+          pointBorderColor: '#fff',
+          pointHoverBackgroundColor: '#fff',
+          pointHoverBorderColor: '#3498db'
+        },
+        {
+          label: 'Recommended',
+          data: [80, 80, 80, 80, 80, 80],
+          fill: true,
+          backgroundColor: 'rgba(46, 204, 113, 0.2)',
+          borderColor: '#2ecc71',
+          pointBackgroundColor: '#2ecc71',
+          pointBorderColor: '#fff',
+          pointHoverBackgroundColor: '#fff',
+          pointHoverBorderColor: '#2ecc71'
+        }]
+      }
+    };
+    
+    // Response data with AI insights and visualizations
+    const responseData = {
+      success: true,
+      insights: aiInsights,
+      charts: [calorieChartData, macroChartData, proteinChartData, mealCompositionChart],
+      generated_at: new Date().toISOString(),
+      is_cached: false
+    };
+    
+    // In a real implementation, cache the results in a database
+    
+    res.json(responseData);
+  } catch (error) {
+    console.error('Error generating insights and trends:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error generating insights and trends',
+      error: error.message
+    });
+  }
 });
 
 // Start the server

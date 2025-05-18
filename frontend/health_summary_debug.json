@@ -1,0 +1,50 @@
+{
+  "date_range": {
+    "start": "2025-05-12",
+    "end": "2025-05-18",
+    "days": 7
+  },
+  "averages": {
+    "steps": 5750.0,
+    "calories": 385.0,
+    "distance": 4600.0,
+    "exercise_minutes": 37.5,
+    "resting_heart_rate": 63.5,
+    "walking_heart_rate": 107.5,
+    "sleep_hours": 7.8
+  },
+  "totals": {
+    "steps": 11500.0,
+    "calories": 770.0,
+    "distance": 9200.0,
+    "exercise_minutes": 75.0,
+    "sleep_hours": 15.7
+  },
+  "daily_data": {
+    "2025-05-18": {
+      "steps": 5000.0,
+      "calories": 350.0,
+      "distance": 4000.0,
+      "exercise_minutes": 30.0,
+      "resting_heart_rate": 65.0,
+      "walking_heart_rate": 110.0,
+      "sleep_hours": 7.5
+    },
+    "2025-05-17": {
+      "steps": 6500.0,
+      "calories": 420.0,
+      "distance": 5200.0,
+      "exercise_minutes": 45.0,
+      "resting_heart_rate": 62.0,
+      "walking_heart_rate": 105.0,
+      "sleep_hours": 8.2
+    }
+  },
+  "trends": {
+    "steps": 100.0,
+    "calories": 100.0,
+    "distance": 100.0,
+    "exercise_minutes": 100.0,
+    "sleep_hours": 100.0
+  }
+}

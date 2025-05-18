@@ -4,7 +4,22 @@ import requests
 from pydantic import BaseModel
 from datetime import datetime, time, timezone
 from .models import search_food_items, get_user_food_logs_by_date
-from .constants import USER_ID
+import json
+import time as time_module
+import random
+import re
+
+# Import our improved resilience and diversity functions
+from .improved_resilience import (
+    validate_and_parse_meal_response,
+    generate_fallback_meal,
+    get_meal_suggestions_from_ai_with_retry,
+    MealDiversityTracker,
+    build_enhanced_meal_prompt
+)
+
+# Global diversity tracker
+diversity_tracker = MealDiversityTracker()
 
 # Pydantic models for request and response
 class RemainingMacros(BaseModel):
@@ -47,11 +62,12 @@ class MealSuggestion(BaseModel):
     ingredients: List[Ingredient] = []  # Detailed ingredients list
     instructions: List[str] = []  # Step-by-step preparation instructions
     cooking_time: int = 0  # Cooking time in minutes
+    cuisine: Optional[str] = None  # Add cuisine field for diversity tracking
 
 class MealSuggestionResponse(BaseModel):
     suggestions: List[MealSuggestion]
 
-# Function to retrieve user's food index
+# Function to retrieve user's food index - unchanged
 async def get_user_food_index(user_id: str, meal_type: str = None) -> List[Dict[str, Any]]:
     """
     Retrieve the user's food index from MongoDB.
@@ -82,7 +98,38 @@ async def get_user_food_index(user_id: str, meal_type: str = None) -> List[Dict[
     
     return user_foods
 
-# Function to build prompt for Claude/GPT
+# Helper function to extract ingredients from a meal suggestion
+def extract_ingredients_from_suggestion(suggestion: Dict[str, Any]) -> List[str]:
+    """
+    Extract a list of ingredients from a meal suggestion.
+    
+    Args:
+        suggestion: A meal suggestion dictionary
+        
+    Returns:
+        A list of ingredient names
+    """
+    ingredients = []
+    
+    # Extract from ingredients list if available
+    if "ingredients" in suggestion and isinstance(suggestion["ingredients"], list):
+        for ingredient in suggestion["ingredients"]:
+            if isinstance(ingredient, dict) and "name" in ingredient:
+                ingredients.append(ingredient["name"].lower())
+    
+    # Extract from name and description using regex
+    food_pattern = r'\b(chicken|beef|fish|salmon|rice|beans|broccoli|eggs|cheese|nuts|spinach|avocado|quinoa|yogurt|milk|bread|pasta|potato|tomato|lettuce|cucumber|carrot|apple|banana|berries|feta|olives|lemon|olive oil|garlic|onion|bell pepper|quinoa)\b'
+    
+    if "name" in suggestion and isinstance(suggestion["name"], str):
+        ingredients.extend([m.lower() for m in re.findall(food_pattern, suggestion["name"].lower())])
+    
+    if "description" in suggestion and isinstance(suggestion["description"], str):
+        ingredients.extend([m.lower() for m in re.findall(food_pattern, suggestion["description"].lower())])
+    
+    # Remove duplicates and return
+    return list(set(ingredients))
+
+# Function to build prompt for Claude with diversity improvements
 def build_meal_suggestion_prompt(
     food_index: List[Dict[str, Any]],
     remaining_macros: Dict[str, float],
@@ -93,10 +140,13 @@ def build_meal_suggestion_prompt(
     specific_ingredients: List[str] = [],
     calorie_range: Optional[Dict[str, int]] = None,
     diet_type: Optional[str] = None,
-    cooking_time: Optional[int] = None
+    cooking_time: Optional[int] = None,
+    previous_meals: List[Dict[str, Any]] = None,
+    diversity_constraints: Dict[str, Any] = None
 ) -> str:
     """
-    Build a prompt for Claude/GPT to suggest meals based on user data.
+    Build a prompt for Claude/GPT to suggest meals based on user data,
+    with added diversity constraints.
     
     Args:
         food_index: List of food items available to the user
@@ -109,6 +159,8 @@ def build_meal_suggestion_prompt(
         calorie_range: Optional min/max calorie range for the meal
         diet_type: Optional diet restriction (vegetarian, vegan, keto, etc.)
         cooking_time: Optional maximum cooking time in minutes
+        previous_meals: List of previously generated meals for diversity
+        diversity_constraints: Constraints to ensure diverse meal suggestions
         
     Returns:
         A formatted prompt for Claude/GPT
@@ -190,6 +242,7 @@ def build_meal_suggestion_prompt(
 5. Complete ingredients list with quantities
 6. Step-by-step preparation instructions
 7. Cooking time estimate
+8. Cuisine type (e.g., Mediterranean, Asian, American, etc.)
 
 REMAINING DAILY NUTRITION:
 - Calories: {remaining_macros['calories']} cal
@@ -214,6 +267,7 @@ Your response should be a JSON object with a 'suggestions' array containing EXAC
 5. "ingredients" (array of objects, each with "name", "amount", "unit", "in_food_index" [boolean], "macros" (object with "protein", "carbs", "fat", "calories"), and "needs_indexing" [boolean])
 6. "instructions" (array of strings)
 7. "cooking_time" (number of minutes)
+8. "cuisine" (string - type of cuisine, e.g. "Mediterranean", "Asian", etc.)
 
 Example format (FOLLOW THIS EXACT STRUCTURE):
 
@@ -239,7 +293,8 @@ Example format (FOLLOW THIS EXACT STRUCTURE):
         "Top with mixed berries",
         "Drizzle with honey if desired"
       ],
-      "cooking_time": 5
+      "cooking_time": 5,
+      "cuisine": "Mediterranean"
     }
   ]
 }
@@ -256,12 +311,17 @@ For each ingredient, provide macros as precisely as possible. If the ingredient 
     if specific_ingredients:
         prompt += f" Your suggestions MUST prominently feature the requested ingredients: {', '.join(specific_ingredients)}."
 
+    # Apply diversity enhancements if previous meals or constraints are provided
+    if previous_meals or diversity_constraints:
+        prompt = build_enhanced_meal_prompt(prompt, previous_meals, diversity_constraints)
+
     return prompt
 
-# Function to call Claude/GPT API
+# New function to call Claude API with resiliency improvements
 async def get_meal_suggestions_from_ai(prompt: str) -> Dict[str, Any]:
     """
     Call Claude API with the formatted prompt and get meal suggestions.
+    Uses the improved retry and error handling.
     
     Args:
         prompt: The formatted prompt for Claude
@@ -269,193 +329,14 @@ async def get_meal_suggestions_from_ai(prompt: str) -> Dict[str, Any]:
     Returns:
         Parsed response from Claude with meal suggestions
     """
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    
-    if not api_key:
-        # For development purposes only - replace with your actual API key
-        api_key = "your_anthropic_api_key_here"
-        
-    if not api_key or api_key == "your_anthropic_api_key_here":
-        raise Exception("API key not found. Make sure ANTHROPIC_API_KEY is set in your environment or update the hardcoded key in meal_suggestions.py.")
-    
-    try:
-        # Print the API key for debugging (first few and last few characters)
-        api_key_length = len(api_key)
-        api_key_preview = f"{api_key[:5]}...{api_key[-4:]}" if api_key_length > 10 else "****"
-        print(f"Using Anthropic API key: {api_key_preview} (length: {api_key_length})")
-        
-        # Modified API call to match the format in chatbot.py
-        response = requests.post(
-            "https://api.anthropic.com/v1/messages",
-            headers={
-                "x-api-key": api_key,
-                "anthropic-version": "2023-06-01",
-                "content-type": "application/json"
-            },
-            json={
-                "model": "claude-3-7-sonnet-20250219",
-                "messages": [{"role": "user", "content": prompt}],
-                "system": "You are Nutrivize, a helpful AI nutritionist. You MUST ALWAYS respond with valid JSON only, no additional text or explanation.",
-                "max_tokens": 4000,
-                "temperature": 0.5
-            },
-            timeout=60  # Increased timeout from 30 to 60 seconds
-        )
-        
-        response_status = response.status_code
-        print(f"API response status: {response_status}")
-        
-        if response_status != 200:
-            print(f"API Error: {response_status} - {response.text}")
-            raise Exception(f"API returned error: {response_status}")
-        
-        result = response.json()
-        print(f"API response received, parsing content")
-        content = result["content"][0]["text"]
-        
-        # Save full raw response for debugging
-        print(f"Raw response from Claude: {content}")
-        
-        # Parse JSON content (Claude should return valid JSON)
-        import json
-        try:
-            # Enhanced content cleaning to handle potential markdown code blocks
-            
-            # First check if there are markdown code blocks in the content
-            if "```" in content:
-                # If there are code blocks, extract the content inside the JSON code block
-                if "```json" in content:
-                    parts = content.split("```json", 1)
-                    if len(parts) > 1:
-                        content = parts[1]
-                        if "```" in content:
-                            content = content.split("```", 1)[0]
-                # If there are just generic code blocks, try to extract content from there
-                else:
-                    parts = content.split("```", 1)
-                    if len(parts) > 1:
-                        content = parts[1]
-                        if "```" in content:
-                            content = content.split("```", 1)[0]
-            
-            # Remove any leading/trailing whitespace
-            content = content.strip()
-            
-            # Remove any leading/trailing curly brace-enclosed comments
-            if content.startswith("/*") and "*/" in content:
-                content = content.split("*/", 1)[1].strip()
-            if content.endswith("*/") and "/*" in content:
-                content = content.rsplit("/*", 1)[0].strip()
-            
-            print(f"Cleaned content for JSON parsing: {content[:200]}...")
-            
-            # Try to parse as JSON
-            parsed_content = json.loads(content)
-            
-            # Validate the structure has the expected fields
-            if "suggestions" not in parsed_content:
-                print("Missing 'suggestions' key in parsed content")
-                raise ValueError("Response is missing required 'suggestions' field")
-            
-            # Make sure we have at least one suggestion
-            if not parsed_content["suggestions"] or len(parsed_content["suggestions"]) == 0:
-                print("No suggestions found in response")
-                raise ValueError("No meal suggestions found in response")
-            
-            # Verify that each suggestion has the required fields
-            for i, suggestion in enumerate(parsed_content["suggestions"]):
-                if "name" not in suggestion:
-                    print(f"Suggestion {i} missing 'name' field")
-                if "macros" not in suggestion:
-                    print(f"Suggestion {i} missing 'macros' field")
-                if "description" not in suggestion:
-                    print(f"Suggestion {i} missing 'description' field")
-            
-            return parsed_content
-            
-        except json.JSONDecodeError as e:
-            print(f"JSON parsing error: {e}")
-            print(f"Content that failed to parse: {content}")
-            
-            # Attempt to fix common JSON issues and try again
-            try:
-                # Sometimes Claude adds explanation outside the JSON
-                # Try to find and extract just the JSON object
-                if "{" in content and "}" in content:
-                    start_idx = content.find("{")
-                    end_idx = content.rfind("}") + 1
-                    if start_idx < end_idx:
-                        clean_content = content[start_idx:end_idx]
-                        print(f"Attempting to parse extracted JSON: {clean_content[:100]}...")
-                        return json.loads(clean_content)
-            except Exception as retry_error:
-                print(f"Retry parsing also failed: {retry_error}")
-            
-            # Return a basic structure if JSON parsing fails
-            return {
-                "suggestions": [
-                    {
-                        "name": "Error parsing response",
-                        "macros": {
-                            "protein": 0,
-                            "carbs": 0,
-                            "fat": 0,
-                            "calories": 0
-                        },
-                        "description": "There was an error generating meal suggestions. Please try again with simpler criteria.",
-                        "serving_info": "1 serving",
-                        "ingredients": [],
-                        "instructions": [],
-                        "cooking_time": 0
-                    }
-                ]
-            }
-        except Exception as e:
-            print(f"Other error processing response: {str(e)}")
-            return {
-                "suggestions": [
-                    {
-                        "name": "Error processing response",
-                        "macros": {
-                            "protein": 0,
-                            "carbs": 0,
-                            "fat": 0,
-                            "calories": 0
-                        },
-                        "description": f"Error: {str(e)}. Please try again with different criteria.",
-                        "serving_info": "1 serving",
-                        "ingredients": [],
-                        "instructions": [],
-                        "cooking_time": 0
-                    }
-                ]
-            }
-        
-    except Exception as e:
-        print(f"Exception in Claude API call: {str(e)}")
-        return {
-            "suggestions": [
-                {
-                    "name": "API Error",
-                    "macros": {
-                        "protein": 0,
-                        "carbs": 0,
-                        "fat": 0,
-                        "calories": 0
-                    },
-                    "description": f"Error communicating with AI service: {str(e)}",
-                    "serving_info": "1 serving",
-                    "ingredients": [],
-                    "instructions": [],
-                    "cooking_time": 0
-                }
-            ]
-        }
+    # Use our improved AI call function with retry logic
+    return await get_meal_suggestions_from_ai_with_retry(prompt)
 
-# Main function to get meal suggestions
+# Main function to get meal suggestions with added diversity
 async def get_meal_suggestions(request: MealSuggestionRequest) -> MealSuggestionResponse:
     """
     Get meal suggestions based on user's food index and preferences.
+    Now with improved resilience and meal diversity.
     
     Args:
         request: A MealSuggestionRequest object containing user preferences and constraints
@@ -481,10 +362,16 @@ async def get_meal_suggestions(request: MealSuggestionRequest) -> MealSuggestion
                 ]
             )
         
+        # Get diversity constraints from our tracker
+        diversity_constraints = diversity_tracker.get_diversity_constraints()
+        
+        # Get previous meals for context (up to 5 most recent)
+        previous_meals = diversity_tracker.meal_history[-5:] if diversity_tracker.meal_history else []
+        
         # Set flag for using only food index items
         use_food_index_only = request.use_food_index_only
         
-        # Build prompt for Claude
+        # Build prompt for Claude with diversity enhancements
         prompt = build_meal_suggestion_prompt(
             food_index=food_index,
             remaining_macros={
@@ -500,49 +387,66 @@ async def get_meal_suggestions(request: MealSuggestionRequest) -> MealSuggestion
             specific_ingredients=request.specific_ingredients,
             calorie_range=request.calorie_range,
             diet_type=request.diet_type,
-            cooking_time=request.cooking_time
+            cooking_time=request.cooking_time,
+            previous_meals=previous_meals,
+            diversity_constraints=diversity_constraints
         )
         
-        # Get suggestions from Claude
+        # Get suggestions from Claude with improved resilience
         ai_response = await get_meal_suggestions_from_ai(prompt)
         
         # Parse and validate the response
         suggestions = ai_response.get("suggestions", [])
         
+        # For conversation tracking - extract all ingredients from each suggestion
+        for suggestion in suggestions:
+            if hasattr(suggestion, "ingredients") or isinstance(suggestion, dict):
+                # Extract and track ingredients 
+                ingredient_names = extract_ingredients_from_suggestion(suggestion)
+                
+                # Save in conversation context via the diversity tracker
+                if hasattr(diversity_tracker, "tracked_ingredients"):
+                    diversity_tracker.tracked_ingredients.update(ingredient_names)
+                else:
+                    diversity_tracker.tracked_ingredients = set(ingredient_names)
+        
         # Convert to Pydantic models
         response_suggestions = []
         for suggestion in suggestions:
             macros = suggestion.get("macros", {})
-            response_suggestions.append(
-                MealSuggestion(
-                    name=suggestion.get("name", "Unnamed meal"),
-                    macros=MacroBreakdown(
-                        protein=macros.get("protein", 0),
-                        carbs=macros.get("carbs", 0),
-                        fat=macros.get("fat", 0),
-                        calories=macros.get("calories", 0)
-                    ),
-                    description=suggestion.get("description", "No description available"),
-                    serving_info=suggestion.get("serving_info", "1 serving"),
-                    ingredients=[
-                        Ingredient(
-                            name=ingredient["name"], 
-                            amount=ingredient["amount"], 
-                            unit=ingredient["unit"], 
-                            in_food_index=ingredient["in_food_index"],
-                            macros=MacroBreakdown(
-                                protein=ingredient.get("macros", {}).get("protein", 0),
-                                carbs=ingredient.get("macros", {}).get("carbs", 0),
-                                fat=ingredient.get("macros", {}).get("fat", 0),
-                                calories=ingredient.get("macros", {}).get("calories", 0)
-                            ) if "macros" in ingredient else None,
-                            needs_indexing=ingredient.get("needs_indexing", False)
-                        ) for ingredient in suggestion.get("ingredients", [])
-                    ],
-                    instructions=suggestion.get("instructions", []),
-                    cooking_time=suggestion.get("cooking_time", 0)
-                )
+            meal_suggestion = MealSuggestion(
+                name=suggestion.get("name", "Unnamed meal"),
+                macros=MacroBreakdown(
+                    protein=macros.get("protein", 0),
+                    carbs=macros.get("carbs", 0),
+                    fat=macros.get("fat", 0),
+                    calories=macros.get("calories", 0)
+                ),
+                description=suggestion.get("description", "No description available"),
+                serving_info=suggestion.get("serving_info", "1 serving"),
+                ingredients=[
+                    Ingredient(
+                        name=ingredient["name"], 
+                        amount=ingredient["amount"], 
+                        unit=ingredient["unit"], 
+                        in_food_index=ingredient["in_food_index"],
+                        macros=MacroBreakdown(
+                            protein=ingredient.get("macros", {}).get("protein", 0),
+                            carbs=ingredient.get("macros", {}).get("carbs", 0),
+                            fat=ingredient.get("macros", {}).get("fat", 0),
+                            calories=ingredient.get("macros", {}).get("calories", 0)
+                        ) if "macros" in ingredient else None,
+                        needs_indexing=ingredient.get("needs_indexing", False)
+                    ) for ingredient in suggestion.get("ingredients", [])
+                ],
+                instructions=suggestion.get("instructions", []),
+                cooking_time=suggestion.get("cooking_time", 0),
+                cuisine=suggestion.get("cuisine", "General")
             )
+            response_suggestions.append(meal_suggestion)
+            
+            # Track this meal for diversity
+            diversity_tracker.add_meal(suggestion)
         
         return MealSuggestionResponse(suggestions=response_suggestions)
         

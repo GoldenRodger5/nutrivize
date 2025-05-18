@@ -1,0 +1,36 @@
+{
+  "entries": [
+    {
+      "_id": "682a559a2cb1cd9f8103015d",
+      "user_id": "GME7nGpJQRc2v9T057vJ4oyqAJN2",
+      "date": "2025-05-17T04:00:00",
+      "date_key": "2025-05-17",
+      "steps": 6500.0,
+      "calories": 420.0,
+      "distance": 5200.0,
+      "exercise_minutes": 45.0,
+      "resting_heart_rate": 62.0,
+      "walking_heart_rate": 105.0,
+      "sleep_hours": 8.2,
+      "source": "API Test Script",
+      "created_at": "2025-05-18T21:48:10.766000",
+      "updated_at": "2025-05-18T21:48:10.766000"
+    },
+    {
+      "_id": "682a559a2cb1cd9f8103015c",
+      "user_id": "GME7nGpJQRc2v9T057vJ4oyqAJN2",
+      "date": "2025-05-18T04:00:00",
+      "date_key": "2025-05-18",
+      "steps": 5000.0,
+      "calories": 350.0,
+      "distance": 4000.0,
+      "exercise_minutes": 30.0,
+      "resting_heart_rate": 65.0,
+      "walking_heart_rate": 110.0,
+      "sleep_hours": 7.5,
+      "source": "API Test Script",
+      "created_at": "2025-05-18T21:48:10.734000",
+      "updated_at": "2025-05-18T21:48:10.734000"
+    }
+  ]
+}

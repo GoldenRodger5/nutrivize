@@ -33,7 +33,7 @@ try:
             "created_at": datetime.now(timezone.utc),
             "updated_at": datetime.now(timezone.utc),
             "preferences": {
-                "units": "metric",
+                "units": "imperial",
                 "theme": "light",
                 "notification_settings": {}
             }

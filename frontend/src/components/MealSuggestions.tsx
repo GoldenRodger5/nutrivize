@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import '../styles/MealSuggestions.css';
+import api from '../utils/api';
 
 interface MacroBreakdown {
   protein: number;
@@ -300,11 +301,8 @@ const MealSuggestions: React.FC<MealSuggestionsProps> = ({ userId, remainingMacr
 
   const fetchAvailableFoods = async () => {
     try {
-      const response = await fetch('/foods/');
-      if (!response.ok) {
-        throw new Error('Failed to fetch foods');
-      }
-      const data = await response.json();
+      const response = await api.get('/api/foods/');
+      const data = response.data;
       setAvailableFoods(data);
     } catch (err) {
       console.error('Error fetching foods:', err);
@@ -360,7 +358,7 @@ const MealSuggestions: React.FC<MealSuggestionsProps> = ({ userId, remainingMacr
       
       console.log("Generating new meal suggestions...");
       
-      const response = await fetch("/suggest-meal", {
+      const response = await fetch("/api/suggest-meal", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -438,7 +436,7 @@ const MealSuggestions: React.FC<MealSuggestionsProps> = ({ userId, remainingMacr
       };
       
       // Send the log entry to the API
-      const response = await fetch('/logs/', {
+      const response = await fetch('/api/logs/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

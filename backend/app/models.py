@@ -3,6 +3,7 @@ from pymongo import IndexModel, ASCENDING
 from .database import get_database
 from typing import Optional
 from pydantic import BaseModel
+from bson.objectid import ObjectId
 
 db = get_database()
 
@@ -12,6 +13,8 @@ food_index = db["food_index"]
 food_logs = db["food_logs"]
 goals = db["goals"]
 meal_plans = db["meal_plans"]
+health_data = db["health_data"]
+healthkit_data = db["healthkit_data"]
 
 # Create indexes for better query performance
 users.create_index("email", unique=True)
@@ -20,6 +23,9 @@ food_index.create_index("name")
 food_logs.create_index([("user_id", ASCENDING), ("date", ASCENDING)])
 goals.create_index("user_id")
 meal_plans.create_index("user_id")
+health_data.create_index([("user_id", ASCENDING), ("date", ASCENDING)])
+health_data.create_index([("user_id", ASCENDING), ("data_type", ASCENDING)])
+healthkit_data.create_index([("user_id", ASCENDING), ("date", ASCENDING)], unique=True)
 
 # Schema definitions (used for validation and documentation)
 
@@ -33,7 +39,17 @@ user_schema = {
         "units": str,  # metric or imperial
         "theme": str,  # light or dark
         "notification_settings": dict
-    }
+    },
+    "widget_preferences": [
+        {
+            "id": str,
+            "type": str,
+            "title": str,
+            "size": str,
+            "position": int,
+            "visible": bool
+        }
+    ]
 }
 
 food_item_schema = {
@@ -97,6 +113,34 @@ goal_schema = {
             "notes": str
         }
     ],
+    "created_at": datetime,
+    "updated_at": datetime
+}
+
+# Apple Health schema
+health_data_schema = {
+    "user_id": str,
+    "date": datetime,
+    "data_type": str,  # e.g., "steps", "activeEnergy", "exerciseTime"
+    "value": float,
+    "unit": str,
+    "source": str,  # e.g., "Apple Health", "Apple Watch"
+    "created_at": datetime,
+    "updated_at": datetime
+}
+
+# HealthKit data schema for iOS companion app
+healthkit_data_schema = {
+    "user_id": str,
+    "date": datetime,
+    "steps": float,
+    "calories": float,
+    "distance": float,  # in meters
+    "exercise_minutes": float,
+    "resting_heart_rate": float,  # BPM
+    "walking_heart_rate": float,  # BPM
+    "sleep_hours": float,
+    "source": str,  # e.g., "Apple HealthKit"
     "created_at": datetime,
     "updated_at": datetime
 }
@@ -573,3 +617,260 @@ def setup_basic_indexes():
     db.goals.create_index("user_id")
 
 # Call this function once during app startup 
+
+# Helper functions for Apple Health data
+def save_health_data(health_data_entry):
+    """Save a health data entry to the database"""
+    health_data_entry["created_at"] = datetime.now()
+    health_data_entry["updated_at"] = datetime.now()
+    
+    # Normalize the date to midnight UTC
+    if isinstance(health_data_entry.get("date"), str):
+        try:
+            date_obj = datetime.fromisoformat(health_data_entry["date"].replace('Z', '+00:00'))
+        except ValueError:
+            date_obj = datetime.now(timezone.utc)
+    elif isinstance(health_data_entry.get("date"), datetime):
+        date_obj = health_data_entry["date"]
+        if date_obj.tzinfo is None:
+            date_obj = date_obj.replace(tzinfo=timezone.utc)
+    else:
+        date_obj = datetime.now(timezone.utc)
+    
+    # Normalize to midnight
+    date_only = date_obj.date()
+    date_normalized = datetime.combine(date_only, time.min).replace(tzinfo=timezone.utc)
+    health_data_entry["date"] = date_normalized
+    
+    result = health_data.insert_one(health_data_entry)
+    return result.inserted_id
+
+def get_health_data_by_date(user_id, date, data_type=None):
+    """Get health data for a specific date and optionally data type"""
+    # Create query with user_id and date
+    query = {"user_id": user_id}
+    
+    # Convert date string to datetime if needed
+    if isinstance(date, str):
+        try:
+            date_obj = datetime.fromisoformat(date.replace('Z', '+00:00')).date()
+        except ValueError:
+            try:
+                date_obj = datetime.strptime(date, "%Y-%m-%d").date()
+            except ValueError:
+                date_obj = datetime.now(timezone.utc).date()
+    elif isinstance(date, datetime):
+        date_obj = date.date()
+    else:
+        date_obj = date
+    
+    # Create datetime objects for start and end of the day
+    start = datetime.combine(date_obj, time.min).replace(tzinfo=timezone.utc)
+    end = datetime.combine(date_obj, time.max).replace(tzinfo=timezone.utc)
+    
+    # Add date range to query
+    query["date"] = {"$gte": start, "$lte": end}
+    
+    # Add data type filter if provided
+    if data_type:
+        query["data_type"] = data_type
+    
+    # Retrieve data from database
+    results = list(health_data.find(query))
+    
+    # Convert ObjectId to string
+    for result in results:
+        if "_id" in result:
+            result["_id"] = str(result["_id"])
+    
+    return results
+
+def get_health_data_range(user_id, start_date, end_date, data_type=None):
+    """Get health data for a date range and optionally data type"""
+    # Create query with user_id
+    query = {"user_id": user_id}
+    
+    # Convert date strings to dates if needed
+    def parse_date(date_input):
+        if isinstance(date_input, str):
+            try:
+                return datetime.fromisoformat(date_input.replace('Z', '+00:00')).date()
+            except ValueError:
+                try:
+                    return datetime.strptime(date_input, "%Y-%m-%d").date()
+                except ValueError:
+                    return datetime.now(timezone.utc).date()
+        elif isinstance(date_input, datetime):
+            return date_input.date()
+        return date_input
+    
+    start = parse_date(start_date)
+    end = parse_date(end_date)
+    
+    # Create datetime objects for start and end of the date range
+    start_dt = datetime.combine(start, time.min).replace(tzinfo=timezone.utc)
+    end_dt = datetime.combine(end, time.max).replace(tzinfo=timezone.utc)
+    
+    # Add date range to query
+    query["date"] = {"$gte": start_dt, "$lte": end_dt}
+    
+    # Add data type filter if provided
+    if data_type:
+        query["data_type"] = data_type
+    
+    # Retrieve data from database
+    results = list(health_data.find(query))
+    
+    # Convert ObjectId to string
+    for result in results:
+        if "_id" in result:
+            result["_id"] = str(result["_id"])
+    
+    return results
+
+def get_latest_health_data(user_id, data_type):
+    """Get the most recent health data entry for a specific data type"""
+    query = {"user_id": user_id, "data_type": data_type}
+    
+    # Find latest entry by date
+    result = health_data.find_one(query, sort=[("date", -1)])
+    
+    # Convert ObjectId to string if found
+    if result and "_id" in result:
+        result["_id"] = str(result["_id"])
+    
+    return result
+
+def delete_health_data(entry_id):
+    """Delete a health data entry by ID"""
+    result = health_data.delete_one({"_id": ObjectId(entry_id)})
+    return result.deleted_count > 0
+
+def get_aggregated_health_data(user_id, data_type, start_date, end_date, aggregation="sum"):
+    """
+    Get aggregated health data (sum, avg, max, min) for a date range and data type
+    Returns a dictionary with dates as keys and aggregated values as values
+    """
+    # Convert date strings to dates if needed
+    def parse_date(date_input):
+        if isinstance(date_input, str):
+            try:
+                return datetime.fromisoformat(date_input.replace('Z', '+00:00')).date()
+            except ValueError:
+                try:
+                    return datetime.strptime(date_input, "%Y-%m-%d").date()
+                except ValueError:
+                    return datetime.now(timezone.utc).date()
+        elif isinstance(date_input, datetime):
+            return date_input.date()
+        return date_input
+    
+    start = parse_date(start_date)
+    end = parse_date(end_date)
+    
+    # Create datetime objects for start and end of the date range
+    start_dt = datetime.combine(start, time.min).replace(tzinfo=timezone.utc)
+    end_dt = datetime.combine(end, time.max).replace(tzinfo=timezone.utc)
+    
+    # Query all matching data
+    query = {
+        "user_id": user_id,
+        "data_type": data_type,
+        "date": {"$gte": start_dt, "$lte": end_dt}
+    }
+    
+    results = list(health_data.find(query))
+    
+    # Group by date and apply aggregation
+    aggregated = {}
+    for entry in results:
+        date_str = entry["date"].date().isoformat()
+        
+        if date_str not in aggregated:
+            aggregated[date_str] = {
+                "values": [],
+                "unit": entry.get("unit", "")
+            }
+        
+        aggregated[date_str]["values"].append(entry.get("value", 0))
+    
+    # Apply aggregation function to each day's values
+    for date_str, data in aggregated.items():
+        values = data["values"]
+        if not values:
+            aggregated[date_str]["value"] = 0
+        elif aggregation == "sum":
+            aggregated[date_str]["value"] = sum(values)
+        elif aggregation == "avg":
+            aggregated[date_str]["value"] = sum(values) / len(values)
+        elif aggregation == "max":
+            aggregated[date_str]["value"] = max(values)
+        elif aggregation == "min":
+            aggregated[date_str]["value"] = min(values)
+        
+        # Remove the values array from the result
+        del aggregated[date_str]["values"]
+    
+    return aggregated 
+
+def save_healthkit_data(healthkit_data_entry):
+    """
+    Store HealthKit data from iOS app
+    
+    Args:
+        healthkit_data_entry: A dictionary containing the HealthKit data
+        
+    Returns:
+        The ID of the inserted/updated document
+    """
+    # Set timestamps
+    now = datetime.now()
+    healthkit_data_entry["created_at"] = now
+    healthkit_data_entry["updated_at"] = now
+    
+    # Check if there's an existing record for this user and date
+    existing = healthkit_data.find_one({
+        "user_id": healthkit_data_entry["user_id"],
+        "date": healthkit_data_entry["date"]
+    })
+    
+    if existing:
+        # Update existing record
+        result = healthkit_data.update_one(
+            {"_id": existing["_id"]},
+            {"$set": {**healthkit_data_entry, "updated_at": now}}
+        )
+        return existing["_id"]
+    else:
+        # Insert new record
+        result = healthkit_data.insert_one(healthkit_data_entry)
+        return result.inserted_id
+
+def get_healthkit_data(user_id, date=None, start_date=None, end_date=None):
+    """
+    Retrieve HealthKit data for a specific user
+    
+    Args:
+        user_id: The user's ID
+        date: Optional specific date to retrieve data for
+        start_date: Optional start date for a date range query
+        end_date: Optional end date for a date range query
+        
+    Returns:
+        A list of HealthKit data entries
+    """
+    query = {"user_id": user_id}
+    
+    if date:
+        # If a specific date is provided, use it
+        query["date"] = date
+    elif start_date or end_date:
+        # If date range is provided, build a range query
+        date_query = {}
+        if start_date:
+            date_query["$gte"] = start_date
+        if end_date:
+            date_query["$lte"] = end_date
+        query["date"] = date_query
+    
+    return list(healthkit_data.find(query).sort("date", -1)) 

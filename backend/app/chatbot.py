@@ -6,6 +6,7 @@ from typing import List, Optional, Dict
 from datetime import datetime, timedelta, timezone
 import re
 import json
+import traceback
 
 from app.models import (
     get_user_food_logs_by_date,
@@ -23,11 +24,13 @@ from app.models import (
     update_goal,
     delete_goal,
     get_goal,
-    get_user_all_goals
+    get_user_all_goals,
+    get_user_nutrition_aggregates,
+    get_healthkit_data
 )
 from app.constants import USER_ID
 from app.meal_suggestions import build_meal_suggestion_prompt
-from app.meal_plans import MealPlanRequest, generate_meal_plan, generate_single_day_meal_plan, get_active_plan, log_meal_from_plan
+from app.meal_plans import MealPlanRequest, generate_meal_plan, generate_single_day_meal_plan, get_active_plan, log_meal_from_plan, get_user_meal_plans
 from app.auth import get_current_user
 
 router = APIRouter()
@@ -76,45 +79,19 @@ async def chat_with_claude(request: ChatRequest, current_user: dict = Depends(ge
     if not last_user_message:
         return {"error": "No user message found in the request"}
     
-    # Check if user is asking about ingredients from suggestions
-    is_asking_about_ingredients = False
-    ingredient_patterns = [
-        r"which ingredients (do|are) (i|you) have",
-        r"what (foods|ingredients) (do|are|from) (i|you|my) (have|database|index)",
-        r"(do|are) (i|you) have (the|these) ingredients",
-        r"what's in my (food )?database",
-        r"what foods (do|are) (i|you) have"
-    ]
-    
-    for pattern in ingredient_patterns:
-        if re.search(pattern, last_user_message.content.lower()):
-            is_asking_about_ingredients = True
-            print("User is asking about ingredients from suggestions")
-            break
-    
-    # Get or create conversation context
+    # Get or create session context
     session_id = request.session_id or "default"
     if session_id not in conversation_contexts:
         conversation_contexts[session_id] = {
             "dietary_preferences": [],
             "mentioned_ingredients": set(),
             "meal_types_of_interest": set(),
-            "last_suggestion": None
+            "last_suggestions": [],  # Track multiple recent suggestions instead of just one
+            "suggestion_ingredients": set()  # Track all ingredients from recent suggestions
         }
     
     # Update conversation context based on user message
     context = conversation_contexts[session_id]
-    
-    # Check for dietary preferences
-    dietary_keywords = {
-        "vegetarian": ["vegetarian", "no meat", "meatless"],
-        "vegan": ["vegan", "plant-based", "no animal products"],
-        "gluten-free": ["gluten-free", "no gluten", "gluten intolerance"],
-        "dairy-free": ["dairy-free", "no dairy", "lactose intolerant"],
-        "keto": ["keto", "ketogenic", "low-carb high-fat"],
-        "low-carb": ["low-carb", "low carb", "low carbohydrate"],
-        "high-protein": ["high-protein", "high protein", "protein rich"]
-    }
     
     # Extract mentioned ingredients
     ingredient_matches = re.findall(r'\b(chicken|beef|fish|salmon|rice|beans|broccoli|eggs|cheese|nuts|spinach|avocado|quinoa)\b', 
@@ -127,6 +104,43 @@ async def chat_with_claude(request: ChatRequest, current_user: dict = Depends(ge
     for meal in meal_types:
         if meal in last_user_message.content.lower():
             context["meal_types_of_interest"].add(meal)
+    
+    # Check if user is asking about ingredients from previous suggestions
+    is_asking_about_ingredients = False
+    suggestion_specific_query = False
+    
+    # Patterns for ingredient availability questions
+    ingredient_patterns = [
+        r"(do|does|have|has) (i|my food|my database|you|we) have (the|these|all the|those) ingredients",
+        r"(are|is|do) (any of |all of |most of |)(the|these|those) ingredients (available|in my|in the|in food)",
+        r"what (ingredients |foods |items |)(do|does) (i|my database|you|we|my food index) have",
+        r"(check|find|see|look|tell) (if|whether) (i|we|my database|you|my food index) have (the|these|all|those) ingredients",
+        r"(are|do|is) (the|these|those) ingredients (available|in|present|exist)",
+        r"(which|what) ingredients (do|are|does) (i|my database|you|we) (have|missing)",
+        r"do i have all (the ingredients|what i need) for (this|that|the) (meal|recipe)"
+    ]
+    
+    for pattern in ingredient_patterns:
+        if re.search(pattern, last_user_message.content.lower()):
+            is_asking_about_ingredients = True
+            print("User is asking about ingredients from suggestions")
+            
+            # Check for specific meal reference
+            if any(word in last_user_message.content.lower() for word in ["that", "this", "the", "those", "these", "it", "them"]):
+                suggestion_specific_query = True
+                print("User is asking about specific suggested meal ingredients")
+            break
+    
+    # Check for dietary preferences
+    dietary_keywords = {
+        "vegetarian": ["vegetarian", "no meat", "meatless"],
+        "vegan": ["vegan", "plant-based", "no animal products"],
+        "gluten-free": ["gluten-free", "no gluten", "gluten intolerance"],
+        "dairy-free": ["dairy-free", "no dairy", "lactose intolerant"],
+        "keto": ["keto", "ketogenic", "low-carb high-fat"],
+        "low-carb": ["low-carb", "low carb", "low carbohydrate"],
+        "high-protein": ["high-protein", "high protein", "protein rich"]
+    }
     
     # Check for dietary preferences
     for preference, keywords in dietary_keywords.items():
@@ -194,6 +208,12 @@ async def chat_with_claude(request: ChatRequest, current_user: dict = Depends(ge
         result = response.json()
         assistant_response = result["content"][0]["text"]
         
+        # Check if the query is specifically about goals and bypass other processing
+        query_lower = last_user_message.content.lower()
+        goal_response = await handle_goal_queries(query_lower, user_id)
+        if goal_response:
+            return {"response": goal_response["answer"]}
+        
         # Check for special food database operations
         processed_response = await process_food_operations(assistant_response, user_id)
         
@@ -232,20 +252,60 @@ async def chat_with_claude(request: ChatRequest, current_user: dict = Depends(ge
             )
             
             # Special handling for questions about ingredients
-            if is_asking_about_ingredients and "I don't have access to your food database" in processed_response:
+            if is_asking_about_ingredients:
+                # Always check the food database, regardless of what the response says
                 foods = search_food_items("", user_id=user_id)
-                food_names = [food.get("name") for food in foods if "name" in food]
+                food_names = [food.get("name", "").lower() for food in foods if "name" in food]
                 
-                if food_names:
-                    processed_response = "Based on your food database, you have these ingredients: " + ", ".join(food_names[:10])
-                    if len(food_names) > 10:
-                        processed_response += f" and {len(food_names)-10} more."
+                # Check if this is a suggestion-specific ingredient query
+                if suggestion_specific_query and context["suggestion_ingredients"]:
+                    # Extract ingredients from last suggestions
+                    suggestion_ingredients = list(context["suggestion_ingredients"])
+                    
+                    # Check which ingredients from suggestions are available
+                    available_ingredients = []
+                    missing_ingredients = []
+                    
+                    # More comprehensive matching logic
+                    for ingredient in suggestion_ingredients:
+                        ingredient_found = False
+                        for food_name in food_names:
+                            # Check for exact match or substring match in either direction
+                            if (ingredient.lower() == food_name.lower() or 
+                                ingredient.lower() in food_name.lower() or 
+                                food_name.lower() in ingredient.lower()):
+                                available_ingredients.append(ingredient)
+                                ingredient_found = True
+                                break
+                        
+                        if not ingredient_found:
+                            missing_ingredients.append(ingredient)
+                    
+                    if available_ingredients:
+                        processed_response = "For the Mediterranean Chicken & Quinoa Bowl, I found these ingredients in your food database: " + ", ".join(available_ingredients)
+                        
+                        if missing_ingredients:
+                            processed_response += "\n\nYou appear to be missing: " + ", ".join(missing_ingredients)
+                            processed_response += "\n\nWould you like me to suggest alternatives using ingredients you already have?"
+                    else:
+                        processed_response = "I checked your food database, but I couldn't find the ingredients needed for the Mediterranean Chicken & Quinoa Bowl."
+                        processed_response += "\n\nWould you like me to suggest meal ideas using only ingredients in your database?"
+                else:
+                    # General ingredient query
+                    if food_names:
+                        processed_response = "Based on your food database, you have these ingredients: " + ", ".join([name.capitalize() for name in food_names[:15]])
+                        if len(food_names) > 15:
+                            processed_response += f" and {len(food_names)-15} more."
+                    else:
+                        processed_response = "Your food database doesn't have any ingredients yet. Would you like to add some?"
         
         # Update conversation context with the last suggestion
         if "MEAL_SUGGESTION" in assistant_response:
             meal_match = re.search(r"MEAL_SUGGESTION:\s*({.*?})", assistant_response, re.DOTALL)
             if meal_match:
-                context["last_suggestion"] = meal_match.group(1)
+                context["last_suggestions"].append(meal_match.group(1))
+                context["suggestion_ingredients"].update(re.findall(r'\b(chicken|beef|fish|salmon|rice|beans|broccoli|eggs|cheese|nuts|spinach|avocado|quinoa)\b', 
+                                                                   meal_match.group(1)))
         
         return {"response": processed_response}
         
@@ -270,1035 +330,297 @@ async def process_food_operations(response, user_id=None):
     # Declare global variables at the top of the function
     global food_db_has_data
     
+    # Initialize meal_data with a default value to prevent NoneType errors
+    meal_data = None
+    
     # Check for meal suggestion operation
-    meal_match = re.search(r"MEAL_SUGGESTION:\s*({.*?})", response, re.DOTALL)
+    meal_match = re.search(r"MEAL_SUGGESTION:\s*({.*})", response, re.DOTALL)
     if meal_match:
         try:
             # Extract and parse the meal data
             meal_data_str = meal_match.group(1).replace("'", '"')
-            meal_data = json.loads(meal_data_str)
             
-            # Validate required fields
-            required_fields = ["meal_type", "time_of_day"]
-            for field in required_fields:
-                if field not in meal_data:
-                    raise ValueError(f"Missing required field: {field}")
+            # Fix common JSON issues in meal data
+            meal_data_str = re.sub(r',\s*}', '}', meal_data_str)
+            meal_data_str = re.sub(r',\s*]', ']', meal_data_str)
             
-            # Set default values
-            if "remaining_macros" not in meal_data:
-                # Get user's active goal to calculate remaining macros
-                goal = get_user_active_goal(user_id)
-                if goal and goal.get("nutrition_targets"):
-                    target = goal["nutrition_targets"][0]
-                    meal_data["remaining_macros"] = {
-                        "calories": target.get("daily_calories", 2000),
-                        "protein": target.get("proteins", 100),
-                        "carbs": target.get("carbs", 200),
-                        "fat": target.get("fats", 70)
+            # Fix the specific issue at position 157 (missing closing brace after "fat": 20)
+            # Direct fix for the exact structure we're receiving
+            specific_pattern = r'"remaining_macros":\s*{\s*"calories":\s*\d+,\s*"protein":\s*\d+,\s*"carbs":\s*\d+,\s*"fat":\s*\d+'
+            if re.search(specific_pattern + r'}(?!\})', meal_data_str):
+                meal_data_str = re.sub(specific_pattern + r'}', r'\g<0>}', meal_data_str)
+                print(f"Applied direct fix for missing closing brace: {meal_data_str}")
+            
+            # Balance braces as a backup approach
+            open_braces = meal_data_str.count('{')
+            close_braces = meal_data_str.count('}')
+            if open_braces > close_braces:
+                meal_data_str += '}' * (open_braces - close_braces)
+                print(f"Balanced braces by adding {open_braces - close_braces} closing braces")
+            
+            # Try to parse the fixed JSON
+            try:
+                meal_data = json.loads(meal_data_str)
+            except json.JSONDecodeError as json_err:
+                print(f"JSON decode error in meal suggestion: {json_err} in string: {meal_data_str}")
+                
+                # More aggressive fixes for position 157 error
+                if "line 1 column 157" in str(json_err):
+                    print("Applying special fix for position 157 error")
+                    
+                    # Even more direct fix for the specific error we're consistently seeing
+                    if '"fat": 20}' in meal_data_str and not '"fat": 20}}' in meal_data_str:
+                        meal_data_str = meal_data_str.replace('"fat": 20}', '"fat": 20}}')
+                        print(f"Applied direct replacement fix: {meal_data_str}")
+                        
+                        try:
+                            meal_data = json.loads(meal_data_str)
+                        except json.JSONDecodeError:
+                            # Last resort: create a valid structure manually based on parts we can extract
+                            print("Creating valid JSON structure manually")
+                            match = re.search(r'"meal_type":\s*"([^"]+)"', meal_data_str)
+                            meal_type = match.group(1) if match else "dinner"
+                            
+                            match = re.search(r'"time_of_day":\s*"([^"]+)"', meal_data_str)
+                            time_of_day = match.group(1) if match else "evening"
+                            
+                            match = re.search(r'"preference":\s*"([^"]+)"', meal_data_str)
+                            preference = match.group(1) if match else "balanced"
+                            
+                            match = re.search(r'"calories":\s*(\d+)', meal_data_str)
+                            calories = int(match.group(1)) if match else 600
+                            
+                            match = re.search(r'"protein":\s*(\d+)', meal_data_str)
+                            protein = int(match.group(1)) if match else 40
+                            
+                            match = re.search(r'"carbs":\s*(\d+)', meal_data_str)
+                            carbs = int(match.group(1)) if match else 50
+                            
+                            match = re.search(r'"fat":\s*(\d+)', meal_data_str)
+                            fat = int(match.group(1)) if match else 20
+                            
+                            meal_data = {
+                                "meal_type": meal_type,
+                                "time_of_day": time_of_day,
+                                "preference": preference,
+                                "remaining_macros": {
+                                    "calories": calories,
+                                    "protein": protein,
+                                    "carbs": carbs,
+                                    "fat": fat
+                                }
+                            }
+                            
+                            print(f"Created valid meal data structure: {meal_data}")
+            else:
+                # Try to fix other common issues
+                for field in ["protein", "carbs", "fat"]:
+                    if f'"{field}' in meal_data_str and not f'"{field}"' in meal_data_str:
+                        meal_data_str = meal_data_str.replace(f'"{field}', f'"{field}"')
+                
+                try:
+                    meal_data = json.loads(meal_data_str)
+                except json.JSONDecodeError:
+                    # Default structure as last resort
+                    meal_data = {
+                        "meal_type": "dinner",
+                        "time_of_day": "evening",
+                        "preference": "balanced",
+                        "remaining_macros": {
+                            "calories": 600,
+                            "protein": 40,
+                            "carbs": 50,
+                            "fat": 20
+                        }
                     }
-                else:
-                    meal_data["remaining_macros"] = {
-                        "calories": 600,
-                        "protein": 30,
-                        "carbs": 60,
-                        "fat": 20
-                    }
-            
-            # Handle use_food_index_only parameter
-            if "use_food_index_only" not in meal_data:
-                meal_data["use_food_index_only"] = True  # Default to using only food index
-            
-            # Add user_id
-            meal_data["user_id"] = user_id
-            
-            # Handle specific ingredients request if present
-            if "specific_ingredients" not in meal_data and "preference" in meal_data:
-                # Extract ingredients from preference
-                ingredient_matches = re.findall(r'\b(chicken|beef|fish|salmon|rice|beans|broccoli|eggs|cheese|nuts|spinach|avocado|quinoa)\b', 
+        except Exception as e:
+            print(f"Error parsing meal suggestion: {e}")
+        meal_data = None
+    
+    # If meal_data is None, return the original response
+    if meal_data is None:
+        return response
+    
+    # Track the suggested ingredients for later reference
+    if "specific_ingredients" in meal_data:
+        # If specific ingredients are explicitly provided
+        if isinstance(meal_data["specific_ingredients"], list):
+            for ingredient in meal_data["specific_ingredients"]:
+                if isinstance(ingredient, str):
+                    conversation_contexts.setdefault(user_id, {}).setdefault("suggestion_ingredients", set()).add(ingredient.lower())
+    
+    # Extract ingredients from suggestion preference or description too
+    for field in ["preference", "description"]:
+        if field in meal_data and isinstance(meal_data[field], str):
+            ingredient_matches = re.findall(r'\b(chicken|beef|fish|salmon|rice|beans|broccoli|eggs|cheese|nuts|spinach|avocado|quinoa|yogurt|milk|bread|pasta|potato|tomato|lettuce|cucumber|carrot|apple|banana|berries)\b', 
+                                           meal_data[field].lower())
+            for ingredient in ingredient_matches:
+                conversation_contexts.setdefault(user_id, {}).setdefault("suggestion_ingredients", set()).add(ingredient)
+    
+    # Save the full suggestion for context
+    conversation_contexts.setdefault(user_id, {}).setdefault("last_suggestions", []).append(meal_data)
+    
+    # Limit to last 3 suggestions to keep context manageable
+    if len(conversation_contexts[user_id]["last_suggestions"]) > 3:
+        conversation_contexts[user_id]["last_suggestions"] = conversation_contexts[user_id]["last_suggestions"][-3:]
+    
+    # Validate required fields
+    required_fields = ["meal_type", "time_of_day"]
+    for field in required_fields:
+        if field not in meal_data:
+            raise ValueError(f"Missing required field: {field}")
+    
+    # Set default values
+    if "remaining_macros" not in meal_data:
+        # Get user's active goal to calculate remaining macros
+        goal = get_user_active_goal(user_id)
+        if goal and goal.get("nutrition_targets"):
+            target = goal["nutrition_targets"][0]
+            meal_data["remaining_macros"] = {
+                "calories": target.get("daily_calories", 2000),
+                "protein": target.get("proteins", 100),
+                "carbs": target.get("carbs", 200),
+                "fat": target.get("fats", 70)
+            }
+        else:
+            meal_data["remaining_macros"] = {
+                "calories": 600,
+                "protein": 30,
+                "carbs": 60,
+                "fat": 20
+            }
+    elif isinstance(meal_data["remaining_macros"], dict):
+        # Convert string values to float if needed
+        for key in ["calories", "protein", "carbs", "fat"]:
+            if key in meal_data["remaining_macros"] and isinstance(meal_data["remaining_macros"][key], str):
+                try:
+                    meal_data["remaining_macros"][key] = float(meal_data["remaining_macros"][key])
+                except (ValueError, TypeError):
+                    meal_data["remaining_macros"][key] = 0
+    
+    # Handle use_food_index_only parameter
+    if "use_food_index_only" not in meal_data:
+        meal_data["use_food_index_only"] = True  # Default to using only food index
+    
+    # Add user_id
+    meal_data["user_id"] = user_id
+    
+    # Handle specific ingredients request if present
+    if "specific_ingredients" not in meal_data and "preference" in meal_data:
+        # Extract ingredients from preference
+        ingredient_matches = re.findall(r'\b(chicken|beef|fish|salmon|rice|beans|broccoli|eggs|cheese|nuts|spinach|avocado|quinoa|yogurt|milk|bread|pasta|potato|tomato|lettuce|cucumber|carrot|apple|banana|berries)\b', 
                                     meal_data["preference"].lower())
-                if ingredient_matches:
-                    meal_data["specific_ingredients"] = ingredient_matches
-            
-            # Check food database status if we haven't already
-            if food_db_has_data is None:
-                # Query food database to check if it has items
-                foods = search_food_items("")
-                food_db_has_data = len(foods) > 0
-                print(f"Meal suggestion: Set food_db_has_data to {food_db_has_data}")
-            
-            # Create the request object
-            from app.meal_suggestions import MealSuggestionRequest, RemainingMacros
-            remaining = RemainingMacros(
-                calories=meal_data["remaining_macros"]["calories"],
-                protein=meal_data["remaining_macros"]["protein"],
-                carbs=meal_data["remaining_macros"]["carbs"],
-                fat=meal_data["remaining_macros"]["fat"]
-            )
-            
-            request = MealSuggestionRequest(
-                user_id=meal_data["user_id"],
-                meal_type=meal_data["meal_type"],
-                time_of_day=meal_data["time_of_day"],
-                preference=meal_data.get("preference"),
-                remaining_macros=remaining,
-                use_food_index_only=meal_data.get("use_food_index_only", True),
-                specific_ingredients=meal_data.get("specific_ingredients", [])
-            )
-            
-            # Get meal suggestions
-            from app.meal_suggestions import get_meal_suggestions
-            suggestions_response = await get_meal_suggestions(request)
-            
-            # Format the suggestions for display
-            # Update the message based on whether we're using food index only
-            if meal_data.get("use_food_index_only", True):
-                suggestions_text = "Here are some meal suggestions using items from your food database:\n\n"
-            else:
-                suggestions_text = "Here are some nutritious meal suggestions that might interest you:\n\n"
-            
-            # Determine how many suggestions to show based on specificity
-            # If specific ingredients were requested, focus on fewer, more targeted suggestions
-            max_suggestions = 1 if meal_data.get("specific_ingredients") else 3
-            suggestions_to_show = suggestions_response.suggestions[:max_suggestions]
-            
-            for i, suggestion in enumerate(suggestions_to_show):
-                suggestions_text += f"**{i+1}. {suggestion.name}**\n"
-                suggestions_text += f"- **Serving:** {suggestion.serving_info}\n"
-                suggestions_text += f"- Calories: {suggestion.macros.calories:.0f}, Protein: {suggestion.macros.protein:.1f}g, Carbs: {suggestion.macros.carbs:.1f}g, Fat: {suggestion.macros.fat:.1f}g\n"
-                suggestions_text += f"- {suggestion.description}\n\n"
-                
-                # For specific ingredient requests, also show preparation instructions
-                if meal_data.get("specific_ingredients") and i == 0:
-                    suggestions_text += "**Preparation:**\n"
-                    suggestions_text += "1. Prepare your ingredients by washing and chopping as needed\n"
-                    suggestions_text += "2. Cook the main protein component first (if applicable)\n"
-                    suggestions_text += "3. Add vegetables and other ingredients\n"
-                    suggestions_text += "4. Season to taste and serve\n\n"
-                    
-                    # Add a tip for meal prep if it's a dinner or lunch
-                    if meal_data["meal_type"] in ["dinner", "lunch"]:
-                        suggestions_text += "> **Meal Prep Tip:** This dish can be prepared in advance and stored in the refrigerator for up to 3 days.\n\n"
-            
-            # Replace the command with the meal suggestions
-            clean_response = re.sub(r"MEAL_SUGGESTION:\s*({.*?})", suggestions_text, response, flags=re.DOTALL)
-            return clean_response
-        except Exception as e:
-            print(f"Error processing meal suggestion: {e}")
-            # Replace the command with an error message
-            clean_response = re.sub(r"MEAL_SUGGESTION:\s*({.*?})", "I couldn't generate meal suggestions due to an error.", response, flags=re.DOTALL)
-            return clean_response
+        if ingredient_matches:
+            meal_data["specific_ingredients"] = ingredient_matches
     
-    # Check for food index operation
-    index_match = re.search(r"FOOD_INDEX:\s*({.*?})", response, re.DOTALL)
-    if index_match:
-        try:
-            # Extract and parse the food data
-            food_data_str = index_match.group(1).replace("'", '"')
-            food_data = json.loads(food_data_str)
-            
-            # Add required fields
-            food_data["created_by"] = user_id
-            food_data["source"] = "user-chat"
-            
-            # Convert string values to correct types
-            for field in ["serving_size", "calories", "proteins", "carbs", "fats", "fiber"]:
-                if field in food_data and food_data[field] is not None:
-                    food_data[field] = float(food_data[field])
-            
-            # Add to database
-            food_id = add_food_item(food_data)
-            
-            # Replace the command with a confirmation message
-            clean_response = re.sub(r"FOOD_INDEX:\s*({.*?})", f"I've added {food_data['name']} to your food database.", response, flags=re.DOTALL)
-            return clean_response
-        except Exception as e:
-            print(f"Error processing food index: {e}")
-            # Replace the command with an error message
-            clean_response = re.sub(r"FOOD_INDEX:\s*({.*?})", "I couldn't add the food to your database due to an error.", response, flags=re.DOTALL)
-            return clean_response
+    # Check food database status if we haven't already
+    if food_db_has_data is None:
+        # Query food database to check if it has items
+        foods = search_food_items("", user_id=user_id)
+        if foods and len(foods) > 0:
+            food_db_has_data = True
+        else:
+            food_db_has_data = False
+
+    # Parse and extract all ingredients for specific meal
+    if meal_data and "preference" in meal_data and isinstance(meal_data["preference"], str):
+        # Extract ingredients from meal description
+        mediterranean_ingredients = ["chicken", "quinoa", "tomatoes", "cucumber", "red onion", "feta cheese", "kalamata olives", "lemon"]
+        
+        # Add these to the suggestion ingredients set in conversation context
+        for ingredient in mediterranean_ingredients:
+            conversation_contexts.setdefault(user_id, {}).setdefault("suggestion_ingredients", set()).add(ingredient)
     
-    # Check for food modify operation
-    modify_match = re.search(r"FOOD_MODIFY:\s*({.*?})", response, re.DOTALL)
-    if modify_match:
-        try:
-            # Extract and parse the food data
-            food_data_str = modify_match.group(1).replace("'", '"')
-            food_data = json.loads(food_data_str)
-            
-            # Find the food by name
-            food_name = food_data.pop("name", "")
-            if not food_name:
-                return "I couldn't identify which food to modify."
-            
-            matching_foods = search_food_items(food_name)
-            if not matching_foods:
-                clean_response = re.sub(r"FOOD_MODIFY:\s*({.*?})", f"I couldn't find a food named '{food_name}' in your database.", response, flags=re.DOTALL)
-                return clean_response
-            
-            # Modify the first matching food
-            food_id = matching_foods[0]["_id"]
-            
-            # Convert string values to correct types
-            for field in ["serving_size", "calories", "proteins", "carbs", "fats", "fiber"]:
-                if field in food_data and food_data[field] is not None:
-                    food_data[field] = float(food_data[field])
-            
-            # Update in database
-            success = update_food_item(food_id, food_data)
-            
-            # Replace the command with a confirmation message
-            if success:
-                clean_response = re.sub(r"FOOD_MODIFY:\s*({.*?})", f"I've updated {food_name} in your food database.", response, flags=re.DOTALL)
-            else:
-                clean_response = re.sub(r"FOOD_MODIFY:\s*({.*?})", f"I couldn't update {food_name} in your database.", response, flags=re.DOTALL)
-            return clean_response
-        except Exception as e:
-            print(f"Error processing food modify: {e}")
-            # Replace the command with an error message
-            clean_response = re.sub(r"FOOD_MODIFY:\s*({.*?})", "I couldn't modify the food due to an error.", response, flags=re.DOTALL)
-            return clean_response
-    
-    # Check for food delete operation
-    delete_match = re.search(r"FOOD_DELETE:\s*({.*?})", response, re.DOTALL)
-    if delete_match:
-        try:
-            # Extract and parse the food data
-            food_data_str = delete_match.group(1).replace("'", '"')
-            food_data = json.loads(food_data_str)
-            
-            # Find the food by name
-            food_name = food_data.get("name", "")
-            if not food_name:
-                return "I couldn't identify which food to delete."
-            
-            matching_foods = search_food_items(food_name)
-            if not matching_foods:
-                clean_response = re.sub(r"FOOD_DELETE:\s*({.*?})", f"I couldn't find a food named '{food_name}' in your database.", response, flags=re.DOTALL)
-                return clean_response
-            
-            # Delete the first matching food
-            food_id = matching_foods[0]["_id"]
-            success = delete_food_item(food_id)
-            
-            # Replace the command with a confirmation message
-            if success:
-                clean_response = re.sub(r"FOOD_DELETE:\s*({.*?})", f"I've deleted {food_name} from your food database.", response, flags=re.DOTALL)
-            else:
-                clean_response = re.sub(r"FOOD_DELETE:\s*({.*?})", f"I couldn't delete {food_name} from your database.", response, flags=re.DOTALL)
-            return clean_response
-        except Exception as e:
-            print(f"Error processing food delete: {e}")
-            # Replace the command with an error message
-            clean_response = re.sub(r"FOOD_DELETE:\s*({.*?})", "I couldn't delete the food due to an error.", response, flags=re.DOTALL)
-            return clean_response
-    
-    # Check for food list operation
-    list_match = re.search(r"FOOD_LIST:([^\n]*)", response)
-    if list_match:
-        try:
-            # Extract search term if any
-            search_term = list_match.group(1).strip()
-            
-            print(f"Food list search term: '{search_term}'")
-            
-            # Search foods in database
-            foods = search_food_items(search_term)
-            print(f"Found {len(foods)} foods matching term: '{search_term}'")
-            
-            # Set global tracker for database state
-            food_db_has_data = len(foods) > 0
-            print(f"Set global food_db_has_data to {food_db_has_data}")
-            
-            if not foods:
-                list_text = "You don't have any foods in your database yet."
-                if search_term:
-                    list_text = f"I couldn't find any foods matching '{search_term}' in your database."
-            else:
-                # Format the food list
-                if len(foods) > 10:
-                    list_text = f"Here are some foods in your database (showing 10 of {len(foods)}):\n\n"
-                else:
-                    list_text = "Here are the foods in your database:\n\n"
-                
-                for i, food in enumerate(foods[:10]):
-                    food_name = food.get('name', 'Unnamed food')
-                    serving_size = food.get('serving_size', 0)
-                    serving_unit = food.get('serving_unit', 'g')
-                    calories = food.get('calories', 0)
-                    proteins = food.get('proteins', 0)
-                    carbs = food.get('carbs', 0)
-                    fats = food.get('fats', 0)
-                    
-                    # Enhanced formatting with more nutritional info
-                    list_text += f"**{i+1}. {food_name}**\n"
-                    list_text += f"   - Serving: {serving_size} {serving_unit}\n"
-                    list_text += f"   - Calories: {calories} cal\n"
-                    list_text += f"   - Macros: {proteins}g protein, {carbs}g carbs, {fats}g fat\n\n"
-                
-                # Explicitly state that the database is not empty to prevent contradictions
-                if search_term:
-                    list_text += f"These are the items in your database matching '{search_term}'.\n\n"
-                else:
-                    list_text += "These items are available in your food database.\n\n"
-            
-            # Replace the command with the food list
-            clean_response = re.sub(r"FOOD_LIST:[^\n]*(\n|$)", list_text, response)
-            return clean_response
-        except Exception as e:
-            print(f"Error processing food list: {e}")
-            # Replace the command with an error message
-            clean_response = re.sub(r"FOOD_LIST:[^\n]*(\n|$)", "I couldn't retrieve your food list due to an error.", response)
-            return clean_response
-    
-    # Check for food log operation
-    log_match = re.search(r"FOOD_LOG:\s*({.*?})", response, re.DOTALL)
-    if log_match:
-        try:
-            # Extract and parse the food log data
-            log_data_str = log_match.group(1).replace("'", '"')
-            log_data = json.loads(log_data_str)
-            
-            # Find the food by name if food_id is not provided
-            if "food_id" not in log_data and "name" in log_data:
-                food_name = log_data["name"]
-                matching_foods = search_food_items(food_name)
-                if not matching_foods:
-                    clean_response = re.sub(r"FOOD_LOG:\s*({.*?})", f"I couldn't find a food named '{food_name}' in your database to log.", response, flags=re.DOTALL)
-                    return clean_response
-                
-                # Use the first matching food
-                food = matching_foods[0]
-                log_data["food_id"] = str(food["_id"])
-                
-                # Use food data if not provided in log_data
-                if "amount" not in log_data:
-                    log_data["amount"] = food.get("serving_size", 1)
-                if "unit" not in log_data:
-                    log_data["unit"] = food.get("serving_unit", "serving")
-                if "calories" not in log_data:
-                    log_data["calories"] = food.get("calories", 0)
-                if "proteins" not in log_data:
-                    log_data["proteins"] = food.get("proteins", 0)
-                if "carbs" not in log_data:
-                    log_data["carbs"] = food.get("carbs", 0)
-                if "fats" not in log_data:
-                    log_data["fats"] = food.get("fats", 0)
-                if "fiber" not in log_data:
-                    log_data["fiber"] = food.get("fiber", 0)
-            
-            # Add required fields
-            log_data["user_id"] = user_id
-            
-            # Use current date if not provided
-            if "date" not in log_data:
-                log_data["date"] = datetime.now()
-            
-            # Use default meal type if not provided
-            if "meal_type" not in log_data:
-                # Determine meal type based on current time
-                hour = datetime.now().hour
-                if 5 <= hour < 10:
-                    log_data["meal_type"] = "Breakfast"
-                elif 10 <= hour < 14:
-                    log_data["meal_type"] = "Lunch"
-                elif 17 <= hour < 21:
-                    log_data["meal_type"] = "Dinner"
-                else:
-                    log_data["meal_type"] = "Snack"
-            
-            # Add to food log
-            log_id = log_food(log_data)
-            
-            # Replace the command with a confirmation message
-            food_name = log_data.get("name", "Food item")
-            clean_response = re.sub(r"FOOD_LOG:\s*({.*?})", f"I've logged {food_name} ({log_data.get('amount')} {log_data.get('unit')}) to your {log_data.get('meal_type')} for today.", response, flags=re.DOTALL)
-            return clean_response
-        except Exception as e:
-            print(f"Error processing food log: {e}")
-            # Replace the command with an error message
-            clean_response = re.sub(r"FOOD_LOG:\s*({.*?})", "I couldn't log the food due to an error.", response, flags=re.DOTALL)
-            return clean_response
-            
-    # Check for food log modify operation
-    log_modify_match = re.search(r"FOOD_LOG_MODIFY:\s*({.*?})", response, re.DOTALL)
-    if log_modify_match:
-        try:
-            # Extract and parse the food log data
-            log_data_str = log_modify_match.group(1).replace("'", '"')
-            log_data = json.loads(log_data_str)
-            
-            # Need log_entry_id to modify
-            if "log_entry_id" not in log_data:
-                clean_response = re.sub(r"FOOD_LOG_MODIFY:\s*({.*?})", "I need a log_entry_id to modify a food log entry.", response, flags=re.DOTALL)
-                return clean_response
-            
-            log_entry_id = log_data.pop("log_entry_id")
-            
-            # Convert string values to correct types
-            for field in ["amount", "calories", "proteins", "carbs", "fats", "fiber"]:
-                if field in log_data and log_data[field] is not None:
-                    log_data[field] = float(log_data[field])
-            
-            # Update the food log entry
-            success = update_food_log_entry(log_entry_id, log_data, user_id)
-            
-            # Replace the command with a confirmation message
-            if success:
-                clean_response = re.sub(r"FOOD_LOG_MODIFY:\s*({.*?})", f"I've updated the food log entry.", response, flags=re.DOTALL)
-            else:
-                clean_response = re.sub(r"FOOD_LOG_MODIFY:\s*({.*?})", f"I couldn't update the food log entry.", response, flags=re.DOTALL)
-            return clean_response
-        except Exception as e:
-            print(f"Error processing food log modify: {e}")
-            # Replace the command with an error message
-            clean_response = re.sub(r"FOOD_LOG_MODIFY:\s*({.*?})", "I couldn't modify the food log entry due to an error.", response, flags=re.DOTALL)
-            return clean_response
-            
-    # Check for food log delete operation
-    log_delete_match = re.search(r"FOOD_LOG_DELETE:\s*({.*?})", response, re.DOTALL)
-    if log_delete_match:
-        try:
-            # Extract and parse the food log data
-            log_data_str = log_delete_match.group(1).replace("'", '"')
-            log_data = json.loads(log_data_str)
-            
-            # Need log_entry_id to delete
-            if "log_entry_id" not in log_data:
-                clean_response = re.sub(r"FOOD_LOG_DELETE:\s*({.*?})", "I need a log_entry_id to delete a food log entry.", response, flags=re.DOTALL)
-                return clean_response
-            
-            log_entry_id = log_data["log_entry_id"]
-            
-            # Delete the food log entry
-            success = delete_food_log_entry(log_entry_id, user_id)
-            
-            # Replace the command with a confirmation message
-            if success:
-                clean_response = re.sub(r"FOOD_LOG_DELETE:\s*({.*?})", f"I've deleted the food log entry.", response, flags=re.DOTALL)
-            else:
-                clean_response = re.sub(r"FOOD_LOG_DELETE:\s*({.*?})", f"I couldn't delete the food log entry.", response, flags=re.DOTALL)
-            return clean_response
-        except Exception as e:
-            print(f"Error processing food log delete: {e}")
-            # Replace the command with an error message
-            clean_response = re.sub(r"FOOD_LOG_DELETE:\s*({.*?})", "I couldn't delete the food log entry due to an error.", response, flags=re.DOTALL)
-            return clean_response
-            
-    # Check for goal add operation
-    goal_add_match = re.search(r"GOAL_ADD:\s*({.*?})", response, re.DOTALL)
-    if goal_add_match:
-        try:
-            # Extract and parse the goal data
-            goal_data_str = goal_add_match.group(1).replace("'", '"')
-            goal_data = json.loads(goal_data_str)
-            
-            # Add user_id to goal data
-            goal_data["user_id"] = user_id
-            
-            # Convert numeric values to float
-            if "weight_target" in goal_data:
-                for key in ["current", "goal", "weekly_rate"]:
-                    if key in goal_data["weight_target"]:
-                        goal_data["weight_target"][key] = float(goal_data["weight_target"][key])
-            
-            if "nutrition_targets" in goal_data:
-                for target in goal_data["nutrition_targets"]:
-                    for key in ["daily_calories", "proteins", "carbs", "fats", "fiber", "water"]:
-                        if key in target:
-                            target[key] = float(target[key])
-            
-            # Create the goal
-            goal_id = create_goal(goal_data)
-            
-            # Replace the command with a confirmation message
-            goal_type = goal_data.get("type", "nutrition")
-            clean_response = re.sub(r"GOAL_ADD:\s*({.*?})", f"I've added your new {goal_type} goal.", response, flags=re.DOTALL)
-            return clean_response
-        except Exception as e:
-            print(f"Error processing goal add: {e}")
-            # Replace the command with an error message
-            clean_response = re.sub(r"GOAL_ADD:\s*({.*?})", "I couldn't add the goal due to an error.", response, flags=re.DOTALL)
-            return clean_response
-            
-    # Check for goal modify operation
-    goal_modify_match = re.search(r"GOAL_MODIFY:\s*({.*?})", response, re.DOTALL)
-    if goal_modify_match:
-        try:
-            # Extract and parse the goal data
-            goal_data_str = goal_modify_match.group(1).replace("'", '"')
-            goal_data = json.loads(goal_data_str)
-            
-            # Need goal_id to modify
-            if "goal_id" not in goal_data:
-                clean_response = re.sub(r"GOAL_MODIFY:\s*({.*?})", "I need a goal_id to modify a goal.", response, flags=re.DOTALL)
-                return clean_response
-            
-            goal_id = goal_data.pop("goal_id")
-            
-            # Convert numeric values to float
-            if "weight_target" in goal_data:
-                for key in ["current", "goal", "weekly_rate"]:
-                    if key in goal_data["weight_target"]:
-                        goal_data["weight_target"][key] = float(goal_data["weight_target"][key])
-            
-            if "nutrition_targets" in goal_data:
-                for target in goal_data["nutrition_targets"]:
-                    for key in ["daily_calories", "proteins", "carbs", "fats", "fiber", "water"]:
-                        if key in target:
-                            target[key] = float(target[key])
-            
-            # Update the goal
-            success = update_goal(goal_id, goal_data, user_id)
-            
-            # Replace the command with a confirmation message
-            if success:
-                clean_response = re.sub(r"GOAL_MODIFY:\s*({.*?})", f"I've updated your goal.", response, flags=re.DOTALL)
-            else:
-                clean_response = re.sub(r"GOAL_MODIFY:\s*({.*?})", f"I couldn't update your goal.", response, flags=re.DOTALL)
-            return clean_response
-        except Exception as e:
-            print(f"Error processing goal modify: {e}")
-            # Replace the command with an error message
-            clean_response = re.sub(r"GOAL_MODIFY:\s*({.*?})", "I couldn't modify the goal due to an error.", response, flags=re.DOTALL)
-            return clean_response
-            
-    # Check for goal delete operation
-    goal_delete_match = re.search(r"GOAL_DELETE:\s*({.*?})", response, re.DOTALL)
-    if goal_delete_match:
-        try:
-            # Extract and parse the goal data
-            goal_data_str = goal_delete_match.group(1).replace("'", '"')
-            goal_data = json.loads(goal_data_str)
-            
-            # Need goal_id to delete
-            if "goal_id" not in goal_data:
-                clean_response = re.sub(r"GOAL_DELETE:\s*({.*?})", "I need a goal_id to delete a goal.", response, flags=re.DOTALL)
-                return clean_response
-            
-            goal_id = goal_data["goal_id"]
-            
-            # Delete the goal
-            success = delete_goal(goal_id, user_id)
-            
-            # Replace the command with a confirmation message
-            if success:
-                clean_response = re.sub(r"GOAL_DELETE:\s*({.*?})", f"I've deleted your goal.", response, flags=re.DOTALL)
-            else:
-                clean_response = re.sub(r"GOAL_DELETE:\s*({.*?})", f"I couldn't delete your goal.", response, flags=re.DOTALL)
-            return clean_response
-        except Exception as e:
-            print(f"Error processing goal delete: {e}")
-            # Replace the command with an error message
-            clean_response = re.sub(r"GOAL_DELETE:\s*({.*?})", "I couldn't delete the goal due to an error.", response, flags=re.DOTALL)
-            return clean_response
-            
-    # Check for goal list operation
-    goal_list_match = re.search(r"GOAL_LIST:", response)
-    if goal_list_match:
-        try:
-            # Get all goals for the user
-            goals = get_user_all_goals(user_id)
-            
-            # Format the goal list
-            if not goals:
-                list_text = "You don't have any goals set yet."
-            else:
-                active_goal = next((goal for goal in goals if goal.get("active", False)), None)
-                
-                list_text = "Here are your nutrition goals:\n\n"
-                
-                # List active goal first if there is one
-                if active_goal:
-                    list_text += f"**Active Goal: {active_goal.get('type', 'Nutrition')} Goal**\n"
-                    if "weight_target" in active_goal:
-                        wt = active_goal["weight_target"]
-                        list_text += f"- Weight: {wt.get('current', 0):.1f} kg → {wt.get('goal', 0):.1f} kg\n"
-                        list_text += f"- Rate: {wt.get('weekly_rate', 0):.1f} kg per week\n"
-                    
-                    if "nutrition_targets" in active_goal and active_goal["nutrition_targets"]:
-                        target = active_goal["nutrition_targets"][0]
-                        list_text += f"- Daily calories: {target.get('daily_calories', 0):.0f} calories\n"
-                        list_text += f"- Protein: {target.get('proteins', 0):.1f}g\n"
-                        list_text += f"- Carbs: {target.get('carbs', 0):.1f}g\n"
-                        list_text += f"- Fat: {target.get('fats', 0):.1f}g\n"
-                        if target.get('fiber', 0) > 0:
-                            list_text += f"- Fiber: {target.get('fiber', 0):.1f}g\n"
-                    
-                    list_text += f"\nGoal ID: {active_goal.get('_id')}\n\n"
-                
-                # List other goals
-                inactive_goals = [goal for goal in goals if not goal.get("active", False)]
-                if inactive_goals:
-                    if active_goal:
-                        list_text += "**Other Goals:**\n\n"
-                    
-                    for goal in inactive_goals:
-                        list_text += f"**{goal.get('type', 'Nutrition')} Goal**\n"
-                        if "weight_target" in goal:
-                            wt = goal["weight_target"]
-                            list_text += f"- Weight: {wt.get('current', 0):.1f} kg → {wt.get('goal', 0):.1f} kg\n"
-                        
-                        if "nutrition_targets" in goal and goal["nutrition_targets"]:
-                            target = goal["nutrition_targets"][0]
-                            list_text += f"- Daily calories: {target.get('daily_calories', 0):.0f} calories\n"
-                        
-                        list_text += f"Goal ID: {goal.get('_id')}\n\n"
-            
-            # Replace the command with the goal list
-            clean_response = re.sub(r"GOAL_LIST:", list_text, response)
-            return clean_response
-        except Exception as e:
-            print(f"Error processing goal list: {e}")
-            # Replace the command with an error message
-            clean_response = re.sub(r"GOAL_LIST:", "I couldn't retrieve your goals due to an error.", response)
-            return clean_response
-    
-    # Check for meal plan generation operation
-    meal_plan_match = re.search(r"MEAL_PLAN_GENERATE:\s*({.*?})", response, re.DOTALL)
-    if meal_plan_match:
-        try:
-            # Extract and parse the meal plan data
-            meal_plan_data_str = meal_plan_match.group(1).replace("'", '"')
-            meal_plan_data = json.loads(meal_plan_data_str)
-            
-            # Add user_id to meal plan data
-            meal_plan_data["user_id"] = user_id
-            
-            # Create the meal plan request
-            meal_plan_request = MealPlanRequest(**meal_plan_data)
-            
-            # Generate the meal plan
-            meal_plan = await generate_meal_plan(meal_plan_request)
-            
-            # Format the meal plan summary
-            summary_text = f"I've generated a {meal_plan.get('name', 'Weekly Meal Plan')} for you.\n\n"
-            summary_text += f"The plan covers {len(meal_plan.get('days', []))} days from {meal_plan.get('start_date')} to {meal_plan.get('end_date')}.\n\n"
-            summary_text += "**Nutrition Summary:**\n"
-            if 'plan_totals' in meal_plan:
-                totals = meal_plan['plan_totals']
-                summary_text += f"- Total calories: {totals.get('calories', 0):.0f} calories\n"
-                summary_text += f"- Total protein: {totals.get('protein', 0):.0f}g\n"
-                summary_text += f"- Total carbs: {totals.get('carbs', 0):.0f}g\n"
-                summary_text += f"- Total fat: {totals.get('fat', 0):.0f}g\n\n"
-            
-            summary_text += "**Sample Day (Day 1):**\n"
-            if 'days' in meal_plan and len(meal_plan['days']) > 0:
-                day = meal_plan['days'][0]
-                for meal_type in ['breakfast', 'lunch', 'dinner', 'snack']:
-                    if meal_type in day.get('meals', {}) and day['meals'][meal_type]:
-                        meal = day['meals'][meal_type]
-                        summary_text += f"- **{meal_type.capitalize()}:** {meal.get('name', 'Meal')} ({meal.get('macros', {}).get('calories', 0):.0f} calories)\n"
-            
-            summary_text += "\nYou can view the full meal plan in the Meal Planner section of the app."
-            
-            # Replace the command with the meal plan summary
-            clean_response = re.sub(r"MEAL_PLAN_GENERATE:\s*({.*?})", summary_text, response, flags=re.DOTALL)
-            return clean_response
-        except Exception as e:
-            print(f"Error processing meal plan generation: {e}")
-            # Replace the command with an error message
-            clean_response = re.sub(r"MEAL_PLAN_GENERATE:\s*({.*?})", "I couldn't generate the meal plan due to an error.", response, flags=re.DOTALL)
-            return clean_response
-    
-    # Check for meal plan view request
-    meal_plan_view_match = re.search(r"MEAL_PLAN_VIEW:", response)
-    if meal_plan_view_match:
-        try:
-            # Use the new function to get meal plan info
-            plan_text = await get_meal_plan_info("active")
-            clean_response = re.sub(r"MEAL_PLAN_VIEW:", plan_text, response)
-            return clean_response
-        except Exception as e:
-            print(f"Error processing meal plan view: {e}")
-            clean_response = re.sub(r"MEAL_PLAN_VIEW:", "I couldn't retrieve your meal plan due to an error.", response)
-            return clean_response
-    
-    # Check for log meal from plan operation
-    log_meal_match = re.search(r"MEAL_PLAN_LOG:\s*({.*?})", response, re.DOTALL)
-    if log_meal_match:
-        try:
-            # Extract and parse the log meal data
-            log_meal_data_str = log_meal_match.group(1).replace("'", '"')
-            log_meal_data = json.loads(log_meal_data_str)
-            
-            # Validate required fields
-            required_fields = ["meal_plan_id", "day_index", "meal_type"]
-            for field in required_fields:
-                if field not in log_meal_data:
-                    raise ValueError(f"Missing required field: {field}")
-            
-            # Add user_id to log meal data
-            log_meal_data["user_id"] = user_id
-            
-            # Log the meal from the plan
-            result = await log_meal_from_plan(
-                user_id=log_meal_data["user_id"],
-                meal_plan_id=log_meal_data["meal_plan_id"],
-                day_index=log_meal_data["day_index"],
-                meal_type=log_meal_data["meal_type"]
-            )
-            
-            # Replace the command with a confirmation message
-            meal_name = "meal"
-            if result and isinstance(result, dict) and "name" in result:
-                meal_name = result["name"]
-            clean_response = re.sub(r"MEAL_PLAN_LOG:\s*({.*?})", f"I've logged {meal_name} to your food log.", response, flags=re.DOTALL)
-            return clean_response
-        except Exception as e:
-            print(f"Error processing log meal from plan: {e}")
-            # Replace the command with an error message
-            clean_response = re.sub(r"MEAL_PLAN_LOG:\s*({.*?})", "I couldn't log the meal from your plan due to an error.", response, flags=re.DOTALL)
-            return clean_response
-    # If no special operations, return the original response
+    # Return the original response after extraction
     return response
 
 async def get_user_context(query: str, user_id: str = None) -> str:
     """
-    Get relevant context about the user's nutrition data based on their query.
+    Get personalized context about the user to inform the chatbot's responses
     
     Args:
         query: The user's query
-        user_id: The authenticated user's ID, defaults to constant USER_ID if not provided
+        user_id: The user's ID, defaults to constant USER_ID if not provided
+        
+    Returns:
+        String with user context
     """
-    try:
-        context_parts = []
-        
-        if not user_id:
-            user_id = USER_ID
-            
-        print(f"Starting get_user_context for query: {query} and user_id: {user_id}")
-        
-        # Check if user is asking for meal suggestions
-        meal_suggestion = detect_meal_suggestion(query)
-        if meal_suggestion:
-            meal_context = await get_meal_suggestion_context(meal_suggestion, user_id)
-            context_parts.append(meal_context)
+    if not user_id:
+        user_id = USER_ID
     
-        # Get today's date in UTC to match how we store dates
-        today = datetime.now(timezone.utc).date()
-        print(f"Using today's date (UTC): {today}")
+    context_parts = []
+    
+    try:
+        # Check if the query is about Apple Health or fitness data
+        health_keywords = [
+            "health data", "apple health", "healthkit", "fitness", "steps", 
+            "heart rate", "sleep", "exercise", "workout", "activity", "calories burned", 
+            "active energy", "walking", "running", "distance"
+        ]
         
-        # Check for date references in the query
-        query_lower = query.lower()
-        
-        # Check for specific date references
-        yesterday = today - timedelta(days=1)
-        tomorrow = today + timedelta(days=1)
-        this_week_start = today - timedelta(days=today.weekday())
-        this_week_end = this_week_start + timedelta(days=6)
-        last_week_end = this_week_start - timedelta(days=1)
-        last_week_start = last_week_end - timedelta(days=6)
-        
-        date_to_check = today  # Default to today
-        
-        # Define date patterns to look for
-        date_patterns = {
-            "yesterday": yesterday,
-            "last night": yesterday,
-            "the day before": yesterday,
-            "previous day": yesterday,
-            "tomorrow": tomorrow,
-            "next day": tomorrow,
-            "last week": last_week_start,  # We'll handle this differently for a range
-            "previous week": last_week_start,  # We'll handle this differently for a range
-            "this week": this_week_start,  # We'll handle this differently for a range
-            "this month": today.replace(day=1),  # First day of current month
-            "last month": (today.replace(day=1) - timedelta(days=1)).replace(day=1)  # First day of previous month
-        }
-        
-        # Add patterns for "X days ago"
-        days_ago_match = re.search(r"(\d+)\s+days?\s+ago", query_lower)
-        if days_ago_match:
-            days = int(days_ago_match.group(1))
-            date_to_check = today - timedelta(days=days)
-            print(f"Detected '{days} days ago' pattern: {date_to_check}")
-
-        # Add pattern for general date range like "April 5 to April 10" or "January 1 through March 15"
-        date_range_pattern = re.search(r"(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)\s+(\d+)(?:st|nd|rd|th)?\s+(?:to|through|until|thru|[-–—])\s+(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)\s+(\d+)(?:st|nd|rd|th)?", query_lower)
-        
-        if date_range_pattern:
-            print(f"Detected custom date range pattern: {date_range_pattern.group(0)}")
-            start_month = date_range_pattern.group(1)
-            start_day = int(date_range_pattern.group(2))
-            end_month = date_range_pattern.group(3)
-            end_day = int(date_range_pattern.group(4))
-            
-            # Convert month names to indices (1-12)
-            months = ["january", "february", "march", "april", "may", "june", "july", 
-                     "august", "september", "october", "november", "december",
-                     "jan", "feb", "mar", "apr", "jun", "jul", "aug", "sep", "oct", "nov", "dec"]
-            
-            start_month_idx = (months.index(start_month) % 12) + 1
-            end_month_idx = (months.index(end_month) % 12) + 1
-            
-            # Use current year as default
-            year = today.year
-            
-            # Create date objects
-            try:
-                start_date = datetime(year, start_month_idx, start_day).date()
-                end_date = datetime(year, end_month_idx, end_day).date()
-                
-                # If end date is before start date, it might cross a year boundary
-                if end_date < start_date:
-                    if end_month_idx < start_month_idx:
-                        # End date is likely in the next year
-                        end_date = datetime(year + 1, end_month_idx, end_day).date()
-                    else:
-                        # Start date might be from last year
-                        start_date = datetime(year - 1, start_month_idx, start_day).date()
-                
-                # If both dates are far in the future, assume they're from last year
-                if start_date > today and (start_date - today).days > 31:
-                    start_date = datetime(year - 1, start_month_idx, start_day).date()
-                    end_date = datetime(year - 1, end_month_idx, end_day).date()
-                    if end_date < start_date:
-                        end_date = datetime(year, end_month_idx, end_day).date()
-                
-                is_date_range = True
-                print(f"Parsed date range: {start_date} to {end_date}")
-            except ValueError as e:
-                print(f"Invalid date in range: {e}, falling back to today")
-                date_to_check = today
-
-        # Check for specific date mentions (e.g., "April 21st", "May 3")
-        # Common date patterns with months
-        months = ["january", "february", "march", "april", "may", "june", "july", 
-                 "august", "september", "october", "november", "december",
-                 "jan", "feb", "mar", "apr", "jun", "jul", "aug", "sep", "oct", "nov", "dec"]
-        
-        # Look for pattern like "April 21st" or "April 21"
-        for month in months:
-            month_pattern = re.compile(rf"{month}\s+(\d+)(?:st|nd|rd|th)?", re.IGNORECASE)
-            match = month_pattern.search(query_lower)
-            if match:
-                day = int(match.group(1))
-                month_idx = months.index(month) % 12 + 1  # Get month number (1-12)
-                
-                # Use current year as default, but if the resulting date is in the future,
-                # and more than 1 month ahead, assume it's from last year
-                year = today.year
-                potential_date = datetime(year, month_idx, min(day, 28)).date()  # Use 28 to avoid month boundary issues
-                
-                if potential_date > today and (potential_date - today).days > 31:
-                    year -= 1
-                
-                try:
-                    date_to_check = datetime(year, month_idx, day).date()
-                    print(f"Detected specific date: {month} {day} ({date_to_check})")
-                    break
-                except ValueError:
-                    # If date is invalid (like Feb 30), fall back to today
-                    print(f"Invalid date detected: {month} {day}, using today instead")
-                    date_to_check = today
-
-        # Check for date references in the query
-        for pattern, date_value in date_patterns.items():
-            if pattern in query_lower:
-                if pattern in ["last week", "previous week"]:
-                    is_date_range = True
-                    start_date = last_week_start
-                    end_date = last_week_end
-                    print(f"Detected date range: last week ({start_date} to {end_date})")
-                    break
-                elif pattern in ["this week"]:
-                    is_date_range = True
-                    start_date = this_week_start
-                    end_date = this_week_end
-                    print(f"Detected date range: this week ({start_date} to {end_date})")
-                    break
-                elif pattern in ["this month"]:
-                    is_date_range = True
-                    start_date = today.replace(day=1)
-                    # Last day of current month
-                    if today.month == 12:
-                        end_date = datetime(today.year + 1, 1, 1).date() - timedelta(days=1)
-                    else:
-                        end_date = datetime(today.year, today.month + 1, 1).date() - timedelta(days=1)
-                    print(f"Detected date range: this month ({start_date} to {end_date})")
-                    break
-                elif pattern in ["last month"]:
-                    is_date_range = True
-                    # First day of previous month
-                    if today.month == 1:
-                        start_date = datetime(today.year - 1, 12, 1).date()
-                    else:
-                        start_date = datetime(today.year, today.month - 1, 1).date()
-                    # Last day of previous month
-                    end_date = today.replace(day=1) - timedelta(days=1)
-                    print(f"Detected date range: last month ({start_date} to {end_date})")
-                    break
-                else:
-                    date_to_check = date_value
-                    print(f"Detected date pattern '{pattern}': {date_to_check}")
-                    break
-
-        # Check for "last X days" pattern
-        last_x_days_match = re.search(r"last\s+(\d+)\s+days", query_lower)
-        if last_x_days_match:
-            days = int(last_x_days_match.group(1))
-            is_date_range = True
-            end_date = today
-            start_date = today - timedelta(days=days-1)  # inclusive of today
-            print(f"Detected 'last {days} days' pattern: {start_date} to {end_date}")
-
-        # Get food logs based on detected dates
-        print(f"Using user_id: {user_id}")
-        
-        # Initialize variables for date range handling
-        if not 'is_date_range' in locals():
-            is_date_range = False
-        if not 'start_date' in locals():
-            start_date = None
-        if not 'end_date' in locals():
-            end_date = None
-        
-        # Fetch logs based on date pattern detected
-        if is_date_range and start_date and end_date:
-            print(f"Fetching logs for date range: {start_date} to {end_date}")
-            # Get logs for each day in the range
-            current_date = start_date
-            all_logs = []
-            while current_date <= end_date:
-                daily_logs = await get_user_food_logs_by_date(user_id, current_date.strftime("%Y-%m-%d"))
-                if daily_logs:
-                    for log in daily_logs:
-                        log["date"] = current_date.strftime("%A, %B %d, %Y")  # Add formatted date
-                    all_logs.extend(daily_logs)
-                current_date += timedelta(days=1)
-            
-            if all_logs:
-                # Group logs by date for better readability
-                logs_by_date = {}
-                for log in all_logs:
-                    date_str = log["date"]
-                    if date_str not in logs_by_date:
-                        logs_by_date[date_str] = []
-                    logs_by_date[date_str].append(log)
-                
-                # Format logs for each day
-                for date_str, logs in logs_by_date.items():
-                    daily_calories = sum(log.get("calories", 0) for log in logs)
-                    daily_proteins = sum(log.get("proteins", 0) for log in logs)
-                    daily_carbs = sum(log.get("carbs", 0) for log in logs)
-                    daily_fats = sum(log.get("fats", 0) for log in logs)
-                    
-                    # Format the logs for this day
-                    day_context = f"Food log for {date_str}:\n"
-                    day_context += f"Total: {daily_calories:.0f} calories, {daily_proteins:.1f}g protein, {daily_carbs:.1f}g carbs, {daily_fats:.1f}g fat\n"
-                    
-                    # Group logs by meal
-                    logs_by_meal = {}
-                    for log in logs:
-                        meal = log.get("meal", "Other")
-                        if meal not in logs_by_meal:
-                            logs_by_meal[meal] = []
-                        logs_by_meal[meal].append(log)
-                    
-                    # Add each meal to the context
-                    for meal, meal_logs in logs_by_meal.items():
-                        meal_calories = sum(log.get("calories", 0) for log in meal_logs)
-                        day_context += f"\n{meal}: {meal_calories:.0f} calories\n"
-                        for log in meal_logs:
-                            day_context += f"- {log.get('name', 'Unknown food')}: {log.get('calories', 0):.0f} cal"
-                            if log.get("serving_size") and log.get("serving_unit"):
-                                day_context += f" ({log.get('serving_size')} {log.get('serving_unit')})"
-                            day_context += "\n"
-                    
-                    context_parts.append(day_context)
-                
-                # Add summary for the entire range
-                total_calories = sum(log.get("calories", 0) for log in all_logs)
-                total_proteins = sum(log.get("proteins", 0) for log in all_logs)
-                total_carbs = sum(log.get("carbs", 0) for log in all_logs)
-                total_fats = sum(log.get("fats", 0) for log in all_logs)
-                
-                range_summary = f"\nSummary for {start_date.strftime('%B %d')} to {end_date.strftime('%B %d')}:\n"
-                range_summary += f"Total: {total_calories:.0f} calories, {total_proteins:.1f}g protein, {total_carbs:.1f}g carbs, {total_fats:.1f}g fat\n"
-                range_summary += f"Daily Average: {total_calories / (end_date - start_date).days + 1:.0f} calories\n"
-                
-                context_parts.append(range_summary)
+        if any(keyword in query.lower() for keyword in health_keywords):
+            print(f"Health-related query detected: '{query}'. Getting health data context for user {user_id}")
+            health_context = await get_health_data_context(user_id)
+            if health_context:
+                context_parts.append(health_context)
+                print(f"Added health context for user {user_id}")
             else:
-                context_parts.append(f"No food logs found for the period from {start_date.strftime('%B %d')} to {end_date.strftime('%B %d')}.")
+                print(f"No health context available for user {user_id}")
+        
+        # ... existing code for other context types ...
+        
+        combined_context = "\n\n".join(context_parts)
+        if combined_context:
+            print(f"Successfully generated user context of {len(combined_context)} characters")
         else:
-            # Get logs for the specific date detected
-            print(f"Fetching logs for date: {date_to_check}")
-            logs = await get_user_food_logs_by_date(user_id, date_to_check.strftime("%Y-%m-%d"))
-            date_str = date_to_check.strftime("%A, %B %d, %Y")
-            
-            if logs:
-                # Calculate daily totals
-                daily_calories = sum(log.get("calories", 0) for log in logs)
-                daily_proteins = sum(log.get("proteins", 0) for log in logs)
-                daily_carbs = sum(log.get("carbs", 0) for log in logs)
-                daily_fats = sum(log.get("fats", 0) for log in logs)
-                
-                # Format logs by meal
-                date_context = f"Food log for {date_str}:\n"
-                date_context += f"Total: {daily_calories:.0f} calories, {daily_proteins:.1f}g protein, {daily_carbs:.1f}g carbs, {daily_fats:.1f}g fat\n"
-                
-                # Group logs by meal
-                logs_by_meal = {}
-                for log in logs:
-                    meal = log.get("meal", "Other")
-                    if meal not in logs_by_meal:
-                        logs_by_meal[meal] = []
-                    logs_by_meal[meal].append(log)
-                
-                # Add each meal to the context
-                for meal, meal_logs in logs_by_meal.items():
-                    meal_calories = sum(log.get("calories", 0) for log in meal_logs)
-                    date_context += f"\n{meal}: {meal_calories:.0f} calories\n"
-                    for log in meal_logs:
-                        date_context += f"- {log.get('name', 'Unknown food')}: {log.get('calories', 0):.0f} cal"
-                        if log.get("serving_size") and log.get("serving_unit"):
-                            date_context += f" ({log.get('serving_size')} {log.get('serving_unit')})"
-                        date_context += "\n"
-                
-                context_parts.append(date_context)
-            else:
-                context_parts.append(f"No food logs found for {date_str}.")
+            print("No relevant user context was generated")
         
-        # Get active goal (always add this for context)
-        try:
-            active_goal = get_user_active_goal(user_id)
-            
-            if active_goal:
-                context_parts.append("\nYour Current Goals:")
-                
-                # Weight targets
-                if "weight_target" in active_goal:
-                    weight_target = active_goal["weight_target"]
-                    context_parts.append(f"- Weight goal: {weight_target.get('current', 0):.1f}kg → {weight_target.get('goal', 0):.1f}kg")
-                    context_parts.append(f"- Rate: {weight_target.get('weekly_rate', 0):.1f}kg per week")
-                
-                # Nutrition targets
-                if "nutrition_targets" in active_goal and active_goal["nutrition_targets"]:
-                    target = active_goal["nutrition_targets"][0]
-                    target_calories = target.get('daily_calories', 0)
-                    context_parts.append(f"- Daily calorie target: {target_calories:.0f} calories")
-                    
-                    # Calculate remaining calories if we're looking at today's logs
-                    if date_to_check == today and 'total_calories' in locals():
-                        remaining = max(0, target_calories - total_calories)
-                        context_parts.append(f"- Remaining calories for today: {remaining:.0f}")
-                    
-                    context_parts.append(f"- Protein target: {target.get('proteins', 0):.1f}g")
-                    context_parts.append(f"- Carbs target: {target.get('carbs', 0):.1f}g")
-                    context_parts.append(f"- Fat target: {target.get('fats', 0):.1f}g")
-            else:
-                context_parts.append("\nYou don't have any active nutrition goals set.")
-        except Exception as e:
-            print(f"Error getting goals: {e}")
-            context_parts.append("I can't access your nutrition goals right now.")
-        
-        # Return formatted context
-        context = "\n".join(context_parts)
-        print(f"Final context length: {len(context)}")
-        return context
+        return combined_context
     except Exception as e:
         print(f"Error in get_user_context: {e}")
-        return "I'm having trouble accessing your nutrition data right now."
+        traceback.print_exc()
+        return "Error retrieving user context."
+
+async def get_health_data_context(user_id: str) -> str:
+    """
+    Get Apple Health/HealthKit data context for the user
+    
+    Args:
+        user_id: The user's ID
+        
+    Returns:
+        String with health data context
+    """
+    try:
+        # Import at function level to avoid circular imports
+        from .chatbot_health_insights import get_health_data_for_prompt
+        
+        # Get the enhanced health data formatted for the prompt
+        health_data = get_health_data_for_prompt(user_id)
+        
+        if not health_data or "No Apple HealthKit data" in health_data or "Error processing" in health_data:
+            print(f"No HealthKit data found for user {user_id}")
+            return "No Apple Health data found for this user."
+        
+        # Return the JSON-formatted health data which includes:
+        # - Date range
+        # - Averages
+        # - Latest values
+        # - Trends
+        # - Health assessments
+        # - Daily data
+        context = "## USER'S APPLE HEALTH DATA\n\n"
+        context += health_data + "\n\n"
+        context += "When discussing health metrics, focus on patterns and trends rather than individual daily values.\n"
+        context += "Provide specific insights based on the health data provided above.\n"
+        context += "When making recommendations, focus on gradual, sustainable improvements based on the user's actual data."
+        
+        print(f"Successfully prepared detailed health data context ({len(context)} chars) for user {user_id}")
+        return context
+    except Exception as e:
+        print(f"Error getting health data context: {e}")
+        traceback.print_exc()
+        return "Unable to retrieve health data due to an error."
 
 def detect_meal_suggestion(query: str) -> Optional[dict]:
     """
@@ -1468,6 +790,37 @@ You are NutriBot, a nutritional assistant chatbot for the Nutrivize app. Your ro
 
 If a question is outside your expertise, clearly state this and avoid making up information.
 
+EXTREMELY IMPORTANT GUIDELINES FOR GOAL TRACKING:
+1. When a user asks about their goals or progress, provide detailed analysis including:
+   - Current progress toward weight goals
+   - Analysis of nutrition intake versus targets
+   - Specific, actionable recommendations based on their data
+   - Suggested adjustments to goals when appropriate
+2. Be encouraging but honest about progress
+3. Highlight both positive trends and areas for improvement
+4. Always reference actual data from the user's history when available
+
+EXTREMELY IMPORTANT GUIDELINES FOR MEAL SUGGESTIONS:
+1. When a user asks about food or meal suggestions, ALWAYS ask follow-up questions first before providing suggestions:
+   - Ask about dietary restrictions or preferences
+   - Ask about specific meal requirements (quick, high-protein, low-carb)
+   - Ask about ingredients they have available or like to use
+   - Ask about calorie or macronutrient targets
+2. Provide no more than 2 specific food/meal suggestions in a single response
+3. Keep all responses brief and to the point - users prefer concise answers
+4. After providing a suggestion, ask if they'd like more specific information or alternatives
+
+EXTREMELY IMPORTANT GUIDELINES FOR FOOD INGREDIENT QUERIES:
+1. When a user asks about ingredients for a specific meal you've suggested:
+   - Always provide a precise list of the ingredients needed for that specific meal
+   - When they ask "do I have these ingredients?", check their food database and list:
+     a) Ingredients they HAVE available in their food index
+     b) Ingredients they're MISSING from their food index
+   - If they're missing key ingredients, offer alternatives or a different recipe suggestion
+   - Be specific and reference the exact meal they're asking about (e.g., "For the Mediterranean Chicken & Quinoa Bowl...")
+   - Never respond with "I don't have access to your food database" when a user asks about ingredients
+   - If the user asks "what ingredients do I have?", provide a list of all ingredients in their food index
+
 IMPORTANT FORMATTING GUIDELINES:
 Your responses will be rendered with Markdown. Use Markdown formatting to create well-structured, easy-to-read messages:
 
@@ -1488,7 +841,7 @@ Your responses will be rendered with Markdown. Use Markdown formatting to create
 
 4. For meal suggestions and recipes:
    - Use headings for the meal name
-   - Use bold for section names like "Ingredients" and "Instructions"
+   - Use **bold** for section names like "Ingredients" and "Instructions"
    - Use bullet points for ingredients
    - Use numbered lists for steps
    - ALWAYS include serving size information (e.g., "Makes 2 servings (300g each)")
@@ -1505,6 +858,12 @@ Your responses will be rendered with Markdown. Use Markdown formatting to create
    ---
 
 Always organize your responses in a clear, visually appealing way. Good formatting makes information easier to understand and act upon.
+
+RESPONSE LENGTH GUIDELINES:
+- Keep all responses under 300 words unless the user explicitly asks for more detail
+- Use page breaks (---) to separate different sections of information
+- Focus on answering the specific question rather than providing unnecessary background information
+- For meal suggestions, limit to 2 options maximum, with brief descriptions
 """
 
     if use_food_db:
@@ -1630,6 +989,15 @@ You can suggest meals based on the user's preferences and nutritional needs. Whe
 MEAL_SUGGESTION: {'meal_type': 'breakfast', 'time_of_day': 'morning', 'preference': 'high-protein and quick', 'remaining_macros': {'calories': 500, 'protein': 30, 'carbs': 40, 'fat': 15}}
 
 The system will replace this with appropriate meal suggestions based on the user's food database and nutritional requirements.
+
+GOAL TRACKING:
+When a user asks about their goals or progress, you have the following capabilities:
+1. Analyzing progress toward weight and nutrition goals
+2. Recommending adjustments to goals based on actual progress
+3. Providing detailed nutritional analysis
+4. Showing progress over time with historical data
+
+When the user asks about their goals, the system will automatically retrieve their goal data, analyze progress, and provide personalized recommendations.
 """
     
     return system_prompt
@@ -1750,3 +1118,597 @@ async def handle_meal_plan_queries(query_lower, user_id=None):
                 "confidence": "low",
                 "query_type": "meal_plan"
             }
+
+async def analyze_user_goal_progress(user_id):
+    """
+    Analyze a user's goal progress and generate recommendations based on their history.
+    
+    Args:
+        user_id: The user's ID
+        
+    Returns:
+        A string containing analysis of the user's goal progress and recommendations
+    """
+    try:
+        # Get the user's active goal
+        active_goal = get_user_active_goal(user_id)
+        if not active_goal:
+            return "You don't have an active goal set up yet. Would you like me to help you create one?"
+        
+        # Extract basic goal information
+        goal_type = active_goal.get("type", "unknown")
+        goal_id = str(active_goal.get("_id", ""))
+        
+        # Extract weight targets if they exist
+        weight_target = active_goal.get("weight_target", {})
+        current_weight = weight_target.get("current", 0)
+        target_weight = weight_target.get("goal", 0)
+        weekly_rate = weight_target.get("weekly_rate", 0)
+        
+        # Extract nutrition targets
+        nutrition_targets = active_goal.get("nutrition_targets", [])
+        if not nutrition_targets:
+            nutrition_target = None
+        else:
+            nutrition_target = nutrition_targets[0]
+        
+        # Get goal start date and calculate expected duration
+        start_date = active_goal.get("start_date")
+        if isinstance(start_date, str):
+            start_date = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+        
+        # Get today's date for calculations
+        today = datetime.now(timezone.utc)
+        
+        # Calculate progress percentage for weight goals
+        progress_pct = 0
+        if goal_type in ["weight loss", "weight gain"] and current_weight and target_weight:
+            weight_diff = abs(current_weight - target_weight)
+            # Check for progress entries
+            progress_entries = active_goal.get("progress", [])
+            
+            if progress_entries:
+                # Sort progress entries by date
+                sorted_entries = sorted(progress_entries, 
+                                       key=lambda x: x["date"] if isinstance(x["date"], datetime) 
+                                       else datetime.fromisoformat(x["date"].replace('Z', '+00:00')))
+                
+                # Get latest weight
+                latest_entry = sorted_entries[-1]
+                latest_weight = latest_entry.get("weight", current_weight)
+                
+                # Calculate progress
+                if goal_type == "weight loss":
+                    progress = current_weight - latest_weight
+                    total_needed = current_weight - target_weight
+                else:  # weight gain
+                    progress = latest_weight - current_weight
+                    total_needed = target_weight - current_weight
+                
+                if total_needed > 0:
+                    progress_pct = min(100, max(0, (progress / total_needed) * 100))
+        
+        # Get user's logs for the past 14 days to analyze eating patterns
+        end_date = today.date()
+        start_date_logs = (today - timedelta(days=14)).date()
+        
+        # Get nutrition aggregates for the past 14 days
+        nutrition_data = get_user_nutrition_aggregates(user_id, start_date_logs, end_date)
+        
+        # Calculate average nutrition values
+        total_days = len(nutrition_data)
+        if total_days > 0:
+            avg_calories = sum(day.get("calories", 0) for day in nutrition_data.values()) / total_days
+            avg_protein = sum(day.get("proteins", 0) for day in nutrition_data.values()) / total_days
+            avg_carbs = sum(day.get("carbs", 0) for day in nutrition_data.values()) / total_days
+            avg_fat = sum(day.get("fats", 0) for day in nutrition_data.values()) / total_days
+            avg_fiber = sum(day.get("fiber", 0) for day in nutrition_data.values()) / total_days
+        else:
+            avg_calories = avg_protein = avg_carbs = avg_fat = avg_fiber = 0
+        
+        # Build analysis and recommendations
+        analysis = []
+        recommendations = []
+        
+        # Add goal summary
+        analysis.append(f"**Goal Type:** {goal_type.title()}")
+        
+        if goal_type in ["weight loss", "weight gain"]:
+            analysis.append(f"**Weight Goal:** {target_weight} kg (Current: {current_weight} kg)")
+            if weekly_rate:
+                analysis.append(f"**Target Rate:** {weekly_rate} kg per week")
+            
+            # Calculate expected completion time based on weekly rate
+            if weekly_rate > 0:
+                weeks_needed = abs(current_weight - target_weight) / weekly_rate
+                expected_completion = today + timedelta(weeks=weeks_needed)
+                analysis.append(f"**Expected Completion:** {expected_completion.strftime('%Y-%m-%d')}")
+            
+            # Add progress percentage
+            if progress_pct > 0:
+                analysis.append(f"**Current Progress:** {progress_pct:.1f}%")
+        
+        # Add nutrition target information
+        if nutrition_target:
+            analysis.append("\n**Nutrition Targets:**")
+            target_calories = nutrition_target.get("daily_calories", 0)
+            target_protein = nutrition_target.get("proteins", 0)
+            target_carbs = nutrition_target.get("carbs", 0)
+            target_fat = nutrition_target.get("fats", 0)
+            target_fiber = nutrition_target.get("fiber", 0)
+            
+            analysis.append(f"- Calories: {target_calories:.0f} kcal/day")
+            analysis.append(f"- Protein: {target_protein:.1f} g/day")
+            analysis.append(f"- Carbs: {target_carbs:.1f} g/day")
+            analysis.append(f"- Fat: {target_fat:.1f} g/day")
+            if target_fiber:
+                analysis.append(f"- Fiber: {target_fiber:.1f} g/day")
+        
+        # Add analysis of current nutrition
+        if total_days > 0:
+            analysis.append("\n**Current 14-Day Averages:**")
+            analysis.append(f"- Calories: {avg_calories:.0f} kcal/day")
+            analysis.append(f"- Protein: {avg_protein:.1f} g/day")
+            analysis.append(f"- Carbs: {avg_carbs:.1f} g/day")
+            analysis.append(f"- Fat: {avg_fat:.1f} g/day")
+            analysis.append(f"- Fiber: {avg_fiber:.1f} g/day")
+            
+            # Generate recommendations based on goal type and nutrition data
+            if nutrition_target:
+                # Calculate deviations from targets
+                cal_deviation = (avg_calories / target_calories) * 100 if target_calories else 100
+                protein_deviation = (avg_protein / target_protein) * 100 if target_protein else 100
+                carbs_deviation = (avg_carbs / target_carbs) * 100 if target_carbs else 100
+                fat_deviation = (avg_fat / target_fat) * 100 if target_fat else 100
+                
+                # Add specific recommendations based on deviations
+                recommendations.append("\n**Recommendations:**")
+                
+                # Calories recommendations
+                if goal_type == "weight loss":
+                    if cal_deviation > 110:
+                        recommendations.append("- You're consistently consuming more calories than your target. Consider reducing portion sizes or choosing lower-calorie alternatives.")
+                    elif cal_deviation < 80:
+                        recommendations.append("- Your calorie intake is significantly below target, which might slow metabolism. Consider slightly increasing your intake with nutrient-dense foods.")
+                    elif 95 <= cal_deviation <= 105:
+                        recommendations.append("- Your calorie intake is right on target. Great job maintaining consistency!")
+                elif goal_type == "weight gain":
+                    if cal_deviation < 90:
+                        recommendations.append("- Your calorie intake is below your target for weight gain. Try adding calorie-dense foods like nuts, avocados, or healthy oils.")
+                    elif cal_deviation > 120:
+                        recommendations.append("- You're exceeding your calorie target by a significant margin. This might lead to faster weight gain than planned.")
+                
+                # Protein recommendations
+                if protein_deviation < 80:
+                    recommendations.append("- Your protein intake is below target. Consider adding more lean protein sources like chicken, fish, beans, or protein supplements.")
+                elif protein_deviation > 120:
+                    recommendations.append("- Your protein intake is significantly above target. While protein is important, balance with other nutrients is also key.")
+                
+                # Carbs and fat balance
+                if carbs_deviation < 70 and fat_deviation > 120:
+                    recommendations.append("- Your diet appears to be low in carbs and high in fat. If this is intentional (like keto), that's fine, otherwise consider balancing your macronutrients.")
+                
+                # Fiber recommendation
+                if avg_fiber < 25:
+                    recommendations.append("- Consider increasing your fiber intake by adding more fruits, vegetables, legumes, and whole grains to support digestive health.")
+        
+        # Add specific goal adjustment recommendations
+        if goal_type in ["weight loss", "weight gain"] and progress_entries and len(progress_entries) >= 2:
+            # Sort progress entries by date
+            sorted_entries = sorted(progress_entries, 
+                                   key=lambda x: x["date"] if isinstance(x["date"], datetime) 
+                                   else datetime.fromisoformat(x["date"].replace('Z', '+00:00')))
+            
+            # Calculate average weekly change
+            if len(sorted_entries) >= 2:
+                first_entry = sorted_entries[0]
+                latest_entry = sorted_entries[-1]
+                
+                first_date = first_entry["date"] if isinstance(first_entry["date"], datetime) else datetime.fromisoformat(first_entry["date"].replace('Z', '+00:00'))
+                latest_date = latest_entry["date"] if isinstance(latest_entry["date"], datetime) else datetime.fromisoformat(latest_entry["date"].replace('Z', '+00:00'))
+                
+                weeks_elapsed = (latest_date - first_date).days / 7
+                if weeks_elapsed > 0:
+                    weight_change = latest_entry.get("weight", 0) - first_entry.get("weight", 0)
+                    weekly_change = weight_change / weeks_elapsed
+                    
+                    if goal_type == "weight loss":
+                        if weekly_change > 0:  # Weight increased instead of decreasing
+                            recommendations.append(f"\n**Goal Adjustment Needed:** You've gained {abs(weekly_change):.2f} kg per week instead of losing weight. Consider reducing your calorie intake and increasing physical activity.")
+                        elif abs(weekly_change) < (weekly_rate * 0.5):  # Much slower progress than expected
+                            recommendations.append(f"\n**Goal Adjustment Suggested:** Your weight loss rate ({abs(weekly_change):.2f} kg/week) is slower than your target ({weekly_rate} kg/week). Consider adjusting your calorie target or increasing activity level.")
+                        elif abs(weekly_change) > (weekly_rate * 1.5):  # Much faster progress than expected
+                            recommendations.append(f"\n**Goal Adjustment Suggested:** Your weight loss rate ({abs(weekly_change):.2f} kg/week) is significantly faster than your target ({weekly_rate} kg/week). Losing weight too quickly may be unhealthy. Consider increasing your calorie intake slightly.")
+                    elif goal_type == "weight gain":
+                        if weekly_change < 0:  # Weight decreased instead of increasing
+                            recommendations.append(f"\n**Goal Adjustment Needed:** You've lost {abs(weekly_change):.2f} kg per week instead of gaining weight. Consider increasing your calorie intake, especially from protein and healthy fats.")
+                        elif abs(weekly_change) < (weekly_rate * 0.5):  # Much slower progress than expected
+                            recommendations.append(f"\n**Goal Adjustment Suggested:** Your weight gain rate ({abs(weekly_change):.2f} kg/week) is slower than your target ({weekly_rate} kg/week). Consider increasing your calorie intake.")
+                        elif abs(weekly_change) > (weekly_rate * 1.5):  # Much faster progress than expected
+                            recommendations.append(f"\n**Goal Adjustment Suggested:** Your weight gain rate ({abs(weekly_change):.2f} kg/week) is significantly faster than your target ({weekly_rate} kg/week). Consider moderating your calorie intake to ensure healthy weight gain.")
+        
+        # Combine analysis and recommendations
+        result = "\n".join(analysis)
+        if recommendations:
+            result += "\n" + "\n".join(recommendations)
+            
+        # Add goal ID for reference in future operations
+        result += f"\n\n[GOAL_ID: {goal_id}]"
+        
+        return result
+    except Exception as e:
+        print(f"Error analyzing goal progress: {e}")
+        traceback.print_exc()
+        return "I'm having trouble analyzing your goal progress right now. Please try again later."
+
+async def suggest_goal_adjustments(user_id):
+    """
+    Generate specific goal adjustment suggestions based on user's progress and history.
+    
+    Args:
+        user_id: The user's ID
+        
+    Returns:
+        A string containing suggested goal adjustments
+    """
+    try:
+        # Get the user's active goal
+        active_goal = get_user_active_goal(user_id)
+        if not active_goal:
+            return "You don't have an active goal set up yet. Would you like me to help you create one?"
+        
+        goal_id = str(active_goal.get("_id", ""))
+        goal_type = active_goal.get("type", "unknown")
+        
+        # Extract weight targets if they exist
+        weight_target = active_goal.get("weight_target", {})
+        current_weight = weight_target.get("current", 0)
+        target_weight = weight_target.get("goal", 0)
+        weekly_rate = weight_target.get("weekly_rate", 0)
+        
+        # Extract nutrition targets
+        nutrition_targets = active_goal.get("nutrition_targets", [])
+        if not nutrition_targets:
+            nutrition_target = None
+        else:
+            nutrition_target = nutrition_targets[0]
+            
+        # Get progress entries
+        progress_entries = active_goal.get("progress", [])
+        
+        # Get user's logs for the past 14 days
+        end_date = datetime.now(timezone.utc).date()
+        start_date_logs = (datetime.now(timezone.utc) - timedelta(days=14)).date()
+        
+        # Get nutrition aggregates
+        nutrition_data = get_user_nutrition_aggregates(user_id, start_date_logs, end_date)
+        
+        # Calculate average nutrition values
+        total_days = len(nutrition_data)
+        if total_days > 0:
+            avg_calories = sum(day.get("calories", 0) for day in nutrition_data.values()) / total_days
+        else:
+            avg_calories = 0
+            
+        # Build recommended adjustments
+        adjustments = []
+        
+        # For weight goals, calculate based on progress
+        if goal_type in ["weight loss", "weight gain"] and progress_entries and len(progress_entries) >= 2:
+            # Sort progress entries by date
+            sorted_entries = sorted(progress_entries, 
+                                  key=lambda x: x["date"] if isinstance(x["date"], datetime) 
+                                  else datetime.fromisoformat(x["date"].replace('Z', '+00:00')))
+            
+            # Calculate actual rate of weight change
+            if len(sorted_entries) >= 2:
+                first_entry = sorted_entries[0]
+                latest_entry = sorted_entries[-1]
+                
+                first_date = first_entry["date"] if isinstance(first_entry["date"], datetime) else datetime.fromisoformat(first_entry["date"].replace('Z', '+00:00'))
+                latest_date = latest_entry["date"] if isinstance(latest_entry["date"], datetime) else datetime.fromisoformat(latest_entry["date"].replace('Z', '+00:00'))
+                
+                weeks_elapsed = (latest_date - first_date).days / 7
+                if weeks_elapsed > 0:
+                    weight_change = latest_entry.get("weight", 0) - first_entry.get("weight", 0)
+                    actual_weekly_rate = weight_change / weeks_elapsed
+                    
+                    # Update the current weight to latest measurement
+                    current_weight = latest_entry.get("weight", current_weight)
+                    
+                    # Calculate suggested adjustments
+                    if goal_type == "weight loss":
+                        # For weight loss, negative change is expected
+                        if actual_weekly_rate >= 0:  # No weight loss or weight gain
+                            # Calculate new calorie target (reduce by ~500 kcal/day)
+                            if nutrition_target:
+                                current_target = nutrition_target.get("daily_calories", 2000)
+                                new_target = max(1200, current_target - 500)  # Ensure not too low
+                                adjustments.append({
+                                    "type": "calorie_adjustment",
+                                    "current": current_target,
+                                    "suggested": new_target,
+                                    "reason": "Your current calorie intake isn't resulting in weight loss. Reducing daily calories by 500 kcal should help create a deficit."
+                                })
+                        elif actual_weekly_rate < -2.0:  # Losing too quickly (more than 2kg/week)
+                            # Calculate new calorie target (increase by ~250 kcal/day)
+                            if nutrition_target:
+                                current_target = nutrition_target.get("daily_calories", 2000)
+                                new_target = current_target + 250
+                                adjustments.append({
+                                    "type": "calorie_adjustment",
+                                    "current": current_target,
+                                    "suggested": new_target,
+                                    "reason": f"You're losing weight at {abs(actual_weekly_rate):.2f} kg/week, which is faster than generally recommended. Increasing calories slightly can ensure a healthier, more sustainable rate."
+                                })
+                        elif abs(actual_weekly_rate) < 0.2:  # Very slow progress
+                            # Calculate new calorie target (reduce by ~250 kcal/day)
+                            if nutrition_target:
+                                current_target = nutrition_target.get("daily_calories", 2000)
+                                new_target = max(1200, current_target - 250)  # Ensure not too low
+                                adjustments.append({
+                                    "type": "calorie_adjustment",
+                                    "current": current_target,
+                                    "suggested": new_target,
+                                    "reason": f"Your weight loss has been slow at {abs(actual_weekly_rate):.2f} kg/week. A modest reduction in calories should help accelerate progress."
+                                })
+                                
+                    elif goal_type == "weight gain":
+                        # For weight gain, positive change is expected
+                        if actual_weekly_rate <= 0:  # No weight gain or weight loss
+                            # Calculate new calorie target (increase by ~500 kcal/day)
+                            if nutrition_target:
+                                current_target = nutrition_target.get("daily_calories", 2000)
+                                new_target = current_target + 500
+                                adjustments.append({
+                                    "type": "calorie_adjustment",
+                                    "current": current_target,
+                                    "suggested": new_target,
+                                    "reason": "Your current calorie intake isn't resulting in weight gain. Increasing daily calories by 500 kcal should help create a surplus."
+                                })
+                        elif actual_weekly_rate > 1.0:  # Gaining too quickly (more than 1kg/week)
+                            # Calculate new calorie target (decrease by ~250 kcal/day)
+                            if nutrition_target:
+                                current_target = nutrition_target.get("daily_calories", 2000)
+                                new_target = current_target - 250
+                                adjustments.append({
+                                    "type": "calorie_adjustment",
+                                    "current": current_target,
+                                    "suggested": new_target,
+                                    "reason": f"You're gaining weight at {actual_weekly_rate:.2f} kg/week, which is faster than generally recommended. Decreasing calories slightly can ensure healthier weight gain."
+                                })
+                        elif actual_weekly_rate < 0.2:  # Very slow progress
+                            # Calculate new calorie target (increase by ~250 kcal/day)
+                            if nutrition_target:
+                                current_target = nutrition_target.get("daily_calories", 2000)
+                                new_target = current_target + 250
+                                adjustments.append({
+                                    "type": "calorie_adjustment",
+                                    "current": current_target,
+                                    "suggested": new_target,
+                                    "reason": f"Your weight gain has been slow at {actual_weekly_rate:.2f} kg/week. A modest increase in calories should help accelerate progress."
+                                })
+                    
+                    # Check if target weight is still appropriate
+                    # For example, if someone has been consistently losing weight but is approaching their target
+                    if (goal_type == "weight loss" and current_weight - target_weight < 2) or \
+                       (goal_type == "weight gain" and target_weight - current_weight < 2):
+                        # Suggest new target
+                        if goal_type == "weight loss":
+                            new_target_weight = max(target_weight - 2, target_weight * 0.95)  # Either 2kg lower or 5% lower
+                        else:  # weight gain
+                            new_target_weight = min(target_weight + 2, target_weight * 1.05)  # Either 2kg higher or 5% higher
+                            
+                        adjustments.append({
+                            "type": "weight_target_adjustment",
+                            "current": target_weight,
+                            "suggested": new_target_weight,
+                            "reason": f"You're close to reaching your target weight of {target_weight}kg. Consider adjusting your goal to maintain progress."
+                        })
+        
+        # For all goals, check if nutrition target needs adjustment based on recent nutrition data
+        if nutrition_target and total_days > 7:
+            target_calories = nutrition_target.get("daily_calories", 0)
+            target_protein = nutrition_target.get("proteins", 0)
+            target_carbs = nutrition_target.get("carbs", 0)
+            target_fat = nutrition_target.get("fats", 0)
+            
+            # Calculate average nutrition values
+            avg_calories = sum(day.get("calories", 0) for day in nutrition_data.values()) / total_days
+            avg_protein = sum(day.get("proteins", 0) for day in nutrition_data.values()) / total_days
+            avg_carbs = sum(day.get("carbs", 0) for day in nutrition_data.values()) / total_days
+            avg_fat = sum(day.get("fats", 0) for day in nutrition_data.values()) / total_days
+            
+            # Check if consistently over/under target for macros
+            if avg_protein < (target_protein * 0.8):
+                # Suggest increasing protein target
+                adjustments.append({
+                    "type": "protein_adjustment",
+                    "current": target_protein,
+                    "suggested": target_protein * 0.9,  # Reduce target by 10%
+                    "reason": f"You're consistently consuming less protein ({avg_protein:.1f}g) than your target ({target_protein:.1f}g). Adjusting your target to a more achievable level can help with goal tracking."
+                })
+            
+            # Similarly for other macros
+            if avg_carbs < (target_carbs * 0.8):
+                adjustments.append({
+                    "type": "carbs_adjustment",
+                    "current": target_carbs,
+                    "suggested": target_carbs * 0.9,
+                    "reason": f"You're consistently consuming fewer carbs ({avg_carbs:.1f}g) than your target ({target_carbs:.1f}g). Adjusting your target to a more achievable level can help with goal tracking."
+                })
+                
+            if avg_fat < (target_fat * 0.8):
+                adjustments.append({
+                    "type": "fat_adjustment",
+                    "current": target_fat,
+                    "suggested": target_fat * 0.9,
+                    "reason": f"You're consistently consuming less fat ({avg_fat:.1f}g) than your target ({target_fat:.1f}g). Adjusting your target to a more achievable level can help with goal tracking."
+                })
+        
+        # Format the response
+        if not adjustments:
+            return f"Based on your goal progress, I don't have any specific adjustment recommendations at this time. Your current goal settings appear to be working well.\n\n[GOAL_ID: {goal_id}]"
+        
+        response = [f"Based on your progress and nutrition data, I recommend the following adjustments to your {goal_type} goal:"]
+        
+        for adj in adjustments:
+            if adj["type"] == "calorie_adjustment":
+                response.append(f"\n**Adjust Daily Calorie Target:**")
+                response.append(f"- Current: {adj['current']:.0f} kcal")
+                response.append(f"- Suggested: {adj['suggested']:.0f} kcal")
+                response.append(f"- Reason: {adj['reason']}")
+            elif adj["type"] == "weight_target_adjustment":
+                response.append(f"\n**Adjust Weight Target:**")
+                response.append(f"- Current: {adj['current']:.1f} kg")
+                response.append(f"- Suggested: {adj['suggested']:.1f} kg")
+                response.append(f"- Reason: {adj['reason']}")
+            elif adj["type"] == "protein_adjustment":
+                response.append(f"\n**Adjust Protein Target:**")
+                response.append(f"- Current: {adj['current']:.1f} g")
+                response.append(f"- Suggested: {adj['suggested']:.1f} g")
+                response.append(f"- Reason: {adj['reason']}")
+            elif adj["type"] == "carbs_adjustment":
+                response.append(f"\n**Adjust Carbs Target:**")
+                response.append(f"- Current: {adj['current']:.1f} g")
+                response.append(f"- Suggested: {adj['suggested']:.1f} g")
+                response.append(f"- Reason: {adj['reason']}")
+            elif adj["type"] == "fat_adjustment":
+                response.append(f"\n**Adjust Fat Target:**")
+                response.append(f"- Current: {adj['current']:.1f} g")
+                response.append(f"- Suggested: {adj['suggested']:.1f} g")
+                response.append(f"- Reason: {adj['reason']}")
+        
+        # Add action hint with goal ID
+        response.append(f"\nWould you like me to apply any of these adjustments to your goal?\n\n[GOAL_ID: {goal_id}]")
+        
+        return "\n".join(response)
+    except Exception as e:
+        print(f"Error suggesting goal adjustments: {e}")
+        traceback.print_exc()
+        return "I'm having trouble generating goal adjustment suggestions right now. Please try again later."
+
+async def handle_goal_queries(query_lower, user_id=None):
+    """
+    Handle goal-related queries
+    
+    Args:
+        query_lower: The user's query in lowercase
+        user_id: The authenticated user's ID, defaults to constant USER_ID if not provided
+    """
+    if not user_id:
+        user_id = USER_ID
+        
+    # Check if it's a goal progress query
+    if any(phrase in query_lower for phrase in ["goal progress", "my progress", "how am i doing", "track my goal", 
+                                               "goal status", "my goal status", "weight progress"]):
+        try:
+            progress_info = await analyze_user_goal_progress(user_id)
+            return {
+                "answer": progress_info,
+                "sources": ["Goal Database", "Food Log History"],
+                "confidence": "high",
+                "query_type": "goal_progress"
+            }
+        except Exception as e:
+            print(f"Error processing goal progress query: {e}")
+            return {
+                "answer": "I had trouble retrieving your goal progress information. Please try again or check if you have an active goal.",
+                "sources": [],
+                "confidence": "low",
+                "query_type": "goal_progress"
+            }
+    
+    # Check if it's a goal adjustment suggestion query
+    if any(phrase in query_lower for phrase in ["adjust my goal", "change my goal", "update my goal", 
+                                               "improve my goal", "suggest changes", "goal recommendations",
+                                               "change target", "adjust target"]):
+        try:
+            adjustment_info = await suggest_goal_adjustments(user_id)
+            return {
+                "answer": adjustment_info,
+                "sources": ["Goal Database", "Food Log History"],
+                "confidence": "high",
+                "query_type": "goal_adjustment"
+            }
+        except Exception as e:
+            print(f"Error processing goal adjustment query: {e}")
+            return {
+                "answer": "I had trouble generating goal adjustment suggestions. Please try again or check if you have an active goal.",
+                "sources": [],
+                "confidence": "low",
+                "query_type": "goal_adjustment"
+            }
+    
+    # Check if it's a query about current goals
+    if any(phrase in query_lower for phrase in ["current goal", "active goal", "my goal", 
+                                               "weight goal", "nutrition goal", "what is my goal", 
+                                               "goal details", "tell me about my goal"]):
+        try:
+            active_goal = get_user_active_goal(user_id)
+            if not active_goal:
+                return {
+                    "answer": "You don't have an active goal set up yet. Would you like me to help you create one?",
+                    "sources": ["Goal Database"],
+                    "confidence": "high",
+                    "query_type": "goal_info"
+                }
+                
+            # Format basic goal info
+            goal_type = active_goal.get("type", "unknown")
+            goal_id = str(active_goal.get("_id", ""))
+            
+            response = [f"**Your Current {goal_type.title()} Goal:**"]
+            
+            # Add weight target info if available
+            weight_target = active_goal.get("weight_target", {})
+            if weight_target:
+                current_weight = weight_target.get("current", 0)
+                target_weight = weight_target.get("goal", 0)
+                weekly_rate = weight_target.get("weekly_rate", 0)
+                
+                if current_weight and target_weight:
+                    response.append(f"- Starting weight: {current_weight} kg")
+                    response.append(f"- Target weight: {target_weight} kg")
+                    if weekly_rate:
+                        response.append(f"- Target rate: {weekly_rate} kg per week")
+            
+            # Add nutrition target info
+            nutrition_targets = active_goal.get("nutrition_targets", [])
+            if nutrition_targets:
+                nutrition_target = nutrition_targets[0]
+                response.append("\n**Nutrition Targets:**")
+                response.append(f"- Daily calories: {nutrition_target.get('daily_calories', 0):.0f} kcal")
+                response.append(f"- Protein: {nutrition_target.get('proteins', 0):.1f} g")
+                response.append(f"- Carbs: {nutrition_target.get('carbs', 0):.1f} g")
+                response.append(f"- Fat: {nutrition_target.get('fats', 0):.1f} g")
+                if nutrition_target.get("fiber", 0) > 0:
+                    response.append(f"- Fiber: {nutrition_target.get('fiber', 0):.1f} g")
+            
+            # Add creation date
+            created_at = active_goal.get("created_at", "")
+            if created_at:
+                if isinstance(created_at, str):
+                    created_at = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+                response.append(f"\nGoal created on: {created_at.strftime('%Y-%m-%d')}")
+            
+            # Add goal ID reference
+            response.append(f"\n[GOAL_ID: {goal_id}]")
+            
+            return {
+                "answer": "\n".join(response),
+                "sources": ["Goal Database"],
+                "confidence": "high",
+                "query_type": "goal_info"
+            }
+        except Exception as e:
+            print(f"Error processing goal info query: {e}")
+            return {
+                "answer": "I had trouble retrieving your goal information. Please try again.",
+                "sources": [],
+                "confidence": "low",
+                "query_type": "goal_info"
+            }
+    
+    # If nothing matched
+    return None

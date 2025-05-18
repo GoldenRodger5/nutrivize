@@ -292,7 +292,7 @@ async def generate_meal_plan(request: MealPlanRequest) -> MealPlan:
                     attempts += 1
         
         # Calculate daily totals
-        daily_totals = calculate_macros(day_meals_list)
+        daily_totals = calculate_macros(day_meals_list) if day_meals_list else MacroBreakdown(protein=0, carbs=0, fat=0, calories=0)
         
         # Create the daily plan
         daily_plan = DailyPlan(

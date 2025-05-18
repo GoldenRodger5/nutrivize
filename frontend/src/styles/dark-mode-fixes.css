@@ -1,0 +1,328 @@
+/* Dark mode fixes for specific components */
+@media (prefers-color-scheme: dark) {
+  /* Card-like components */
+  .card, .food-item, .log-item, .meal-group, .nutrition-summary, .food-index-page .food-item {
+    background-color: #1f2937 !important;
+    color: #f9fafb !important;
+  }
+  
+  /* Headers and titles */
+  .food-item-name, .log-item-name, .meal-title, .day-title, .summary-label {
+    color: #f3f4f6 !important;
+  }
+  
+  /* Values, numbers, and stats */
+  .food-item-calories, .log-item-calories, .summary-value, .log-item-macros span {
+    color: #e5e7eb !important;
+  }
+  
+  /* Subtitles and secondary info */
+  .food-item-serving, .log-item-amount, .summary-details, .meal-list-item {
+    color: #d1d5db !important;
+  }
+  
+  /* Background of main content areas */
+  .food-log-page, .food-index-page, .food-list, .meal-logs {
+    background-color: #111827 !important;
+  }
+  
+  /* Card hover effects */
+  .food-item:hover, .log-item:hover {
+    background-color: #2d3748 !important;
+  }
+  
+  /* Action buttons */
+  .action-button {
+    background-color: #374151 !important;
+    color: #f9fafb !important;
+  }
+  
+  .action-button:hover {
+    background-color: #4b5563 !important;
+  }
+  
+  /* Input fields in forms */
+  .form-group input, .form-group select, .form-group textarea {
+    background-color: #2d3748 !important;
+    color: #f9fafb !important;
+    border-color: #4b5563 !important;
+  }
+  
+  /* Date navigation */
+  .date-navigation, .date-display {
+    color: #f9fafb !important;
+  }
+  
+  /* Nutrition information */
+  .nutrient .label {
+    color: #d1d5db !important;
+  }
+  
+  .nutrient .value {
+    color: #f9fafb !important;
+    font-weight: 500;
+  }
+  
+  /* No data messages */
+  .no-data-message {
+    color: #d1d5db !important;
+    background-color: #1f2937 !important;
+  }
+  
+  /* Search bar */
+  .search-bar input {
+    background-color: #2d3748 !important;
+    color: #f9fafb !important;
+    border-color: #4b5563 !important;
+  }
+  
+  /* Toggle buttons */
+  .toggle-button {
+    background-color: #374151 !important;
+    color: #d1d5db !important;
+  }
+  
+  .toggle-button.active {
+    background-color: #4f46e5 !important;
+    color: #f9fafb !important;
+  }
+
+  /* Modal backgrounds and content */
+  .modal-content {
+    background-color: #1f2937 !important;
+    color: #f9fafb !important;
+  }
+
+  .modal-header, .modal-footer {
+    background-color: #111827 !important;
+    color: #f9fafb !important;
+  }
+  
+  /* Widget styling fixes */
+  .widget {
+    background-color: #1f2937 !important;
+    border-color: #374151 !important;
+  }
+  
+  .widget-header {
+    border-bottom-color: #374151 !important;
+  }
+  
+  .widget-header h3 {
+    color: #f3f4f6 !important;
+  }
+  
+  .widget-link, .widget-button {
+    background-color: #3b82f6 !important;
+    color: #ffffff !important;
+    border: none !important;
+    padding: 6px 12px !important;
+    border-radius: 4px !important;
+    cursor: pointer !important;
+    text-decoration: none !important;
+    display: inline-block !important;
+    font-weight: 500 !important;
+    transition: background-color 0.2s !important;
+    margin-top: 10px !important;
+  }
+  
+  .widget-link:hover, .widget-button:hover {
+    background-color: #2563eb !important;
+  }
+  
+  /* Tables in dark mode */
+  table {
+    color: #f3f4f6 !important;
+  }
+  
+  th {
+    background-color: #1f2937 !important;
+    color: #f9fafb !important;
+    border-bottom-color: #374151 !important;
+  }
+  
+  td {
+    color: #e5e7eb !important;
+    border-bottom-color: #374151 !important;
+  }
+  
+  tr:hover td {
+    background-color: #2d3748 !important;
+  }
+  
+  /* Progress bars and visualizations */
+  .progress-bar {
+    background-color: #374151 !important;
+  }
+  
+  .progress-fill {
+    background-color: #3b82f6 !important;
+  }
+  
+  .progress-fill.protein {
+    background-color: #10b981 !important;
+  }
+  
+  .progress-fill.carbs {
+    background-color: #f59e0b !important;
+  }
+  
+  .progress-fill.fats {
+    background-color: #ef4444 !important;
+  }
+  
+  /* Circular charts */
+  .circular-chart .circle-bg {
+    stroke: #374151 !important;
+  }
+  
+  .circular-chart .circle {
+    stroke: #3b82f6 !important;
+  }
+  
+  .circular-chart .percentage {
+    fill: #f9fafb !important;
+  }
+  
+  /* Meal items in widgets */
+  .meal-item {
+    background-color: #2d3748 !important;
+    color: #f3f4f6 !important;
+    border-color: #374151 !important;
+    margin-bottom: 8px !important;
+    padding: 8px !important;
+    border-radius: 4px !important;
+  }
+  
+  .meal-name {
+    color: #f9fafb !important;
+    font-weight: 500 !important;
+  }
+  
+  .meal-type {
+    color: #d1d5db !important;
+  }
+  
+  .meal-nutrition span {
+    color: #e5e7eb !important;
+    margin-right: 8px !important;
+  }
+  
+  .more-meals {
+    color: #d1d5db !important;
+    margin: 8px 0 !important;
+  }
+  
+  /* Ensure buttons are visible */
+  button, .btn, .primary-button, .secondary-button {
+    border: none !important;
+    font-weight: 500 !important;
+  }
+  
+  /* Make sure primary buttons stand out */
+  .primary-button, .btn-primary {
+    background-color: #3b82f6 !important;
+    color: #ffffff !important;
+  }
+  
+  .primary-button:hover, .btn-primary:hover {
+    background-color: #2563eb !important;
+  }
+  
+  /* Secondary buttons more visible */
+  .secondary-button, .btn-secondary {
+    background-color: #6b7280 !important;
+    color: #ffffff !important;
+  }
+  
+  .secondary-button:hover, .btn-secondary:hover {
+    background-color: #4b5563 !important;
+  }
+}
+
+/* Light mode contrast fixes */
+@media (prefers-color-scheme: light) {
+  /* Ensure good contrast in light mode */
+  .food-item, .log-item, .meal-group, .nutrition-summary {
+    background-color: white !important;
+    color: #1f2937 !important;
+  }
+  
+  /* Card hover effects */
+  .food-item:hover, .log-item:hover {
+    background-color: #f9fafb !important;
+  }
+
+  /* Make sure all text fields have white background in light mode */
+  input, select, textarea, .form-group input, .form-group select, .form-group textarea {
+    background-color: white !important;
+    color: #1f2937 !important;
+    border-color: #d1d5db !important;
+  }
+
+  /* Action buttons */
+  .action-button {
+    background-color: #f3f4f6 !important;
+    color: #1f2937 !important;
+  }
+  
+  .action-button:hover {
+    background-color: #e5e7eb !important;
+  }
+  
+  /* Widget links and buttons */
+  .widget-link, .widget-button {
+    background-color: #3b82f6 !important;
+    color: #ffffff !important;
+    border: none !important;
+    padding: 6px 12px !important;
+    border-radius: 4px !important;
+    cursor: pointer !important;
+    text-decoration: none !important;
+    display: inline-block !important;
+    font-weight: 500 !important;
+    transition: background-color 0.2s !important;
+    margin-top: 10px !important;
+  }
+  
+  .widget-link:hover, .widget-button:hover {
+    background-color: #2563eb !important;
+  }
+  
+  /* Progress bars and visualizations */
+  .progress-bar {
+    background-color: #e5e7eb !important;
+  }
+  
+  .progress-fill.protein {
+    background-color: #10b981 !important;
+  }
+  
+  .progress-fill.carbs {
+    background-color: #f59e0b !important;
+  }
+  
+  .progress-fill.fats {
+    background-color: #ef4444 !important;
+  }
+  
+  /* Make sure primary buttons stand out */
+  .primary-button, .btn-primary {
+    background-color: #3b82f6 !important;
+    color: #ffffff !important;
+  }
+  
+  .primary-button:hover, .btn-primary:hover {
+    background-color: #2563eb !important;
+  }
+  
+  /* Secondary buttons visible but not as prominent */
+  .secondary-button, .btn-secondary {
+    background-color: #6b7280 !important;
+    color: #ffffff !important;
+  }
+  
+  .secondary-button:hover, .btn-secondary:hover {
+    background-color: #4b5563 !important;
+  }
+} 

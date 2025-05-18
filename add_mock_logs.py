@@ -122,13 +122,9 @@ def main():
             food_ids[food["name"]] = result.inserted_id
             print(f"Added {food['name']} to food index with ID: {result.inserted_id}")
     
-    # Set up dates for food logs (from today until April 29th, 2025)
-    today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-    target_end = datetime(2025, 4, 29, tzinfo=timezone.utc)
-    
-    # Ensure start date is before end date
-    start_date = min(today, target_end)
-    end_date = max(today, target_end)
+    # Set up dates for food logs (from April 24th to April 29th, 2025)
+    start_date = datetime(2025, 4, 24, tzinfo=timezone.utc)
+    end_date = datetime(2025, 4, 29, tzinfo=timezone.utc)
     
     date_range = []
     current_date = start_date

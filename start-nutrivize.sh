@@ -55,9 +55,9 @@ else
     echo -e "${YELLOW}Skipping database seeding. Use --seed flag to reset with sample data.${NC}"
 fi
 
-# Start the backend server
-echo -e "${BLUE}Starting backend server...${NC}"
-osascript -e "tell application \"Terminal\" to do script \"cd $BACKEND_DIR && export PYTHONPATH=$BACKEND_DIR && uvicorn app.main:app --reload --port 5001\""
+# Start the backend server directly with uvicorn in a new terminal
+echo -e "${BLUE}Starting backend server with direct uvicorn command...${NC}"
+osascript -e "tell application \"Terminal\" to do script \"cd '$BACKEND_DIR' && PYTHONPATH=. python -m uvicorn app.main:app --host 0.0.0.0 --port 5001 --reload\""
 
 # Wait a moment for backend server to initialize
 echo -e "${BLUE}Waiting for backend server to initialize...${NC}"
@@ -66,9 +66,10 @@ sleep 3
 # Start the frontend server
 echo -e "${BLUE}Starting frontend server...${NC}"
 cd "$FRONTEND_DIR" || exit
-osascript -e "tell application \"Terminal\" to do script \"cd $FRONTEND_DIR && npm run dev\""
+osascript -e "tell application \"Terminal\" to do script \"cd '$FRONTEND_DIR' && npm run dev\""
 
 echo -e "${YELLOW}Both servers are starting...${NC}"
-echo -e "${GREEN}Frontend will be available at: ${BLUE}http://localhost:3000${NC}"
-echo -e "${GREEN}Backend will be available at: ${BLUE}http://127.0.0.1:5001${NC}"
+echo -e "${GREEN}Frontend will be available at: ${BLUE}http://localhost:5174${NC}"
+echo -e "${GREEN}Backend will be available at: ${BLUE}http://0.0.0.0:5001${NC}"
+echo -e "${GREEN}Backend will also be available on your local network at: ${BLUE}http://$(ipconfig getifaddr en0):5001${NC}"
 echo -e "${YELLOW}Press Ctrl+C in each Terminal window to stop the servers when done.${NC}"

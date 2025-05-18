@@ -1,0 +1,17 @@
+.health-tab .health-sync-info .data-source-badge {
+  background-color: rgba(0, 122, 255, 0.1);
+  color: rgba(0, 122, 255, 1);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  margin-left: 10px;
+}
+
+.health-tab .health-sync-info .current-date-badge {
+  background-color: rgba(255, 149, 0, 0.1);
+  color: rgba(255, 149, 0, 1);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  margin-left: 10px;
+} 

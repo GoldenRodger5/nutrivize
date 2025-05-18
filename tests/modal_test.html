@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Modal Test</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background-color: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+    h1 {
+      margin-top: 0;
+      color: #333;
+    }
+    .button {
+      background-color: #8b5cf6;
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 4px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    .button:hover {
+      background-color: #7c3aed;
+    }
+    .button-secondary {
+      background-color: #e5e7eb;
+      color: #374151;
+    }
+    .button-secondary:hover {
+      background-color: #d1d5db;
+    }
+    .test-results {
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 4px;
+      background-color: #f3f4f6;
+    }
+    .log {
+      font-family: monospace;
+      white-space: pre-wrap;
+      margin: 10px 0;
+      padding: 10px;
+      background-color: #1e293b;
+      color: #e2e8f0;
+      border-radius: 4px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .success {
+      color: #10b981;
+      font-weight: bold;
+    }
+    .error {
+      color: #ef4444;
+      font-weight: bold;
+    }
+    /* Modal styles */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0, 0, 0, 0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+    }
+    .modal-container {
+      background-color: white;
+      border-radius: 8px;
+      max-width: 90%;
+      width: 600px;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    .modal-title {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #333;
+    }
+    .modal-close-button {
+      background: none;
+      border: none;
+      font-size: 24px;
+      color: #666;
+      cursor: pointer;
+    }
+    .modal-body {
+      padding: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Modal Functionality Test</h1>
+    <p>This page tests the functionality of the modal component.</p>
+    
+    <button id="showModalBtn" class="button">Show Modal</button>
+    <button id="clearLogBtn" class="button button-secondary">Clear Log</button>
+    
+    <div class="test-results">
+      <h2>Test Results</h2>
+      <div id="log" class="log"></div>
+    </div>
+  </div>
+  
+  <div id="modal-root"></div>
+  
+  <script>
+    // Log utility
+    const log = (message, type = 'info') => {
+      const logElement = document.getElementById('log');
+      const timestamp = new Date().toLocaleTimeString();
+      
+      let className = '';
+      if (type === 'success') className = 'success';
+      if (type === 'error') className = 'error';
+      
+      logElement.innerHTML += `<div ${className ? `class="${className}"` : ''}>[${timestamp}] ${message}</div>`;
+      logElement.scrollTop = logElement.scrollHeight;
+    };
+    
+    // Modal implementation
+    class Modal {
+      constructor() {
+        this.isOpen = false;
+        this.rootElement = document.getElementById('modal-root');
+        
+        if (!this.rootElement) {
+          this.rootElement = document.createElement('div');
+          this.rootElement.setAttribute('id', 'modal-root');
+          document.body.appendChild(this.rootElement);
+          log('Created modal-root element');
+        }
+        
+        this.overlay = null;
+      }
+      
+      open(title, content) {
+        log(`Opening modal with title: "${title}"`);
+        this.isOpen = true;
+        
+        // Create modal elements
+        this.overlay = document.createElement('div');
+        this.overlay.className = 'modal-overlay';
+        
+        const container = document.createElement('div');
+        container.className = 'modal-container';
+        
+        const header = document.createElement('div');
+        header.className = 'modal-header';
+        
+        const titleElement = document.createElement('h2');
+        titleElement.className = 'modal-title';
+        titleElement.textContent = title;
+        
+        const closeButton = document.createElement('button');
+        closeButton.className = 'modal-close-button';
+        closeButton.innerHTML = '×';
+        closeButton.addEventListener('click', () => this.close());
+        
+        const body = document.createElement('div');
+        body.className = 'modal-body';
+        
+        if (typeof content === 'string') {
+          body.innerHTML = content;
+        } else {
+          body.appendChild(content);
+        }
+        
+        // Assemble the modal
+        header.appendChild(titleElement);
+        header.appendChild(closeButton);
+        container.appendChild(header);
+        container.appendChild(body);
+        this.overlay.appendChild(container);
+        
+        // Add to DOM
+        this.rootElement.appendChild(this.overlay);
+        
+        // Prevent body scrolling
+        document.body.style.overflow = 'hidden';
+        
+        log('Modal rendered to DOM', 'success');
+        return true;
+      }
+      
+      close() {
+        log('Closing modal');
+        if (this.overlay && this.rootElement.contains(this.overlay)) {
+          this.rootElement.removeChild(this.overlay);
+        }
+        
+        this.isOpen = false;
+        document.body.style.overflow = '';
+        
+        log('Modal removed from DOM', 'success');
+        return true;
+      }
+    }
+    
+    // Tests
+    const runTests = () => {
+      log('=== STARTING TESTS ===');
+      
+      // Create a modal instance
+      const modal = new Modal();
+      log('Modal instance created');
+      
+      // Check if modal-root exists
+      const modalRoot = document.getElementById('modal-root');
+      if (modalRoot) {
+        log('modal-root element exists', 'success');
+      } else {
+        log('modal-root element not found', 'error');
+      }
+      
+      // Open a test modal
+      const content = document.createElement('div');
+      content.innerHTML = `
+        <p>This is a test modal to verify functionality.</p>
+        <button id="closeModalBtn" class="button">Close Modal</button>
+      `;
+      
+      const openResult = modal.open('Add New Food', content);
+      
+      if (openResult) {
+        log('Modal opened successfully', 'success');
+        
+        // Add event listener to close button inside modal
+        setTimeout(() => {
+          const closeModalBtn = document.getElementById('closeModalBtn');
+          if (closeModalBtn) {
+            closeModalBtn.addEventListener('click', () => modal.close());
+            log('Added click handler to close button');
+          }
+        }, 100);
+      } else {
+        log('Failed to open modal', 'error');
+      }
+    };
+    
+    // DOM ready
+    document.addEventListener('DOMContentLoaded', () => {
+      log('Page loaded');
+      
+      document.getElementById('showModalBtn').addEventListener('click', runTests);
+      document.getElementById('clearLogBtn').addEventListener('click', () => {
+        document.getElementById('log').innerHTML = '';
+        log('Log cleared');
+      });
+    });
+  </script>
+</body>
+</html> 

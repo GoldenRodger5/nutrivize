@@ -63,7 +63,10 @@ const checkPort = (port) => {
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://127.0.0.1:3000'], // Allow frontend origins
+  origin: ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:5173', 'http://127.0.0.1:5173', 
+           'http://localhost:5174', 'http://127.0.0.1:5174', 'http://localhost:5175', 'http://127.0.0.1:5175',
+           'http://localhost:5176', 'http://127.0.0.1:5176', 'http://localhost:5177', 'http://127.0.0.1:5177',
+           'http://localhost:5178', 'http://127.0.0.1:5178', 'http://localhost:5179', 'http://127.0.0.1:5179'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -73,6 +76,41 @@ app.use(cors({
 app.options('*', cors());
 
 app.use(express.json());
+
+// Authentication middleware
+const auth = (req, res, next) => {
+  console.log('Auth middleware called');
+  
+  // Get token from authorization header
+  const authHeader = req.headers.authorization;
+  
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    console.log('No token provided in request');
+    return res.status(401).json({ message: 'No token provided, authorization denied' });
+  }
+  
+  // Extract the token
+  const token = authHeader.split(' ')[1];
+  
+  try {
+    // For development purposes, we'll provide minimal token validation
+    // In a real production app, you would verify the token with JWT or Firebase Admin SDK
+    if (token) {
+      // In a real application, we'd decode the token and extract user info
+      // For now, extract a user ID from the query or use a default
+      req.user = {
+        id: req.query.userId || 'user-id-from-token',
+        email: req.query.email || 'user@example.com'
+      };
+      next();
+    } else {
+      return res.status(401).json({ message: 'Invalid token, authorization denied' });
+    }
+  } catch (err) {
+    console.error('Auth middleware error:', err);
+    res.status(401).json({ message: 'Invalid token, authorization denied' });
+  }
+};
 
 // Mock data storage
 let mealPlans = [];
@@ -819,7 +857,9 @@ app.get('/nutrition/aggregates', (req, res) => {
   }
 });
 
+// Goals endpoint
 app.get('/goals/active', (req, res) => {
+  console.log('GET /goals/active requested');
   res.json({
     _id: 'g1',
     type: 'weight loss',
@@ -839,37 +879,79 @@ app.get('/goals/active', (req, res) => {
   });
 });
 
+// Weight tracking endpoints
+app.get('/weights', (req, res) => {
+  console.log('GET /weights requested with query:', req.query);
+  
+  const { userId } = req.query;
+  if (!userId) {
+    return res.status(400).json({ message: 'User ID is required' });
+  }
+  
+  // Return mock weight entries
+  const today = new Date();
+  const startDate = new Date();
+  startDate.setDate(today.getDate() - 30); // 30 days ago
+  
+  const weightEntries = [];
+  for (let i = 0; i < 10; i++) {
+    const entryDate = new Date(startDate);
+    entryDate.setDate(startDate.getDate() + (i * 3)); // Every 3 days
+    
+    // Generate weight data slightly trending down
+    const weight = 75 - (i * 0.2) + (Math.random() * 0.4 - 0.2);
+    
+    weightEntries.push({
+      date: entryDate.toISOString().split('T')[0],
+      weight: parseFloat(weight.toFixed(1))
+    });
+  }
+  
+  res.json(weightEntries);
+});
+
+app.post('/weights', (req, res) => {
+  console.log('POST /weights requested with body:', req.body);
+  
+  const { userId, date, weight } = req.body;
+  
+  if (!userId || !date || !weight) {
+    return res.status(400).json({ message: 'User ID, date, and weight are required' });
+  }
+  
+  // In a real app, we'd save this to a database
+  res.status(201).json({
+    id: `weight-${Date.now()}`,
+    userId,
+    date,
+    weight
+  });
+});
+
+// User profile endpoints
+app.get('/user/profile', auth, (req, res) => {
+  console.log('GET /user/profile requested');
+  // Return 404 if first time, otherwise return mock profile
+  res.status(404).json({ msg: 'Profile not found' });
+});
+
+app.post('/user/profile', auth, (req, res) => {
+  console.log('POST /user/profile requested with body:', req.body);
+  // Mock create user profile
+  res.status(201).json({
+    id: 'mock-profile-1',
+    userId: req.user.id,
+    ...req.body,
+    setupCompleted: true,
+    date: new Date().toISOString()
+  });
+});
+
 // Create the port.txt file directory if it doesn't exist
 const portFilePath = path.join(__dirname, '..', 'port.txt');
 
 // Add nutrition endpoints for trends
 app.get('/api/nutrition/aggregates', (req, res) => {
-  try {
-    const { user_id, start_date, end_date } = req.query;
-    
-    if (!user_id || !start_date || !end_date) {
-      return res.status(400).json({ 
-        success: false,
-        message: 'Missing required parameters: user_id, start_date, and end_date are required' 
-      });
-    }
-    
-    // Generate mock nutritional trend data
-    const trendData = generateMockNutritionTrends(start_date, end_date);
-    
-    res.json(trendData);
-  } catch (error) {
-    console.error('Error generating nutrition aggregates:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: 'Failed to generate nutrition aggregates',
-      message: error.message 
-    });
-  }
-});
-
-// Also make it available without the /api prefix for direct calls
-app.get('/nutrition/aggregates', (req, res) => {
   try {
     const { user_id, start_date, end_date } = req.query;
     

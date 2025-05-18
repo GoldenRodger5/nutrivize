@@ -1,13 +1,34 @@
 #!/bin/bash
 
-# Export Firebase environment variables
-export FIREBASE_API_KEY="AIzaSyAORKm-1yynaNrSomVU0P18HyS_4HSzHks"
-export FIREBASE_AUTH_DOMAIN="food-tracker-6096d.firebaseapp.com"
-export FIREBASE_PROJECT_ID="food-tracker-6096d"
-export FIREBASE_STORAGE_BUCKET="food-tracker-6096d.firebasestorage.app"
-export FIREBASE_MESSAGING_SENDER_ID="215135700985"
-export FIREBASE_APP_ID="1:215135700985:web:bfb71581010bcaab6c5f28"
-export FIREBASE_CREDENTIALS_PATH="/Users/isaacmineo/Main/projects/nutrivize/food-tracker-6096d-firebase-adminsdk-fbsvc-59aac81350.json"
+# Colors for output
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+NC='\033[0m' # No Color
 
-# Start the server
-cd backend && uvicorn app.main:app --reload --host 0.0.0.0 --port 5001 
+echo -e "${GREEN}Starting Nutrivize Backend Server...${NC}"
+
+# Kill any existing uvicorn processes
+echo -e "${BLUE}Checking for existing servers...${NC}"
+pkill -f "uvicorn app.main:app" || true
+echo -e "${GREEN}Cleared any existing backend servers${NC}"
+
+# Set port to 5001
+echo -e "${BLUE}Setting port...${NC}"
+mkdir -p backend
+echo "5001" > "backend/port.txt"
+echo -e "${GREEN}Port set to 5001${NC}"
+
+# Start the FastAPI application directly with uvicorn
+echo -e "${BLUE}Starting backend server with direct uvicorn command...${NC}"
+
+# Change to the backend directory
+cd backend || exit
+
+# Start uvicorn with the specified options
+echo -e "${YELLOW}Running uvicorn main:app --host 0.0.0.0 --port 5001${NC}"
+export PYTHONPATH=$(pwd)
+uvicorn app.main:app --host 0.0.0.0 --port 5001
+
+echo -e "${GREEN}Server stopped.${NC}" 

@@ -7,6 +7,95 @@ import { getToken } from '../utils/auth';
 import { useUserContext } from '../context/UserContext';
 import { Spinner } from './ui/Spinner';
 
+// Modern SVG Icons
+const icons = {
+  mealPlan: (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M8 10V7M8 10V13M8 10H16M16 10V7M16 10V13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M4 6C4 4.89543 4.89543 4 6 4H18C19.1046 4 20 4.89543 20 6V18C20 19.1046 19.1046 20 18 20H6C4.89543 20 4 19.1046 4 18V6Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  ),
+  add: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 5V19M5 12H19" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  ),
+  refresh: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M19.1334 5.64C17.8749 4.30583 16.2051 3.42 14.3799 3.1262C12.5546 2.83239 10.6835 3.14229 9.04432 4.01147C7.40518 4.88064 6.09086 6.26784 5.28515 7.95452C4.47943 9.6412 4.22429 11.5364 4.56026 13.3743C4.89624 15.2121 5.80519 16.8958 7.15703 18.1853C8.50887 19.4748 10.2321 20.3024 12.0775 20.5453C13.9229 20.7882 15.8061 20.4342 17.4458 19.5336C19.0855 18.633 20.3883 17.2186 21.1734 15.51" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M21.1667 8.38V3.88H16.6667" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+  generate: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M10 21L14 3M17.5 14.5L22 10L17.5 5.5M6.5 5.5L2 10L6.5 14.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  ),
+  feature: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M9 12L11 14L15 10M12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12C21 16.9706 16.9706 21 12 21Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  ),
+  close: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  ),
+  grocery: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M9 11H6C5.44772 11 5 10.5523 5 10V5C5 4.44772 5.44772 4 6 4H18C18.5523 4 19 4.44772 19 5V10C19 10.5523 18.5523 11 18 11H15M9 11V21C9 21.5523 9.44772 22 10 22H14C14.5523 22 15 21.5523 15 21V11M9 11H15" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+    </svg>
+  ),
+  total: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M11 3H13M11 21H13M4 13H2M4 11H2M22 13H20M22 11H20M19.0784 18.9282L18.3784 17.8282M19.0784 5.0718L18.3784 6.1718M5.6569 19.7567L6.7569 18.6567M5.6569 4.2433L6.7569 5.3433" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  ),
+  protein: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M6.5 11C5.11929 11 4 9.88071 4 8.5C4 7.11929 5.11929 6 6.5 6C7.88071 6 9 7.11929 9 8.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M17.5 8C18.8807 8 20 6.88071 20 5.5C20 4.11929 18.8807 3 17.5 3C16.1193 3 15 4.11929 15 5.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M20 15.5C20 19.0899 16.9706 22 12 22C7.02944 22 4 19.0899 4 15.5C4 11.9101 7.02944 9 12 9C16.9706 9 20 11.9101 20 15.5Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  ),
+  carbs: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M3 9C3 7.89543 3.89543 7 5 7H19C20.1046 7 21 7.89543 21 9V19C21 20.1046 20.1046 21 19 21H5C3.89543 21 3 20.1046 3 19V9Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M14 21V4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M18 4H10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  ),
+  fat: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M14 7C14 9.76142 11.7614 12 9 12C6.23858 12 4 9.76142 4 7C4 4.23858 6.23858 2 9 2C11.7614 2 14 4.23858 14 7Z" stroke="currentColor" strokeWidth="2" />
+      <path d="M20 17.5C20 19.433 18.433 21 16.5 21C14.567 21 13 19.433 13 17.5C13 15.567 14.567 14 16.5 14C18.433 14 20 15.567 20 17.5Z" stroke="currentColor" strokeWidth="2" />
+      <path d="M13.5 7.5L16.5 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  ),
+  meal: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M20 15C20 18.866 16.866 22 13 22H11C7.13401 22 4 18.866 4 15V9C4 5.13401 7.13401 2 11 2H13C16.866 2 20 5.13401 20 9V15Z" stroke="currentColor" strokeWidth="2"/>
+      <path d="M9 10L15 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+      <path d="M12 7L12 13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+    </svg>
+  ),
+  time: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2"/>
+      <path d="M12 6V12L16 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  ),
+  calendar: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M16 2V6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M8 2V6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M4 10H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+};
+
 interface MacroBreakdown {
   protein: number;
   carbs: number;
@@ -139,7 +228,12 @@ const MealPlanner: React.FC<MealPlannerProps> = ({ userId, dailyTargets, onMealL
       setIsLoading(true);
       setError("");
       
-      const response = await fetch(`/meal-plans`);
+      const token = getToken();
+      const response = await fetch(`/api/meal-plans`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       
       if (!response.ok) {
         throw new Error(`Error: ${response.status} ${response.statusText}`);
@@ -169,7 +263,12 @@ const MealPlanner: React.FC<MealPlannerProps> = ({ userId, dailyTargets, onMealL
     setError("");
     
     try {
-      const response = await fetch(`/meal-plans/active?user_id=${userId}`);
+      const token = getToken();
+      const response = await fetch(`/api/meal-plans/active?user_id=${userId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       
       if (!response.ok) {
         if (response.status === 404 || (await response.json()).message === "No active meal plan found") {
@@ -191,6 +290,7 @@ const MealPlanner: React.FC<MealPlannerProps> = ({ userId, dailyTargets, onMealL
   };
 
   const createMealPlan = async () => {
+    let isMounted = true;
     setIsCreatingPlan(true);
     setError("");
     
@@ -225,7 +325,7 @@ const MealPlanner: React.FC<MealPlannerProps> = ({ userId, dailyTargets, onMealL
       console.log("Sending meal plan request:", requestData);
       
       const response = await axios.post(
-        `/generate-meal-plan`,
+        `/api/generate-meal-plan`,
         requestData,
         {
           headers: {
@@ -237,7 +337,7 @@ const MealPlanner: React.FC<MealPlannerProps> = ({ userId, dailyTargets, onMealL
       
       console.log("Meal plan response received:", response.data);
       
-      if (response.data) {
+      if (response.data && isMounted) {
         // Close modal and switch to view mode
         setShowCreateModal(false);
         
@@ -259,8 +359,11 @@ const MealPlanner: React.FC<MealPlannerProps> = ({ userId, dailyTargets, onMealL
         await fetchMealPlans();
         await fetchActivePlan();
         
-        showToast('Meal plan created successfully!', 'success');
-        setSuccess('Meal plan created successfully!');
+        // Only show success messages if component is still mounted
+        if (isMounted) {
+          showToast('Meal plan created successfully!', 'success');
+          setSuccess('Meal plan created successfully!');
+        }
       }
     } catch (error) {
       console.error('Error creating meal plan:', error);
@@ -285,19 +388,29 @@ const MealPlanner: React.FC<MealPlannerProps> = ({ userId, dailyTargets, onMealL
         errorMessage = error.message;
       }
       
-      setError(errorMessage);
-      showToast(errorMessage, 'error');
+      if (isMounted) {
+        setError(errorMessage);
+        showToast(errorMessage, 'error');
+      }
     } finally {
-      setIsCreatingPlan(false);
+      if (isMounted) {
+        setIsCreatingPlan(false);
+      }
     }
+    
+    // Return a cleanup function
+    return () => {
+      isMounted = false;
+    };
   };
 
   const logMealFromPlan = async (mealPlanId: string, dayIndex: number, mealType: string) => {
+    let isMounted = true;
     try {
       setError("");
       const token = getToken();
       const response = await fetch(
-        `/meal-plans/${mealPlanId}/log-meal?user_id=${userId}&day_index=${dayIndex}&meal_type=${mealType}`,
+        `/api/meal-plans/${mealPlanId}/log-meal?user_id=${userId}&day_index=${dayIndex}&meal_type=${mealType}`,
         { 
           method: "POST",
           headers: {
@@ -314,8 +427,8 @@ const MealPlanner: React.FC<MealPlannerProps> = ({ userId, dailyTargets, onMealL
       
       const data = await response.json();
       
-      // Update the UI to show meal as logged
-      if (activePlan) {
+      // Update the UI to show meal as logged, only if component is still mounted
+      if (activePlan && isMounted) {
         const updatedPlan = { ...activePlan };
         updatedPlan.days[dayIndex].meals[mealType].is_logged = true;
         
@@ -331,19 +444,28 @@ const MealPlanner: React.FC<MealPlannerProps> = ({ userId, dailyTargets, onMealL
         setActivePlan(updatedPlan);
       }
       
-      setSuccess(`Successfully logged ${mealType}`);
-      showToast(`${mealType} has been logged successfully`, 'success');
+      if (isMounted) {
+        setSuccess(`Successfully logged ${mealType}`);
+        showToast(`${mealType} has been logged successfully`, 'success');
+      }
       
-      // Call the callback if provided
-      if (onMealLogged) {
+      // Call the callback if provided and component is still mounted
+      if (onMealLogged && isMounted) {
         onMealLogged();
       }
     } catch (err) {
       console.error('Error logging meal:', err);
       const errorMessage = err instanceof Error ? err.message : 'An unknown error occurred';
-      setError(errorMessage);
-      showToast(errorMessage, 'error');
+      if (isMounted) {
+        setError(errorMessage);
+        showToast(errorMessage, 'error');
+      }
     }
+    
+    // Return cleanup function
+    return () => {
+      isMounted = false;
+    };
   };
 
   const handleMealClick = (meal: MealPlanMeal, dayIndex: number) => {
@@ -393,6 +515,14 @@ const MealPlanner: React.FC<MealPlannerProps> = ({ userId, dailyTargets, onMealL
 
   const renderMealPlanDay = (day: DailyPlan | undefined, index: number) => {
     if (!day) return <div className="no-day-data">No data available for this day</div>;
+    if (!day.daily_totals) {
+      console.warn('Missing daily_totals for day:', day);
+      return <div className="no-day-data">Incomplete data for this day</div>;
+    }
+    if (!day.meals) {
+      console.warn('Missing meals for day:', day);
+      return <div className="no-day-data">Incomplete meal data for this day</div>;
+    }
     
     return (
       <div className={`meal-plan-day ${day.is_complete ? 'completed-day' : ''}`} key={index}>
@@ -828,19 +958,26 @@ const MealPlanner: React.FC<MealPlannerProps> = ({ userId, dailyTargets, onMealL
   // Only fetch meal plans on component mount
   useEffect(() => {
     // Add guards to prevent unwanted side-effects
+    let isMounted = true;
+    
     const fetchData = async () => {
       try {
-        setIsLoading(true);
+        if (isMounted) setIsLoading(true);
         await fetchMealPlans();
         await fetchActivePlan();
       } catch (err) {
         console.error('Error in initial data loading:', err);
       } finally {
-        setIsLoading(false);
+        if (isMounted) setIsLoading(false);
       }
     };
 
     fetchData();
+    
+    // Cleanup function to prevent state updates on unmounted component
+    return () => {
+      isMounted = false;
+    };
   }, [userId]);
 
   useEffect(() => {
@@ -865,7 +1002,10 @@ const MealPlanner: React.FC<MealPlannerProps> = ({ userId, dailyTargets, onMealL
   return (
     <div className="meal-planner">
       <div className="meal-planner-header">
-        <h2>Meal Planner</h2>
+        <h2>
+          <span className="header-icon">{icons.mealPlan}</span>
+          Meal Planner
+        </h2>
         {activePlan ? (
           <h3 className="active-plan-title">{activePlan.name}</h3>
         ) : (
@@ -878,6 +1018,7 @@ const MealPlanner: React.FC<MealPlannerProps> = ({ userId, dailyTargets, onMealL
             setShowCreateModal(true);
           }}
         >
+          <span className="btn-icon">{icons.add}</span>
           {activePlan ? 'Create New Plan' : 'Create Your First Plan'}
         </button>
       </div>
@@ -890,9 +1031,12 @@ const MealPlanner: React.FC<MealPlannerProps> = ({ userId, dailyTargets, onMealL
             onClick={() => setShowFeatureBanner(false)}
             aria-label="Dismiss"
           >
-            ×
+            {icons.close}
           </button>
-          <h3>New AI-Powered Meal Planning!</h3>
+          <h3>
+            <span className="feature-icon" style={{marginRight: '0.5rem'}}>{icons.feature}</span>
+            New AI-Powered Meal Planning!
+          </h3>
           <p>Create custom meal plans for up to 7 days with smart features:</p>
           <ul className="feature-list">
             <li><span className="feature-icon">🔄</span> Repeat favorite meals across days</li>
@@ -914,7 +1058,10 @@ const MealPlanner: React.FC<MealPlannerProps> = ({ userId, dailyTargets, onMealL
             <div className="meal-plan">
               <div className="plan-details">
                 <div className="plan-macros">
-                  <h4>Plan Totals</h4>
+                  <h4>
+                    <span className="header-icon" style={{width: '20px', height: '20px'}}>{icons.total}</span>
+                    Plan Totals
+                  </h4>
                   <div className="macro-grid">
                     <div className="macro-item">
                       <span className="macro-value">{Math.round(activePlan?.plan_totals?.calories || 0)}</span>
@@ -937,9 +1084,11 @@ const MealPlanner: React.FC<MealPlannerProps> = ({ userId, dailyTargets, onMealL
                 
                 <div className="plan-dates">
                   <p>
+                    <span className="header-icon" style={{width: '18px', height: '18px', marginRight: '0.5rem'}}>{icons.calendar}</span>
                     <strong>Start Date:</strong> {activePlan?.start_date ? formatDate(activePlan.start_date) : 'No date available'}
                   </p>
                   <p>
+                    <span className="header-icon" style={{width: '18px', height: '18px', marginRight: '0.5rem'}}>{icons.calendar}</span>
                     <strong>End Date:</strong> {activePlan?.end_date ? formatDate(activePlan.end_date) : 'No date available'}
                   </p>
                 </div>
@@ -959,7 +1108,7 @@ const MealPlanner: React.FC<MealPlannerProps> = ({ userId, dailyTargets, onMealL
               </div>
               
               <div className="day-content">
-                {activePlan && activePlan.days && selectedDay < activePlan.days.length 
+                {activePlan && activePlan.days && Array.isArray(activePlan.days) && selectedDay < activePlan.days.length 
                   ? renderMealPlanDay(activePlan.days[selectedDay], selectedDay)
                   : <div className="no-day-data">No data available for this day</div>
                 }
@@ -967,7 +1116,10 @@ const MealPlanner: React.FC<MealPlannerProps> = ({ userId, dailyTargets, onMealL
               
               <div className="grocery-list">
                 <h4>
-                  <span>Grocery List</span>
+                  <span style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
+                    <span className="header-icon">{icons.grocery}</span>
+                    <span>Grocery List</span>
+                  </span>
                   {activePlan && activePlan.grocery_list && activePlan.grocery_list.length > 0 && (
                     <span className="grocery-count">{activePlan.grocery_list.length} items</span>
                   )}
@@ -1033,12 +1185,12 @@ const MealPlanner: React.FC<MealPlannerProps> = ({ userId, dailyTargets, onMealL
             </div>
           ) : (
             <div className="empty-state">
-              <div className="empty-state-icon">📆</div>
+              <div className="empty-state-icon">{icons.mealPlan}</div>
               <h3>Get started with AI-powered meal planning</h3>
               <p>Create a personalized meal plan to organize your nutrition, save time, and reduce food waste.</p>
               <div className="empty-state-benefits">
                 <div className="benefit-item">
-                  <span className="benefit-icon">⏱️</span>
+                  <span className="benefit-icon">{icons.time}</span>
                   <span>Save time planning meals</span>
                 </div>
                 <div className="benefit-item">
@@ -1046,7 +1198,7 @@ const MealPlanner: React.FC<MealPlannerProps> = ({ userId, dailyTargets, onMealL
                   <span>Reduce grocery spending</span>
                 </div>
                 <div className="benefit-item">
-                  <span className="benefit-icon">🥗</span>
+                  <span className="benefit-icon">{icons.protein}</span>
                   <span>Improve nutrition balance</span>
                 </div>
               </div>
@@ -1058,6 +1210,7 @@ const MealPlanner: React.FC<MealPlannerProps> = ({ userId, dailyTargets, onMealL
                   setShowCreateModal(true);
                 }}
               >
+                <span className="btn-icon">{icons.add}</span>
                 Create Your First Plan
               </button>
             </div>

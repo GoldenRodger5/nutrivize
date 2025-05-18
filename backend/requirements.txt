@@ -3,4 +3,7 @@ python-dotenv
 fastapi
 uvicorn
 pydantic
-python-multipart 
+python-multipart
+google-cloud-vision
+anthropic
+python-jose[cryptography] 

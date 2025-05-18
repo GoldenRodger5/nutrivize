@@ -1,51 +1,82 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import './App.css'
+import './styles/widgets.css' // Import widgets CSS
+import './styles/dark-mode-fixes.css' // Import dark mode fixes
 import Chatbot from './components/Chatbot'
-import NutritionTrends from './components/NutritionTrends'
 import MealSuggestions from './components/MealSuggestions'
 import MealPlanner from './components/MealPlanner'
-import Insights from './components/Insights'
+import InsightsTrends from './components/InsightsTrends'
 import { useUserContext } from './context/UserContext'
+import api from './utils/api'
+// Import components using the right names to avoid conflicts
+import FoodLog from './pages/FoodLog'
+import FoodIndex from './pages/FoodIndex'
+import FoodIndexTab from './components/FoodIndexTab'
+import Goals from './pages/Goals'
+import Profile from './pages/Profile'
+import LogFoodModal from './components/modals/LogFoodModal'
+import AddFoodModal from './components/modals/AddFoodModal'
+import GoalModal from './components/modals/GoalModal'
+import Home from './pages/Home'
+import Visuals from './pages/Visuals'
+import { WidgetProvider } from './context/WidgetContext'
+import { getCurrentUser } from './utils/auth'
+import { FoodLogEntry, FoodItem, Goal, User } from './types'
+import Sidebar from './components/Sidebar'
+import DailyProgressFeedback from './components/DailyProgressFeedback'
+import GoalBasedMealSuggestions from './components/GoalBasedMealSuggestions'
+import WeeklyGoalInsights from './components/WeeklyGoalInsights'
+import GoalProgressTracker from './components/GoalProgressTracker'
+import Login from './components/auth/Login'
+import { useHistory, useLocation } from 'react-router-dom'
+import AppleHealthTab from './components/AppleHealthTab'
+
+// Simple test modal component to verify modal functionality
+const TestModal = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
+  if (!isOpen) return null;
+  
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 9999
+    }}>
+      <div style={{
+        backgroundColor: 'white',
+        padding: '20px',
+        borderRadius: '8px',
+        maxWidth: '500px',
+        width: '100%',
+        zIndex: 10000
+      }}>
+        <h2>Test Modal</h2>
+        <p>This is a test modal to verify that modals work properly.</p>
+        <button 
+          style={{
+            padding: '10px',
+            backgroundColor: 'blue',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer'
+          }}
+          onClick={onClose}
+        >
+          Close Modal
+        </button>
+      </div>
+    </div>
+  );
+};
 
 // Types
-interface FoodItem {
-  _id?: string;
-  name: string;
-  serving_size: number;
-  serving_unit: string;
-  calories: number;
-  proteins: number;
-  carbs: number;
-  fats: number;
-  fiber: number;
-}
-
-interface FoodLog {
-  _id?: string;
-  date: string;
-  meal_type: string;
-  food_id: string;
-  name: string;
-  amount: number;
-  unit: string;
-  calories: number;
-  proteins: number;
-  carbs: number;
-  fats: number;
-  fiber: number;
-}
-
-interface Goal {
-  _id?: string;
-  type: string;
-  weight_target: {
-    current: number;
-    goal: number;
-    weekly_rate: number;
-  };
-  nutrition_targets: NutritionTarget[];
-}
-
 interface NutritionTarget {
   name: string;
   daily_calories: number;
@@ -60,11 +91,38 @@ const FOOD_UNITS = [
   "g", "ml", "oz", "fl oz", "cup", "tbsp", "tsp", "piece", "slice", "serving", "scoop", "packet"
 ];
 
-function App() {
-  const { user } = useUserContext();
-  const [activeTab, setActiveTab] = useState('foods');
+const App: React.FC = () => {
+  const { user, setUser } = useUserContext();
+  const [activeTab, setActiveTab] = useState('home');
+  const [showMenu, setShowMenu] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [showSidebar, setShowSidebar] = useState(!isMobile);
+  const location = useLocation();
+  
+  // Track window size for responsive design
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      setShowSidebar(!mobile);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  
+  // Modal states
+  const [showLogFoodModal, setShowLogFoodModal] = useState(false);
+  const [showAddFoodModal, setShowAddFoodModal] = useState(false);
+  const [showGoalModal, setShowGoalModal] = useState(false);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  
+  // State for tracking whether data is loading
+  const [isLoading, setIsLoading] = useState(true);
+  
+  // Initialize state for foods, logs, goals, etc.
   const [foods, setFoods] = useState<FoodItem[]>([]);
-  const [logs, setLogs] = useState<FoodLog[]>([]);
+  const [logs, setLogs] = useState<FoodLogEntry[]>([]);
   const [goal, setGoal] = useState<Goal | null>(null);
   const [allGoals, setAllGoals] = useState<Goal[]>([]);
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
@@ -86,7 +144,7 @@ function App() {
   });
   
   // New log form state
-  const [newLog, setNewLog] = useState<FoodLog>({
+  const [newLog, setNewLog] = useState<FoodLogEntry>({
     date: new Date().toISOString().split('T')[0],
     meal_type: 'breakfast',
     food_id: '',
@@ -131,7 +189,7 @@ function App() {
 
   // Add this after the selectedDate state
   const [viewMode, setViewMode] = useState<'day' | 'week'>('day');
-  const [weekLogs, setWeekLogs] = useState<{[date: string]: FoodLog[]}>({});
+  const [weekLogs, setWeekLogs] = useState<{[date: string]: FoodLogEntry[]}>({});
   const [weekRange, setWeekRange] = useState<{start: string, end: string}>({
     start: '',
     end: ''
@@ -153,95 +211,149 @@ function App() {
     };
   };
 
+  // Add test modal state
+  const [showTestModal, setShowTestModal] = useState(false);
+
   // Fetch data on component mount
   useEffect(() => {
-    if (USER_ID) {
-      fetchFoods();
-      fetchLogs();
-      fetchGoal();
-      fetchAllGoals();
-    }
-  }, [USER_ID]); // Re-fetch when the user ID changes
-
-  // API calls
+    const fetchUser = async () => {
+      const userData = await getCurrentUser();
+      setUser(userData);
+      setIsLoading(false);
+      
+      if (userData) {
+        // Fetch user's active goal
+        fetchGoal();
+        // Fetch today's logs
+        fetchTodaysLogs();
+      }
+    };
+    
+    fetchUser();
+  }, []);
   
+  const fetchInitialData = async () => {
+    setIsLoading(true);
+    try {
+      await Promise.all([
+        fetchFoods(),
+        fetchTodaysLogs(),
+        fetchGoal(),
+        fetchAllGoals()
+      ]);
+    } catch (error) {
+      console.error('Error fetching initial data:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // Fix API response handling for fetchUserData
+  const fetchUserData = async () => {
+    try {
+      const response = await api.get('/users/profile');
+      if (response.status === 200) {
+        setUser(response.data);
+        return response.data;
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+      return null;
+    }
+  };
+  
+  // Fix API response handling for fetchFoods
   const fetchFoods = async () => {
     try {
-      const response = await fetch(`${API_URL}/foods/`, {
-        headers: getAuthHeaders()
-      });
-      const data = await response.json();
-      setFoods(data);
+      console.log('Fetching foods from API...');
+      const response = await api.get('/foods');
+      console.log('Foods API response status:', response.status);
+      console.log('Foods API response data type:', typeof response.data);
+      console.log('Foods API response data length:', Array.isArray(response.data) ? response.data.length : 'not an array');
+      console.log('Foods first few items:', Array.isArray(response.data) ? response.data.slice(0, 2) : response.data);
+      
+      if (response.status === 200) {
+        // Ensure we're handling the response correctly
+        if (Array.isArray(response.data)) {
+          console.log(`Setting ${response.data.length} foods to state`);
+          setFoods(response.data);
+          return response.data;
+        } else {
+          console.error('API returned non-array data for foods:', response.data);
+          setFoods([]);
+          return [];
+        }
+      }
+      return [];
     } catch (error) {
       console.error('Error fetching foods:', error);
+      setFoods([]);
+      return [];
     }
   };
   
-  const fetchLogs = async (dateStr = selectedDate) => {
+  // Fix API response handling for fetchLogs
+  const fetchTodaysLogs = async () => {
     try {
-      // Ensure consistent date format with time to avoid timezone issues
-      console.log("Fetching logs for date:", dateStr);
+      const today = new Date().toISOString().split('T')[0];
+      const formattedDate = `${today}T12:00:00Z`;
       
-      // Format the date with time component to ensure proper UTC handling
-      const formattedDate = `${dateStr}T12:00:00Z`;
-      
-      const response = await fetch(`${API_URL}/logs?user_id=${USER_ID}&date=${formattedDate}`, {
-        headers: getAuthHeaders()
-      });
-      
-      if (!response.ok) {
-        console.error("Error fetching logs:", response.status);
-        return;
+      const response = await api.get(`/logs?date=${formattedDate}`);
+      if (response.status === 200) {
+        // Ensure we're getting an array even if the API structure changes
+        const logsData = response.data.logs || response.data || [];
+        // Make sure logs is always an array
+        setLogs(Array.isArray(logsData) ? logsData : []);
+        return Array.isArray(logsData) ? logsData : [];
       }
-      
-      const data = await response.json();
-      console.log("Fetched logs:", data);
-      
-      // Update UI - use data.logs instead of data
-      setLogs(data.logs || []);
-      updateLogTitle(dateStr);
+      return [];
     } catch (error) {
       console.error('Error fetching logs:', error);
+      setLogs([]);
+      return [];
     }
   };
   
+  // Fix API response handling for fetchGoals
   const fetchGoal = async () => {
     try {
-      const response = await fetch(`${API_URL}/goals/active`, {
-        headers: getAuthHeaders()
-      });
-      const data = await response.json();
-      if (!data.message) {
-        setGoal(data);
+      const response = await api.get('/goals/active');
+      if (!response.data.message) {
+        setGoal(response.data);
       }
+      return response.data;
     } catch (error) {
       console.error('Error fetching goal:', error);
+      return null;
     }
   };
   
   const fetchAllGoals = async () => {
     try {
-      const response = await fetch(`${API_URL}/goals/`, {
-        headers: getAuthHeaders()
-      });
-      const data = await response.json();
-      setAllGoals(data);
+      console.log('Fetching all goals...');
+      const response = await api.get('/goals');
+      console.log('Goals response:', response.data);
+      if (response.status === 200) {
+        // Ensure response.data is always an array
+        const goalsData = Array.isArray(response.data) ? response.data : [];
+        console.log(`Setting ${goalsData.length} goals to state`);
+        setAllGoals(goalsData);
+        return goalsData;
+      }
+      return [];
     } catch (error) {
       console.error('Error fetching all goals:', error);
+      setAllGoals([]);
+      return [];
     }
   };
   
-  // Food CRUD operations
+  // Fix API response handling for addFood
   const addFood = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await fetch(`${API_URL}/foods/`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(newFood)
-      });
-      
-      if (response.ok) {
+      const response = await api.post('/foods/', newFood);
+      if (response.status === 201 || response.status === 200) {
         setNewFood({
           name: '',
           serving_size: 100,
@@ -259,18 +371,15 @@ function App() {
     }
   };
   
+  // Fix API response handling for editFood
   const updateFood = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingFoodId) return;
     
     try {
-      const response = await fetch(`${API_URL}/foods/${editingFoodId}`, {
-        method: 'PUT',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(newFood)
-      });
+      const response = await api.put(`/foods/${editingFoodId}`, newFood);
       
-      if (response.ok) {
+      if (response.status === 200) {
         setNewFood({
           name: '',
           serving_size: 100,
@@ -308,14 +417,12 @@ function App() {
     setEditingFoodId(null);
   };
   
+  // Fix API response handling for deleteFood
   const deleteFood = async (id: string) => {
     try {
-      const response = await fetch(`${API_URL}/foods/${id}`, {
-        method: 'DELETE',
-        headers: getAuthHeaders()
-      });
+      const response = await api.delete(`/foods/${id}`);
       
-      if (response.ok) {
+      if (response.status === 200) {
         fetchFoods();
       }
     } catch (error) {
@@ -371,9 +478,9 @@ function App() {
   };
 
   // Add this debugging function
-  const logResponse = async (response) => {
+  const logResponse = async (response: any) => {
     try {
-      const text = await response.text();
+      const text = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
       console.log("Response status:", response.status);
       console.log("Response body:", text);
       return text;
@@ -383,34 +490,27 @@ function App() {
     }
   };
 
-  // Updated addLog function with better error handling and debugging
-  const addLog = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Fix API response handling for addLog
+  const addLog = async (log: Omit<FoodLogEntry, 'id'>) => {
     try {
-      // Create a copy with the user ID added
-      const logData = {
-        ...newLog,
-        user_id: USER_ID
-      };
-      
-      const response = await fetch(`${API_URL}/logs/`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(logData)
-      });
-      
-      if (response.ok) {
-        // Reset form
-        cancelEditingLog();
-        // Refresh logs
-        fetchLogs();
+      const response = await api.post('/logs', log);
+      if (response.status === 201 || response.status === 200) {
+        // After adding log, refresh the logs for current date/view
+        if (viewMode === 'day') {
+          await fetchLogs(selectedDate);
+        } else {
+          await fetchWeekLogs(weekRange.start, weekRange.end);
+        }
+        return true;
       }
+      return false;
     } catch (error) {
       console.error('Error adding log:', error);
+      return false;
     }
   };
   
-  const startEditingLog = (log: FoodLog) => {
+  const startEditingLog = (log: FoodLogEntry) => {
     setNewLog({ ...log });
     setEditingLogId(log._id as string);
   };
@@ -432,55 +532,54 @@ function App() {
     setEditingLogId(null);
   };
   
-  // Updated updateLog function
-  const updateLog = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingLogId) return;
-    
+  // Fix API response handling for updateLog
+  const updateLog = async (log: FoodLogEntry) => {
     try {
-      const response = await fetch(`${API_URL}/logs/${editingLogId}`, {
-        method: 'PUT',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(newLog)
-      });
-      
-      if (response.ok) {
-        // Reset form
-        cancelEditingLog();
-        // Refresh logs
-        fetchLogs();
+      const response = await api.put(`/logs/${log._id}`, log);
+      if (response.status === 200) {
+        const newLogs = logs.map(l => l._id === log._id ? response.data : l);
+        setLogs(newLogs);
+        return true;
       }
+      return false;
     } catch (error) {
       console.error('Error updating log:', error);
+      return false;
     }
   };
   
+  // Fix API response handling for deleteLog
   const deleteLog = async (id: string) => {
     try {
-      const response = await fetch(`${API_URL}/logs/${id}`, {
-        method: 'DELETE',
-        headers: getAuthHeaders()
-      });
+      const response = await api.delete(`/logs/${id}`);
       
-      if (response.ok) {
-        fetchLogs();
+      if (response.status === 200) {
+        // Remove from local state
+        setLogs(logs.filter(log => log._id !== id));
+        
+        // Refresh the logs to ensure UI is in sync with server
+        if (viewMode === 'day') {
+          await fetchLogs(selectedDate);
+        } else {
+          await fetchWeekLogs(weekRange.start, weekRange.end);
+        }
+        
+        return true;
       }
+      return false;
     } catch (error) {
       console.error('Error deleting log:', error);
+      return false;
     }
   };
   
-  // Goal CRUD operations
+  // Fix API response handling for updateGoals
   const createGoal = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await fetch(`${API_URL}/goals/`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(newGoal)
-      });
+      const response = await api.post('/goals/', newGoal);
       
-      if (response.ok) {
+      if (response.status === 200 || response.status === 201) {
         // Reset form
         setNewGoal({
           type: 'weight loss',
@@ -508,51 +607,58 @@ function App() {
   
   const updateGoal = async (goalId: string, goalData: Partial<Goal>) => {
     try {
-      const response = await fetch(`${API_URL}/goals/${goalId}`, {
-        method: 'PUT',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(goalData)
-      });
+      console.log(`Updating goal ${goalId} with data:`, goalData);
+      const response = await api.put(`/goals/${goalId}`, goalData);
       
-      if (response.ok) {
+      if (response.status === 200) {
+        console.log("Goal updated successfully");
         // Refresh goals
-        fetchAllGoals();
-        fetchGoal();
+        await fetchAllGoals();
+        await fetchGoal();
+        return true;
       }
+      return false;
     } catch (error) {
       console.error('Error updating goal:', error);
+      return false;
     }
   };
   
   const deleteGoal = async (goalId: string) => {
     try {
-      const response = await fetch(`${API_URL}/goals/${goalId}`, {
-        method: 'DELETE',
-        headers: getAuthHeaders()
-      });
+      console.log(`Deleting goal ${goalId}`);
+      const response = await api.delete(`/goals/${goalId}`);
       
-      if (response.ok) {
-        fetchAllGoals();
-        fetchGoal();
+      if (response.status === 200) {
+        console.log("Goal deleted successfully");
+        // Refresh goals
+        await fetchAllGoals();
+        await fetchGoal();
+        return true;
       }
+      return false;
     } catch (error) {
       console.error('Error deleting goal:', error);
+      return false;
     }
   };
   
   const activateGoal = async (goalId: string) => {
     try {
-      const response = await fetch(`${API_URL}/goals/${goalId}/activate`, {
-        method: 'POST',
-        headers: getAuthHeaders()
-      });
+      console.log(`Activating goal ${goalId}`);
+      const response = await api.post(`/goals/${goalId}/activate`);
       
-      if (response.ok) {
-        fetchAllGoals();
-        fetchGoal();
+      if (response.status === 200) {
+        console.log("Goal activated successfully");
+        // Refresh both the active goal and all goals to ensure UI is in sync
+        await fetchAllGoals();
+        await fetchGoal();
+        return true;
       }
+      return false;
     } catch (error) {
       console.error('Error activating goal:', error);
+      return false;
     }
   };
 
@@ -661,7 +767,7 @@ function App() {
     const newDate = currentDate.toISOString().split('T')[0];
     console.log("Going to previous day:", newDate);
     setSelectedDate(newDate);
-    fetchLogs(newDate);
+    fetchTodaysLogs();
   };
 
   const goToNextDay = () => {
@@ -672,12 +778,12 @@ function App() {
     const newDate = currentDate.toISOString().split('T')[0];
     console.log("Going to next day:", newDate);
     setSelectedDate(newDate);
-    fetchLogs(newDate);
+    fetchTodaysLogs();
   };
 
   // Update useEffect to watch for selectedDate changes
   useEffect(() => {
-    fetchLogs();
+    fetchTodaysLogs();
   }, [selectedDate]);
 
   // Update useEffect to refresh today's date
@@ -687,7 +793,7 @@ function App() {
     if (selectedDate === getTodayDateString()) {
       // If we're viewing today's logs, refresh when the date changes
       setSelectedDate(currentDate);
-      fetchLogs(currentDate);
+      fetchTodaysLogs();
     }
     
     // Set up the title based on whether selected date is today
@@ -695,7 +801,7 @@ function App() {
   }, [selectedDate]);
 
   // Update the log title function
-  const updateLogTitle = (dateStr) => {
+  const updateLogTitle = (dateStr: string) => {
     const today = getTodayDateString();
     const isToday = dateStr === today;
     
@@ -714,7 +820,7 @@ function App() {
       if (selectedDate === getTodayDateString() && newToday !== selectedDate) {
         console.log("Date changed, updating to new today:", newToday);
         setSelectedDate(newToday);
-        fetchLogs(newToday);
+        fetchTodaysLogs();
       }
     }, 60000); // Check every minute
     
@@ -726,39 +832,98 @@ function App() {
     const today = getTodayDateString();
     console.log("Setting initial today's date:", today);
     setSelectedDate(today);
-    fetchLogs(today);
+    fetchTodaysLogs();
   }, []);
 
-  // Add this function after fetchLogs
-  const fetchLogsRange = async (startDate: string, endDate: string) => {
+  // Add a useEffect to explicitly fetch foods when component mounts
+  useEffect(() => {
+    console.log("Fetching foods on app initialization");
+    fetchFoods();
+  }, []);
+
+  // Function to fetch logs for today or selected date
+  const fetchLogs = async (date: string) => {
     try {
-      console.log("Fetching logs for range:", startDate, "to", endDate);
+      // Format the date correctly to ensure API compatibility
+      const formattedDate = `${date}T12:00:00Z`;
       
-      const response = await fetch(`${API_URL}/logs/range?user_id=${USER_ID}&start_date=${startDate}&end_date=${endDate}`, {
-        headers: getAuthHeaders()
-      });
+      console.log(`Fetching logs for date: ${date} (formatted: ${formattedDate})`);
       
-      if (!response.ok) {
-        console.error("Error fetching logs range:", response.status);
-        return;
+      const response = await api.get(`/logs?date=${formattedDate}`);
+      
+      console.log("Logs API response status:", response.status);
+      console.log("Logs API response structure:", typeof response.data, 
+                  Object.keys(response.data || {}));
+      
+      if (response.status === 200) {
+        // Handle different API response structures for compatibility
+        let logsData: FoodLogEntry[] = [];
+        
+        if (response.data && typeof response.data === 'object') {
+          if (Array.isArray(response.data)) {
+            logsData = response.data;
+          } else if (response.data.logs && Array.isArray(response.data.logs)) {
+            logsData = response.data.logs;
+          }
+        }
+        
+        console.log(`Fetched ${logsData.length} logs for ${date}`);
+        setLogs(logsData);
+        return logsData;
       }
-      
-      const data = await response.json();
-      
-      // Update the week logs state
-      if (data.date_range) {
-        const weekLogsObj: {[date: string]: FoodLog[]} = {};
-        data.date_range.forEach((day: any) => {
-          weekLogsObj[day.date] = day.logs || [];
-        });
-        setWeekLogs(weekLogsObj);
-      }
+      return [];
     } catch (error) {
-      console.error('Error fetching logs range:', error);
+      console.error("Error fetching logs:", error);
+      return [];
     }
   };
 
-  // Add this function after goToNextDay
+  // Function to fetch logs for a week
+  const fetchWeekLogs = async (start: string, end: string) => {
+    try {
+      console.log(`Fetching week logs from ${start} to ${end}`);
+      
+      // Format dates for API compatibility
+      const formattedStart = `${start}T00:00:00Z`;
+      const formattedEnd = `${end}T23:59:59Z`;
+      
+      const response = await api.get(`/logs/range?start_date=${formattedStart}&end_date=${formattedEnd}`);
+      
+      console.log("Week logs API response status:", response.status);
+      
+      if (response.status === 200) {
+        // Handle different API response structures
+        const groupedLogs: {[date: string]: FoodLogEntry[]} = {};
+        
+        if (response.data && typeof response.data === 'object') {
+          let dateRangeData = [];
+          
+          if (Array.isArray(response.data)) {
+            dateRangeData = response.data;
+          } else if (response.data.date_range && Array.isArray(response.data.date_range)) {
+            dateRangeData = response.data.date_range;
+          }
+          
+          // Add each date's logs to the groupedLogs object
+          dateRangeData.forEach((dayData: {date: string, logs: FoodLogEntry[]}) => {
+            if (dayData && dayData.date) {
+              groupedLogs[dayData.date] = Array.isArray(dayData.logs) ? dayData.logs : [];
+            }
+          });
+        }
+        
+        console.log(`Fetched logs for ${Object.keys(groupedLogs).length} days in the week`);
+        setWeekLogs(groupedLogs);
+        return groupedLogs;
+      }
+      return {};
+    } catch (error) {
+      console.error("Error fetching week logs:", error);
+      return {};
+    }
+  };
+
+  // Week navigation functions
   const goToCurrentWeek = () => {
     const today = new Date();
     const dayOfWeek = today.getDay(); // 0 is Sunday, 1 is Monday, etc.
@@ -775,8 +940,8 @@ function App() {
     const startStr = startDate.toISOString().split('T')[0];
     const endStr = endDate.toISOString().split('T')[0];
     
-    // Fetch logs for the week
-    fetchLogsRange(startStr, endStr);
+    setSelectedDate(startStr);
+    setWeekRange({start: startStr, end: endStr});
     
     // Update view mode
     setViewMode('week');
@@ -797,8 +962,8 @@ function App() {
     const startStr = startDate.toISOString().split('T')[0];
     const endStr = endDate.toISOString().split('T')[0];
     
-    // Fetch logs for the previous week
-    fetchLogsRange(startStr, endStr);
+    setSelectedDate(startStr);
+    setWeekRange({start: startStr, end: endStr});
   };
 
   const goToNextWeek = () => {
@@ -806,7 +971,7 @@ function App() {
     
     // Get current end date and move forward 1 day
     const endDate = new Date(weekRange.end);
-    endDate.setDate(endDate.getDate() + 7);
+    endDate.setDate(endDate.getDate() + 1);
     
     // Calculate new start date
     const startDate = new Date(endDate);
@@ -816,894 +981,497 @@ function App() {
     const startStr = startDate.toISOString().split('T')[0];
     const endStr = endDate.toISOString().split('T')[0];
     
-    // Fetch logs for the next week
-    fetchLogsRange(startStr, endStr);
+    setSelectedDate(startStr);
+    setWeekRange({start: startStr, end: endStr});
   };
 
   const switchToDay = () => {
     setViewMode('day');
-    fetchLogs(selectedDate);
+    if (selectedDate) {
+      fetchLogs(selectedDate);
+    } else {
+      const today = new Date().toISOString().split('T')[0];
+      setSelectedDate(today);
+      fetchLogs(today);
+    }
   };
 
-  // Update useEffect to fetch initial data
+  // Fetch logs for the selected date when it changes
   useEffect(() => {
-    const today = getTodayDateString();
-    console.log("Setting initial today's date:", today);
-    setSelectedDate(today);
-    fetchLogs(today);
-    
-    // Also fetch the current week data
-    const currentDate = new Date(today);
-    const dayOfWeek = currentDate.getDay();
-    const startDate = new Date(currentDate);
-    startDate.setDate(currentDate.getDate() - dayOfWeek);
-    const endDate = new Date(startDate);
-    endDate.setDate(startDate.getDate() + 6);
-    
-    // Format dates
-    const startStr = startDate.toISOString().split('T')[0];
-    const endStr = endDate.toISOString().split('T')[0];
-    
-    // Pre-fetch week data but don't switch view
-    fetchLogsRange(startStr, endStr);
-  }, []);
+    if (selectedDate) {
+      if (viewMode === 'day') {
+        fetchLogs(selectedDate);
+      } else if (viewMode === 'week') {
+        // Calculate start and end date based on the selected date
+        const start = new Date(selectedDate);
+        start.setDate(start.getDate() - start.getDay()); // Start of week (Sunday)
+        
+        const end = new Date(start);
+        end.setDate(end.getDate() + 6); // End of week (Saturday)
+        
+        const startStr = start.toISOString().split('T')[0];
+        const endStr = end.toISOString().split('T')[0];
+        
+        setWeekRange({start: startStr, end: endStr});
+        fetchWeekLogs(startStr, endStr);
+      }
+    }
+  }, [selectedDate, viewMode]);
 
+  // Function to determine what to show in the FAB based on active tab
+  const handleFabClick = () => {
+    setEditingItemId(null);
+    
+    switch (activeTab) {
+      case 'foods':
+        setShowAddFoodModal(true);
+        break;
+      case 'logs':
+        setShowLogFoodModal(true);
+        break;
+      case 'goals':
+        setShowGoalModal(true);
+        break;
+      default:
+        break;
+    }
+  };
+  
+  // Function to handle editing items
+  const handleEditItem = (id: string, type: 'food' | 'log' | 'goal') => {
+    setEditingItemId(id);
+    
+    switch (type) {
+      case 'food':
+        setShowAddFoodModal(true);
+        break;
+      case 'log':
+        setShowLogFoodModal(true);
+        break;
+      case 'goal':
+        setShowGoalModal(true);
+        break;
+      default:
+        break;
+    }
+  };
+  
+  // Add useEffect to monitor modal state changes
+  useEffect(() => {
+    console.log("Modal state changed - showAddFoodModal:", showAddFoodModal);
+  }, [showAddFoodModal]);
+  
+  // Get active screen content
+  const getActiveScreen = () => {
+    switch (activeTab) {
+      case 'home':
+        return (
+          <WidgetProvider>
+            <Home 
+              user={user as User}
+              goal={goal} 
+              todaysLogs={logs} 
+              onRefresh={fetchInitialData} 
+            />
+          </WidgetProvider>
+        );
+      case 'logs':
+        return (
+          <FoodLog 
+            logs={logs} 
+            foods={foods}
+            onEdit={(id) => handleEditItem(id, 'log')}
+            onDelete={deleteLog}
+            onAddLog={() => {
+              setEditingItemId(null);
+              setShowLogFoodModal(true);
+            }}
+            onRefresh={fetchTodaysLogs}
+            selectedDate={selectedDate}
+            onDateChange={setSelectedDate}
+            onPrevDay={goToPreviousDay}
+            onNextDay={goToNextDay}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+            weekLogs={weekLogs}
+            weekRange={weekRange}
+            onPrevWeek={goToPreviousWeek}
+            onNextWeek={goToNextWeek}
+            onCurrentWeek={goToCurrentWeek}
+            onSwitchToDay={switchToDay}
+          />
+        );
+      case 'foods':
+        console.log("Rendering FoodIndexTab component");
+        return <FoodIndexTab 
+                 foods={foods}
+                 onAddFood={() => {
+                   console.log("onAddFood called from FoodIndexTab");
+                   console.log("Setting editingItemId to null");
+                   setEditingItemId(null);
+                   console.log("About to set showAddFoodModal to true");
+                   setShowAddFoodModal(true);
+                   console.log("showAddFoodModal state set to:", true);
+                   // Force a re-render
+                   setTimeout(() => {
+                     console.log("Checking modal state after timeout:", showAddFoodModal);
+                   }, 100);
+                 }}
+                 onEditFood={(id) => handleEditItem(id, 'food')}
+                 onRefresh={async () => {
+                   console.log("Refreshing food index data...");
+                   const refreshedFoods = await fetchFoods();
+                   return refreshedFoods;
+                 }}
+               />;
+      case 'goals':
+        return <Goals 
+                 goal={goal}
+                 onAddGoal={() => {
+                   setEditingItemId(null);
+                   setShowGoalModal(true);
+                 }}
+                 onEditGoal={(id) => handleEditItem(id, 'goal')}
+                 onRefresh={fetchGoal}
+               />;
+      case 'health':
+        return <AppleHealthTab userId={user?.uid || ''} />;
+      case 'insights-trends':
+        return <InsightsTrends userId={user?.uid || ''} />;
+      case 'visuals':
+        return <Visuals
+                 userId={user?.uid || ''}
+                 logs={logs}
+                 goal={goal}
+               />;
+      case 'meal-plans':
+        return <MealPlanner 
+                 userId={user?.uid || ''}
+                 dailyTargets={{
+                   calories: goal?.nutrition_targets?.[0]?.daily_calories ?? 2000,
+                   protein: goal?.nutrition_targets?.[0]?.proteins ?? 100,
+                   carbs: goal?.nutrition_targets?.[0]?.carbs ?? 200,
+                   fat: goal?.nutrition_targets?.[0]?.fats ?? 70
+                 }}
+                 onMealLogged={fetchTodaysLogs}
+               />;
+      case 'meal-suggestions':
+        return <MealSuggestions 
+                 userId={user?.uid || ''}
+                 remainingMacros={{
+                   calories: goal?.nutrition_targets[0]?.daily_calories ?? 2000,
+                   protein: goal?.nutrition_targets[0]?.proteins ?? 100,
+                   carbs: goal?.nutrition_targets[0]?.carbs ?? 200,
+                   fat: goal?.nutrition_targets[0]?.fats ?? 70
+                 }}
+                 onMealLogged={fetchTodaysLogs}
+               />;
+      case 'chat':
+        return <Chatbot />;
+      case 'profile':
+        return <Profile user={user} />;
+      case 'dashboard':
+        return (
+          <div className="dashboard-container">
+            <h1>Dashboard</h1>
+            <DailyProgressFeedback 
+              userId={user?.uid || ''}
+              goalType={((goal?.type as 'lose' | 'maintain' | 'gain') || 'maintain')}
+              onRefresh={() => calculateRemainingMacros(2000, { protein: 30, carbs: 40, fat: 30 })}
+            />
+            <GoalBasedMealSuggestions 
+              userId={user?.uid || ''}
+              goalType={((goal?.type as 'lose' | 'maintain' | 'gain') || 'maintain')}
+              remainingMacros={remainingMacros}
+              mealType="snack"
+            />
+          </div>
+        );
+      case 'insights':
+        return (
+          <div className="insights-container">
+            <h1>Insights</h1>
+            <WeeklyGoalInsights 
+              userId={user?.uid || ''}
+              goalType={((goal?.type as 'lose' | 'maintain' | 'gain') || 'maintain')}
+              days={7}
+            />
+          </div>
+        );
+      case 'goals':
+        return (
+          <div className="goals-container">
+            <h1>Goals</h1>
+            <GoalProgressTracker
+              userId={user?.uid || ''}
+              goalType={((goal?.type as 'lose' | 'maintain' | 'gain') || 'maintain')}
+              targetWeight={goal?.weight_target.goal || 65}
+              startWeight={goal?.weight_target.current || 70}
+              startDate={userGoalStartDate}
+              weeklyRate={goal?.weight_target.weekly_rate || 0.5}
+            />
+          </div>
+        );
+      default:
+        return <div>Screen not found</div>;
+    }
+  };
+  
+  // Handle tab changes from sidebar
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    if (isMobile) {
+      setShowSidebar(false);
+    }
+  };
+  
+  // Add effect to handle URL query parameters
+  useEffect(() => {
+    // Parse query parameters from the URL
+    const queryParams = new URLSearchParams(location.search);
+    const tabParam = queryParams.get('tab');
+    const actionParam = queryParams.get('action');
+    
+    console.log('URL query params:', { tab: tabParam, action: actionParam });
+    
+    // Set active tab based on query parameter if present
+    if (tabParam) {
+      setActiveTab(tabParam);
+    }
+    
+    // Trigger actions based on action parameter
+    if (actionParam) {
+      switch (actionParam) {
+        case 'logFood':
+          setShowLogFoodModal(true);
+          break;
+        case 'addFood':
+          setShowAddFoodModal(true);
+          break;
+        case 'addGoal':
+          setShowGoalModal(true);
+          break;
+        // Add more actions as needed
+      }
+      
+      // Clear the action parameter from the URL to prevent re-triggering on refresh
+      // This maintains the tab parameter but removes the action
+      const newUrl = location.pathname + 
+        (tabParam ? `?tab=${tabParam}` : '');
+      window.history.replaceState({}, '', newUrl);
+    }
+  }, [location, setShowLogFoodModal, setShowAddFoodModal, setShowGoalModal]);
+  
+  // Add new state for user goals
+  const [userGoalType, setUserGoalType] = useState<'lose' | 'maintain' | 'gain'>('maintain');
+  const [userStartWeight, setUserStartWeight] = useState(70);
+  const [userTargetWeight, setUserTargetWeight] = useState(65);
+  const [userGoalStartDate, setUserGoalStartDate] = useState('2023-01-01');
+  const [userWeeklyRate, setUserWeeklyRate] = useState(0.5);
+  const [remainingMacros, setRemainingMacros] = useState({
+    calories: 2000,
+    protein: 150,
+    carbs: 200,
+    fat: 65
+  });
+  
+  // Add a useEffect to fetch user's goal data
+  useEffect(() => {
+    const fetchUserGoal = async () => {
+      try {
+        const response = await fetch('/profile');
+        const userData = await response.json();
+        
+        if (userData.weightGoal) {
+          setUserGoalType((userData.weightGoal.goalType as 'lose' | 'maintain' | 'gain') || 'maintain');
+          setUserStartWeight(userData.basicInfo.weight || 70);
+          setUserTargetWeight(userData.weightGoal.targetWeight || 65);
+          setUserWeeklyRate(userData.weightGoal.weeklyRate || 0.5);
+          
+          // Calculate remaining macros for the day
+          calculateRemainingMacros(
+            userData.nutritionGoal.dailyCalories || 2000, 
+            userData.nutritionGoal.macroDistribution || { protein: 30, carbs: 40, fat: 30 }
+          );
+        }
+      } catch (error) {
+        console.error('Error fetching user goal data:', error);
+      }
+    };
+    
+    fetchUserGoal();
+  }, []);
+  
+  // Calculate remaining macros for the day
+  const calculateRemainingMacros = async (totalCalories: number, macroDistribution: { protein: number, carbs: number, fat: number }) => {
+    try {
+      // Get today's date in YYYY-MM-DD format
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Fetch today's food logs
+      const response = await fetch(`/logs?date=${today}`);
+      const logs = await response.json();
+      
+      // Calculate consumed macros
+      const consumed = {
+        calories: 0,
+        protein: 0,
+        carbs: 0,
+        fat: 0
+      };
+      
+      logs.forEach((log: any) => {
+        consumed.calories += log.calories || 0;
+        consumed.protein += log.proteins || 0;
+        consumed.carbs += log.carbs || 0;
+        consumed.fat += log.fats || 0;
+      });
+      
+      // Calculate target macros
+      const targetProtein = (macroDistribution.protein / 100) * totalCalories / 4;
+      const targetCarbs = (macroDistribution.carbs / 100) * totalCalories / 4;
+      const targetFat = (macroDistribution.fat / 100) * totalCalories / 9;
+      
+      // Calculate remaining macros
+      setRemainingMacros({
+        calories: Math.max(0, totalCalories - consumed.calories),
+        protein: Math.max(0, targetProtein - consumed.protein),
+        carbs: Math.max(0, targetCarbs - consumed.carbs),
+        fat: Math.max(0, targetFat - consumed.fat)
+      });
+    } catch (error) {
+      console.error('Error calculating remaining macros:', error);
+    }
+  };
+  
+  // Render loading state
+  if (isLoading) {
+    return <div className="loading-screen">Loading...</div>;
+  }
+  
   return (
     <div className="app">
-      <h1>Nutrivize MVP</h1>
+      {/* Sidebar for navigation */}
+      <Sidebar 
+        activeTab={activeTab} 
+        onTabChange={handleTabChange}
+      />
       
-      {user && (
-        <div className="welcome-message">
-          Welcome, {user.email}!
-        </div>
-      )}
-      
-      <div className="tabs">
-        <button 
-          className={activeTab === 'foods' ? 'active' : ''} 
-          onClick={() => setActiveTab('foods')}
-        >
-          Food Index
-        </button>
-        <button 
-          className={activeTab === 'logs' ? 'active' : ''} 
-          onClick={() => setActiveTab('logs')}
-        >
-          Food Log
-        </button>
-        <button 
-          className={activeTab === 'goals' ? 'active' : ''} 
-          onClick={() => setActiveTab('goals')}
-        >
-          Goals
-        </button>
-        <button 
-          className={activeTab === 'suggestions' ? 'active' : ''} 
-          onClick={() => setActiveTab('suggestions')}
-        >
-          AI-Enhanced Meal Suggestions
-        </button>
-        <button 
-          className={activeTab === 'meal-plans' ? 'active' : ''} 
-          onClick={() => setActiveTab('meal-plans')}
-        >
-          Meal Plans
-        </button>
-        <button 
-          className={activeTab === 'trends' ? 'active' : ''} 
-          onClick={() => setActiveTab('trends')}
-        >
-          Trends
-        </button>
-        <button 
-          className={activeTab === 'insights' ? 'active' : ''} 
-          onClick={() => setActiveTab('insights')}
-        >
-          Insights
-        </button>
-        <button 
-          className={activeTab === 'chat' ? 'active' : ''} 
-          onClick={() => setActiveTab('chat')}
-        >
-          Chat
-        </button>
-      </div>
-      
-      <div className="tab-content">
+      <div className="app-content">
+        {/* Mobile header with menu toggle */}
+        {isMobile && (
+          <header className="app-header mobile">
+            <button 
+              className="menu-toggle" 
+              onClick={() => setShowSidebar(!showSidebar)}
+            >
+              {showSidebar ? '✕' : '☰'}
+            </button>
+            <h1>Nutrivize</h1>
+            {user && <p className="user-welcome">Hi, {user.name}</p>}
+          </header>
+        )}
+        
+        {/* Desktop header */}
+        {!isMobile && (
+          <header className="app-header desktop">
+            <h1>{activeTab.charAt(0).toUpperCase() + activeTab.slice(1).replace('-', ' ')}</h1>
+            {user && <p className="user-welcome">Welcome, {user.name}</p>}
+          </header>
+        )}
+        
+        {/* Debug button - temporary */}
         {activeTab === 'foods' && (
-          <div>
-            <h2>Food Index</h2>
-            
-            <form onSubmit={editingFoodId ? updateFood : addFood} className="form">
-              <h3>{editingFoodId ? 'Edit Food' : 'Add New Food'}</h3>
-              <div className="form-group">
-                <label>Name:</label>
-                <input 
-                  type="text" 
-                  value={newFood.name} 
-                  onChange={(e) => setNewFood({...newFood, name: e.target.value})}
-                  required
-                />
-              </div>
-              
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Serving Size:</label>
-                  <input 
-                    type="number" 
-                    value={newFood.serving_size} 
-                    onChange={(e) => setNewFood({...newFood, serving_size: parseFloat(e.target.value)})}
-                    required
-                    min="0.1"
-                    step="0.1"
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label>Unit:</label>
-                  <select
-                    value={newFood.serving_unit}
-                    onChange={(e) => setNewFood({...newFood, serving_unit: e.target.value})}
-                    required
-                  >
-                    {FOOD_UNITS.map(unit => (
-                      <option key={unit} value={unit}>{unit}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Calories:</label>
-                  <input 
-                    type="number" 
-                    value={newFood.calories} 
-                    onChange={(e) => setNewFood({...newFood, calories: parseFloat(e.target.value)})}
-                    required
-                    min="0"
-                    step="0.1"
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label>Protein (g):</label>
-                  <input 
-                    type="number" 
-                    value={newFood.proteins} 
-                    onChange={(e) => setNewFood({...newFood, proteins: parseFloat(e.target.value)})}
-                    required
-                    min="0"
-                    step="0.1"
-                  />
-                </div>
-              </div>
-              
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Carbs (g):</label>
-                  <input 
-                    type="number" 
-                    value={newFood.carbs} 
-                    onChange={(e) => setNewFood({...newFood, carbs: parseFloat(e.target.value)})}
-                    required
-                    min="0"
-                    step="0.1"
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label>Fats (g):</label>
-                  <input 
-                    type="number" 
-                    value={newFood.fats} 
-                    onChange={(e) => setNewFood({...newFood, fats: parseFloat(e.target.value)})}
-                    required
-                    min="0"
-                    step="0.1"
-                  />
-                </div>
-              </div>
-              
-              <div className="form-group">
-                <label>Fiber (g):</label>
-                <input 
-                  type="number" 
-                  value={newFood.fiber} 
-                  onChange={(e) => setNewFood({...newFood, fiber: parseFloat(e.target.value)})}
-                  min="0"
-                  step="0.1"
-                />
-              </div>
-              
-              <div className="form-buttons">
-                <button type="submit">{editingFoodId ? 'Update Food' : 'Add Food'}</button>
-                {editingFoodId && (
-                  <button type="button" onClick={cancelEditingFood} className="cancel-btn">
-                    Cancel
-                  </button>
-                )}
-              </div>
-            </form>
-            
-            <div className="list">
-              <h3>Food List</h3>
-              {foods.length === 0 ? (
-                <p>No foods added yet.</p>
-              ) : (
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Name</th>
-                      <th>Serving</th>
-                      <th>Calories</th>
-                      <th>Protein</th>
-                      <th>Carbs</th>
-                      <th>Fats</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {foods.map(food => (
-                      <tr key={food._id}>
-                        <td>{food.name}</td>
-                        <td>{food.serving_size} {food.serving_unit}</td>
-                        <td>{food.calories}</td>
-                        <td>{food.proteins}g</td>
-                        <td>{food.carbs}g</td>
-                        <td>{food.fats}g</td>
-                        <td className="action-buttons">
-                          <button 
-                            onClick={() => startEditingFood(food)}
-                            className="edit-btn"
-                          >
-                            Edit
-                          </button>
-                          <button 
-                            onClick={() => deleteFood(food._id as string)}
-                            className="delete-btn"
-                          >
-                            Delete
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </div>
-        )}
-        
-        {activeTab === 'logs' && (
-          <div>
-            <h2>Food Log</h2>
-            
-            <form onSubmit={editingLogId ? updateLog : addLog} className="form">
-              <h3>{editingLogId ? 'Edit Food Log' : 'Log Food'}</h3>
-              
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Date:</label>
-                  <input 
-                    type="date" 
-                    value={newLog.date} 
-                    onChange={(e) => {
-                      // Update the form date
-                      setNewLog({...newLog, date: e.target.value});
-                      
-                      // Optionally, also navigate to that date to show logs for the same day
-                      if (e.target.value !== selectedDate) {
-                        setSelectedDate(e.target.value);
-                        fetchLogs(e.target.value);
-                      }
-                    }}
-                    required
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label>Meal:</label>
-                  <select 
-                    value={newLog.meal_type} 
-                    onChange={(e) => setNewLog({...newLog, meal_type: e.target.value})}
-                    required
-                  >
-                    <option value="breakfast">Breakfast</option>
-                    <option value="lunch">Lunch</option>
-                    <option value="dinner">Dinner</option>
-                    <option value="snack">Snack</option>
-                  </select>
-                </div>
-              </div>
-              
-              <div className="form-group">
-                <label>Food:</label>
-                <select 
-                  value={newLog.food_id} 
-                  onChange={handleFoodSelect}
-                  required
-                  disabled={editingLogId !== null}
-                >
-                  <option value="">Select a food</option>
-                  {foods.map(food => (
-                    <option key={food._id} value={food._id}>
-                      {food.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Amount:</label>
-                  <input 
-                    type="number" 
-                    value={newLog.amount} 
-                    onChange={handleAmountChange}
-                    min="0.1"
-                    step="0.1"
-                    required
-                  />
-                </div>
-                
-                <div className="form-group">
-                  <label>Unit:</label>
-                  <select
-                    value={newLog.unit}
-                    onChange={handleUnitChange}
-                    required
-                  >
-                    {FOOD_UNITS.map(unit => (
-                      <option key={unit} value={unit}>{unit}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              
-              <div className="form-buttons">
-                <button type="submit">
-                  {editingLogId ? 'Update Log' : 'Log Food'}
-                </button>
-                {editingLogId && (
-                  <button type="button" onClick={cancelEditingLog} className="cancel-btn">
-                    Cancel
-                  </button>
-                )}
-              </div>
-            </form>
-            
-            <div className="list">
-              <div className="view-controls">
-                <button 
-                  className={viewMode === 'day' ? 'active-view' : ''}
-                  onClick={switchToDay}
-                >
-                  Day View
-                </button>
-                <button 
-                  className={viewMode === 'week' ? 'active-view' : ''}
-                  onClick={goToCurrentWeek}
-                >
-                  Week View
-                </button>
-              </div>
-              
-              {viewMode === 'day' ? (
-                <div className="day-view">
-                  <div className="log-header">
-                    <button 
-                      className="nav-button"
-                      onClick={goToPreviousDay}
-                      aria-label="Previous day"
-                    >
-                      &lt;
-                    </button>
-                    <h3>{logHeaderText}</h3>
-                    <button 
-                      className="nav-button"
-                      onClick={goToNextDay}
-                      aria-label="Next day"
-                    >
-                      &gt;
-                    </button>
-                  </div>
-                  
-                  {logs.length === 0 ? (
-                    <div className="no-data-message">
-                      <p>No foods logged for this day.</p>
-                    </div>
-                  ) : (
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>Time</th>
-                          <th>Meal</th>
-                          <th>Food</th>
-                          <th>Amount</th>
-                          <th>Calories</th>
-                          <th>Protein</th>
-                          <th>Carbs</th>
-                          <th>Fats</th>
-                          <th>Fiber</th>
-                          <th>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {logs.map(log => (
-                          <tr key={log._id}>
-                            <td>{new Date(log.date).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}</td>
-                            <td>{log.meal_type}</td>
-                            <td>{log.name}</td>
-                            <td>{log.amount} {log.unit}</td>
-                            <td>{Math.round(log.calories)}</td>
-                            <td>{log.proteins?.toFixed(1)}g</td>
-                            <td>{log.carbs?.toFixed(1)}g</td>
-                            <td>{log.fats?.toFixed(1)}g</td>
-                            <td>{log.fiber?.toFixed(1)}g</td>
-                            <td className="action-buttons">
-                              <button 
-                                onClick={() => startEditingLog(log)}
-                                className="edit-btn"
-                              >
-                                Edit
-                              </button>
-                              <button 
-                                onClick={() => deleteLog(log._id as string)}
-                                className="delete-btn"
-                              >
-                                Delete
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
-                </div>
-              ) : (
-                <div className="week-view">
-                  <div className="log-header">
-                    <button 
-                      className="nav-button"
-                      onClick={goToPreviousWeek}
-                      aria-label="Previous week"
-                    >
-                      &lt;
-                    </button>
-                    <h3>Week of {weekRange.start} to {weekRange.end}</h3>
-                    <button 
-                      className="nav-button"
-                      onClick={goToNextWeek}
-                      aria-label="Next week"
-                    >
-                      &gt;
-                    </button>
-                  </div>
-                  
-                  {Object.keys(weekLogs).length === 0 ? (
-                    <div className="no-data-message">
-                      <p>No foods logged for this week. Start logging meals to see your weekly summary.</p>
-                    </div>
-                  ) : (
-                    <div className="week-logs">
-                      {Object.entries(weekLogs).map(([date, dayLogs]) => (
-                        <div key={date} className="day-log-card">
-                          <h4>{new Date(date).toLocaleDateString('en-US', {weekday: 'short', month: 'short', day: 'numeric'})}</h4>
-                          {dayLogs.length === 0 ? (
-                            <p className="no-logs-message">No food logged</p>
-                          ) : (
-                            <>
-                              <p>{dayLogs.length} food items</p>
-                              <p className="day-total">
-                                {dayLogs.reduce((sum, log) => sum + (log.calories || 0), 0).toFixed(0)} cal
-                              </p>
-                            </>
-                          )}
-                          <button onClick={() => {
-                            setSelectedDate(date);
-                            switchToDay();
-                          }}>View</button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-        
-        {activeTab === 'goals' && (
-          <div>
-            <h2>Goals</h2>
-            
-            <div className="current-goal">
-              <h3>Current Active Goal</h3>
-              {goal ? (
-                <div className="goal-card active-goal">
-                  <p><strong>Type:</strong> {goal.type}</p>
-                  <p><strong>Current Weight:</strong> {goal.weight_target.current} kg</p>
-                  <p><strong>Goal Weight:</strong> {goal.weight_target.goal} kg</p>
-                  <p><strong>Weekly Rate:</strong> {goal.weight_target.weekly_rate} kg/week</p>
-                  
-                  <h4>Nutrition Targets:</h4>
-                  {goal.nutrition_targets.map((target, index) => (
-                    <div key={index} className="target-card">
-                      <p><strong>{target.name}</strong></p>
-                      <p>Calories: {target.daily_calories} kcal</p>
-                      <p>Protein: {target.proteins}g</p>
-                      <p>Carbs: {target.carbs}g</p>
-                      <p>Fats: {target.fats}g</p>
-                      {target.fiber > 0 && <p>Fiber: {target.fiber}g</p>}
-                    </div>
-                  ))}
-                  
-                  <div className="goal-actions">
-                    <button 
-                      onClick={() => {
-                        setEditingGoalId(goal._id || null);
-                        setNewGoal({...goal});
-                      }}
-                    >
-                      Edit Goal
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="no-data-message">
-                  <p>No active goal set. Create a new goal below to get started!</p>
-                </div>
-              )}
-            </div>
+          <div style={{ padding: '10px', textAlign: 'center' }}>
+            <button 
+              style={{ 
+                padding: '8px 16px', 
+                background: 'red', 
+                color: 'white', 
+                border: 'none', 
+                borderRadius: '4px',
+                marginRight: '10px'
+              }}
+              onClick={() => {
+                console.log("Debug button clicked");
+                setShowAddFoodModal(true);
+              }}
+            >
+              DEBUG: Open Add Food Modal
+            </button>
 
-            <div className="goal-list">
-              <h3>All Goals</h3>
-              {allGoals.length === 0 ? (
-                <div className="no-data-message">
-                  <p>You haven't created any goals yet. Use the form below to create your first goal.</p>
-                </div>
-              ) : (
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Type</th>
-                      <th>Weight</th>
-                      <th>Calories</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {allGoals.map(g => (
-                      <tr key={g._id}>
-                        <td>{g.type}</td>
-                        <td>{g.weight_target.current} kg → {g.weight_target.goal} kg</td>
-                        <td>{g.nutrition_targets[0]?.daily_calories || 0} kcal</td>
-                        <td className="action-buttons">
-                          <button 
-                            onClick={() => {
-                              setEditingGoalId(g._id || null);
-                              setNewGoal({...g});
-                            }}
-                          >
-                            Edit
-                          </button>
-                          <button 
-                            onClick={() => deleteGoal(g._id || '')}
-                          >
-                            Delete
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
+            <button 
+              style={{ 
+                padding: '8px 16px', 
+                background: 'green', 
+                color: 'white', 
+                border: 'none', 
+                borderRadius: '4px' 
+              }}
+              onClick={() => {
+                console.log("Test modal button clicked");
+                setShowTestModal(true);
+              }}
+            >
+              TEST: Open Test Modal
+            </button>
             
-            {(editingGoalId !== null || !goal) && (
-              <form onSubmit={(e) => {
-                e.preventDefault();
-                if (editingGoalId) {
-                  updateGoal(editingGoalId, newGoal);
-                } else {
-                  createGoal(e);
-                }
-              }} className="form">
-                <h3>{editingGoalId ? 'Edit Goal' : 'Create New Goal'}</h3>
-                
-                <div className="form-group">
-                  <label>Goal Type:</label>
-                  <select 
-                    value={newGoal.type} 
-                    onChange={(e) => setNewGoal({...newGoal, type: e.target.value})}
-                    required
-                  >
-                    <option value="weight loss">Weight Loss</option>
-                    <option value="weight gain">Weight Gain</option>
-                    <option value="maintenance">Maintenance</option>
-                  </select>
-                </div>
-                
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>Current Weight (kg):</label>
-                    <input 
-                      type="number" 
-                      value={newGoal.weight_target.current} 
-                      onChange={(e) => setNewGoal({
-                        ...newGoal, 
-                        weight_target: {
-                          ...newGoal.weight_target,
-                          current: parseFloat(e.target.value)
-                        }
-                      })}
-                      required
-                      step="0.1"
-                    />
-                  </div>
-                  
-                  <div className="form-group">
-                    <label>Goal Weight (kg):</label>
-                    <input 
-                      type="number" 
-                      value={newGoal.weight_target.goal} 
-                      onChange={(e) => setNewGoal({
-                        ...newGoal, 
-                        weight_target: {
-                          ...newGoal.weight_target,
-                          goal: parseFloat(e.target.value)
-                        }
-                      })}
-                      required
-                      step="0.1"
-                    />
-                  </div>
-                </div>
-                
-                <div className="form-group">
-                  <label>Weekly Rate (kg/week):</label>
-                  <input 
-                    type="number" 
-                    step="0.1"
-                    value={newGoal.weight_target.weekly_rate} 
-                    onChange={(e) => setNewGoal({
-                      ...newGoal, 
-                      weight_target: {
-                        ...newGoal.weight_target,
-                        weekly_rate: parseFloat(e.target.value)
-                      }
-                    })}
-                    required
-                  />
-                </div>
-                
-                <h4>Nutrition Target</h4>
-                
-                <div className="form-group">
-                  <label>Daily Calories:</label>
-                  <input 
-                    type="number" 
-                    value={newGoal.nutrition_targets[0]?.daily_calories || 0} 
-                    onChange={(e) => {
-                      const targets = [...(newGoal.nutrition_targets || [])];
-                      if (targets.length === 0) {
-                        targets.push({
-                          name: 'Default',
-                          daily_calories: 0,
-                          proteins: 0,
-                          carbs: 0,
-                          fats: 0,
-                          fiber: 0
-                        });
-                      }
-                      targets[0] = {...targets[0], daily_calories: parseFloat(e.target.value)};
-                      setNewGoal({...newGoal, nutrition_targets: targets});
-                    }}
-                    required
-                  />
-                </div>
-                
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>Protein (g):</label>
-                    <input 
-                      type="number" 
-                      value={newGoal.nutrition_targets[0]?.proteins || 0} 
-                      onChange={(e) => {
-                        const targets = [...(newGoal.nutrition_targets || [])];
-                        if (targets.length === 0) {
-                          targets.push({
-                            name: 'Default',
-                            daily_calories: 0,
-                            proteins: 0,
-                            carbs: 0,
-                            fats: 0,
-                            fiber: 0
-                          });
-                        }
-                        targets[0] = {...targets[0], proteins: parseFloat(e.target.value)};
-                        setNewGoal({...newGoal, nutrition_targets: targets});
-                      }}
-                      required
-                    />
-                  </div>
-                  
-                  <div className="form-group">
-                    <label>Carbs (g):</label>
-                    <input 
-                      type="number" 
-                      value={newGoal.nutrition_targets[0]?.carbs || 0} 
-                      onChange={(e) => {
-                        const targets = [...(newGoal.nutrition_targets || [])];
-                        if (targets.length === 0) {
-                          targets.push({
-                            name: 'Default',
-                            daily_calories: 0,
-                            proteins: 0,
-                            carbs: 0,
-                            fats: 0,
-                            fiber: 0
-                          });
-                        }
-                        targets[0] = {...targets[0], carbs: parseFloat(e.target.value)};
-                        setNewGoal({...newGoal, nutrition_targets: targets});
-                      }}
-                      required
-                    />
-                  </div>
-                </div>
-                
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>Fats (g):</label>
-                    <input 
-                      type="number" 
-                      value={newGoal.nutrition_targets[0]?.fats || 0} 
-                      onChange={(e) => {
-                        const targets = [...(newGoal.nutrition_targets || [])];
-                        if (targets.length === 0) {
-                          targets.push({
-                            name: 'Default',
-                            daily_calories: 0,
-                            proteins: 0,
-                            carbs: 0,
-                            fats: 0,
-                            fiber: 0
-                          });
-                        }
-                        targets[0] = {...targets[0], fats: parseFloat(e.target.value)};
-                        setNewGoal({...newGoal, nutrition_targets: targets});
-                      }}
-                      required
-                    />
-                  </div>
-                  
-                  <div className="form-group">
-                    <label>Fiber (g):</label>
-                    <input 
-                      type="number" 
-                      value={newGoal.nutrition_targets[0]?.fiber || 0} 
-                      onChange={(e) => {
-                        const targets = [...(newGoal.nutrition_targets || [])];
-                        if (targets.length === 0) {
-                          targets.push({
-                            name: 'Default',
-                            daily_calories: 0,
-                            proteins: 0,
-                            carbs: 0,
-                            fats: 0,
-                            fiber: 0
-                          });
-                        }
-                        targets[0] = {...targets[0], fiber: parseFloat(e.target.value)};
-                        setNewGoal({...newGoal, nutrition_targets: targets});
-                      }}
-                      required
-                    />
-                  </div>
-                </div>
-                
-                <div className="form-actions">
-                  <button type="submit">{editingGoalId ? 'Update Goal' : 'Create Goal'}</button>
-                  {editingGoalId && (
-                    <button 
-                      type="button" 
-                      onClick={() => setEditingGoalId(null)}
-                      className="cancel-button"
-                    >
-                      Cancel
-                    </button>
-                  )}
-                </div>
-              </form>
-            )}
+            <div>{showAddFoodModal ? 'Modal should be open' : 'Modal is closed'}</div>
+            <div>{showTestModal ? 'Test modal should be open' : 'Test modal is closed'}</div>
           </div>
         )}
         
-        {activeTab === 'suggestions' && (
-          <div>
-            <h2>AI-Enhanced Meal Suggestions</h2>
-            {foods.length === 0 ? (
-              <div className="no-data-message">
-                <p>You need to add some foods to your food index first. Head over to the Food Index tab to add some foods!</p>
-              </div>
-            ) : (
-              <MealSuggestions 
-                userId={USER_ID} 
-                remainingMacros={{
-                  calories: goal?.nutrition_targets[0]?.daily_calories ?? 2000,
-                  protein: goal?.nutrition_targets[0]?.proteins ?? 100,
-                  carbs: goal?.nutrition_targets[0]?.carbs ?? 200,
-                  fat: goal?.nutrition_targets[0]?.fats ?? 70
-                }}
-                onMealLogged={() => fetchLogs()}
-              />
-            )}
-          </div>
-        )}
-        
-        {activeTab === 'meal-plans' && (
-          <div>
-            <h2>Meal Plans</h2>
-            {foods.length === 0 ? (
-              <div className="no-data-message">
-                <p>You need to add some foods to your food index first. Head over to the Food Index tab to add some foods!</p>
-              </div>
-            ) : (
-              <MealPlanner 
-                userId={USER_ID} 
-                dailyTargets={{
-                  calories: goal?.nutrition_targets?.[0]?.daily_calories ?? 2000,
-                  protein: goal?.nutrition_targets?.[0]?.proteins ?? 100,
-                  carbs: goal?.nutrition_targets?.[0]?.carbs ?? 200,
-                  fat: goal?.nutrition_targets?.[0]?.fats ?? 70
-                }}
-                onMealLogged={() => fetchLogs()} 
-              />
-            )}
-          </div>
-        )}
-        
-        {activeTab === 'trends' && (
-          <div>
-            <h2>Nutrition Trends</h2>
-            {logs.length === 0 ? (
-              <div className="no-data-message">
-                <p>No food data available yet. Log some meals to see your nutrition trends!</p>
-              </div>
-            ) : (
-              <NutritionTrends 
-                userId={USER_ID}
-                days={trendPeriod}
-              />
-            )}
-          </div>
-        )}
-        
-        {activeTab === 'insights' && (
-          <div>
-            <h2>Nutrition Insights</h2>
-            {logs.length < 3 ? (
-              <div className="no-data-message">
-                <p>Not enough data to generate insights. Log at least 3 days of meals to see personalized nutrition insights!</p>
-              </div>
-            ) : (
-              <Insights userId={USER_ID} />
-            )}
-          </div>
-        )}
-        
-        {activeTab === 'chat' && (
-          <div>
-            <h2>NutriBot Assistant</h2>
-            <p>Ask me any nutrition-related questions or tell me to share a joke!</p>
-            <Chatbot />
-          </div>
-        )}
+        <main className="main-content">
+          {getActiveScreen()}
+        </main>
       </div>
-    </div>
-  )
-}
 
-export default App
+      {/* Modals - moved outside app-content for better z-index handling */}
+      {showAddFoodModal && (
+        <AddFoodModal
+          isOpen={showAddFoodModal}
+          onClose={() => setShowAddFoodModal(false)}
+          onFoodAdded={() => {
+            fetchFoods();
+            setShowAddFoodModal(false);
+          }}
+          editFoodId={editingItemId}
+          foods={foods}
+        />
+      )}
+
+      {/* Log Food Modal */}
+      <LogFoodModal
+        isOpen={showLogFoodModal}
+        onClose={() => setShowLogFoodModal(false)}
+        onLogAdded={() => {
+          fetchTodaysLogs();
+          setShowLogFoodModal(false);
+        }}
+        foods={foods}
+        editLogId={editingItemId}
+      />
+
+      {/* Goal Modal */}
+      <GoalModal
+        isOpen={showGoalModal}
+        onClose={() => setShowGoalModal(false)}
+        onGoalAdded={async () => {
+          await fetchGoal();
+          await fetchAllGoals();
+          setShowGoalModal(false);
+        }}
+        editGoalId={editingItemId}
+        currentGoal={goal}
+      />
+
+      {/* Test Modal */}
+      <TestModal 
+        isOpen={showTestModal}
+        onClose={() => setShowTestModal(false)}
+      />
+    </div>
+  );
+};
+
+export default App;
