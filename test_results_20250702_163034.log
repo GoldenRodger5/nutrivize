@@ -1,0 +1,191 @@
+Nutrivize V2 API Test Results - Wed Jul  2 16:30:35 EDT 2025
+=========================================
+
+===========================================
+Test: Authentication & User Management - Wed Jul  2 16:30:35 EDT 2025
+===========================================
+[0;34m=== Nutrivize V2 API Endpoint Tests - Authentication & User Management ===[0m
+API URL: http://localhost:8000
+Test User: isaacmineo@gmail.com
+
+[0;34m=== Authentication Tests ===[0m
+[1;33mTesting: Health Check[0m
+[0;32m✅ PASSED: Health Check[0m
+Response: {"status":"healthy","database":"connected","environment":"development"}
+
+[1;33mTesting: User Login[0m
+[0;32m✅ PASSED: User Login[0m
+Token extracted: eyJhbGciOiJSUzI1NiIs...
+
+[1;33mTesting: Token Verification[0m
+[0;32m✅ PASSED: Token Verification[0m
+Response: {"valid":true,"user":{"uid":"GME7nGpJQRc2v9T057vJ4oyqAJN2","email":"isaacmineo@gmail.com","name":"Isaac Mineo","preferences":{"dietary":{"dietary_restrictions":["vegetarian"],"allergens":["nuts"],"disliked_foods":["mushrooms"],"preferred_cuisines":["mediterranean","asian"],"cooking_skill_level":"intermediate","max_prep_time":45,"budget_preference":"moderate"},"updated_at":"2025-07-02T16:11:12.599335","nutrition":{"calorie_goal":2000,"protein_goal":150.0,"carb_goal":250.0,"fat_goal":65.0,"fiber_goal":30.0,"sodium_limit":null,"sugar_limit":null,"meal_frequency":3,"snack_frequency":2}}}}
+
+[1;33mTesting: Get Current User (/auth/me)[0m
+[0;32m✅ PASSED: Get Current User (/auth/me)[0m
+Response: {"uid":"GME7nGpJQRc2v9T057vJ4oyqAJN2","email":"isaacmineo@gmail.com","name":"Isaac Mineo","preferences":{"dietary":{"dietary_restrictions":["vegetarian"],"allergens":["nuts"],"disliked_foods":["mushrooms"],"preferred_cuisines":["mediterranean","asian"],"cooking_skill_level":"intermediate","max_prep_time":45,"budget_preference":"moderate"},"updated_at":"2025-07-02T16:11:12.599335","nutrition":{"calorie_goal":2000,"protein_goal":150.0,"carb_goal":250.0,"fat_goal":65.0,"fiber_goal":30.0,"sodium_limit":null,"sugar_limit":null,"meal_frequency":3,"snack_frequency":2}}}
+
+[0;34m=== User Profile Tests ===[0m
+[1;33mTesting: Get User Profile[0m
+[0;32m✅ PASSED: Get User Profile[0m
+Response: {"uid":"GME7nGpJQRc2v9T057vJ4oyqAJN2","email":"isaacmineo@gmail.com","name":"Isaac Mineo","about_me":"Nutrition enthusiast focused on healthy eating and fitness goals. Prefer Mediterranean and Asian cuisines.","created_at":"2025-06-30T03:21:58.015000","last_active":"2025-07-02T16:11:12.021000","preferences":{"dietary":{"dietary_restrictions":["vegetarian"],"allergens":["nuts"],"disliked_foods":["mushrooms"],"preferred_cuisines":["mediterranean","asian"],"cooking_skill_level":"intermediate","max_prep_time":45,"budget_preference":"moderate"},"updated_at":"2025-07-02T16:11:12.599335","nutrition":{"calorie_goal":2000,"protein_goal":150.0,"carb_goal":250.0,"fat_goal":65.0,"fiber_goal":30.0,"sodium_limit":null,"sugar_limit":null,"meal_frequency":3,"snack_frequency":2}},"profile_complete":true}
+
+[1;33mTesting: Update User Profile[0m
+[0;32m✅ PASSED: Update User Profile[0m
+Response: {"uid":"GME7nGpJQRc2v9T057vJ4oyqAJN2","email":"isaacmineo@gmail.com","name":"Isaac Mineo","about_me":"Nutrition enthusiast focused on healthy eating and fitness goals. Prefer Mediterranean and Asian cuisines.","created_at":"2025-06-30T03:21:58.015000","last_active":"2025-07-02T16:30:35.390000","preferences":{"dietary":{"dietary_restrictions":["vegetarian"],"allergens":["nuts"],"disliked_foods":["mushrooms"],"preferred_cuisines":["mediterranean","asian"],"cooking_skill_level":"intermediate","max_prep_time":45,"budget_preference":"moderate"},"updated_at":"2025-07-02T16:11:12.599335","nutrition":{"calorie_goal":2000,"protein_goal":150.0,"carb_goal":250.0,"fat_goal":65.0,"fiber_goal":30.0,"sodium_limit":null,"sugar_limit":null,"meal_frequency":3,"snack_frequency":2}},"profile_complete":true}
+
+[1;33mTesting: Verify Profile Update[0m
+[0;32m✅ PASSED: Profile Update Verification[0m
+Profile contains updated name
+
+[0;34m=== Authentication Error Tests ===[0m
+[1;33mTesting: Protected Endpoint Without Token (Should Fail)[0m
+[0;32m✅ PASSED: Protected Endpoint Without Token (Should Fail)[0m
+Response: {"detail":"Authorization header required"}
+
+[1;33mTesting: Protected Endpoint With Invalid Token (Should Fail)[0m
+[0;31m❌ FAILED: Protected Endpoint With Invalid Token (Should Fail)[0m
+Response: {"detail":"Authentication failed: Invalid token: Wrong number of segments in token: b'invalid_token_here'"}
+
+[0;32m✅ Authentication & User Management completed successfully[0m
+===========================================
+Test: Core Features - Wed Jul  2 16:30:35 EDT 2025
+===========================================
+[1;33mNo token provided, logging in...[0m
+[0;32m✅ Authentication successful[0m
+[0;34m=== Nutrivize V2 API Endpoint Tests - Core Features ===[0m
+API URL: http://localhost:8000
+Using token: eyJhbGciOiJSUzI1NiIs...
+
+[0;34m=== Food Management Tests ===[0m
+[1;33mTesting: Search Foods - 'chicken'[0m
+[0;32m✅ PASSED: Search Foods - 'chicken'[0m
+Response: [{"id":"6862a8ad76a7d2de93ccc19e","name":"Grilled Chicken Breast","brand":null,"serving_size":4.0,"serving_unit":"oz","nutrition":{"calories":185.0,"protein":35.0,"carbs":0.0,"fat":4.0,"fiber":0.0,"sugar":0.0,"sodium":84.0},"source":"user","barcode":null,"dietary_attributes":{"dietary_restrictions":["gluten-free","dairy-free","halal","kosher","keto","paleo","low-sodium","high-protein","low-carb","low-sugar","whole-foods","heart-healthy","anti-inflammatory"],"allergens":[],"food_categories":["meat"]}}]
+
+[1;33mTesting: Get Food Details[0m
+[0;32m✅ PASSED: Get Food Details[0m
+Response: {"detail":"Food item not found"}
+
+[1;33mTesting: Get Food Recommendations[0m
+[0;32m✅ PASSED: Get Food Recommendations[0m
+Response: {"detail":"Food item not found"}
+
+[0;34m=== User Preferences Tests ===[0m
+[1;33mTesting: Get User Preferences[0m
+[0;32m✅ PASSED: Get User Preferences[0m
+Response: {"dietary":{"dietary_restrictions":["vegetarian"],"allergens":["nuts"],"disliked_foods":["mushrooms"],"preferred_cuisines":["mediterranean","asian"],"cooking_skill_level":"intermediate","max_prep_time":45,"budget_preference":"moderate"},"updated_at":"2025-07-02T16:11:12.599335","nutrition":{"calorie_goal":2000,"protein_goal":150.0,"carb_goal":250.0,"fat_goal":65.0,"fiber_goal":30.0,"sodium_limit":null,"sugar_limit":null,"meal_frequency":3,"snack_frequency":2}}
+
+[1;33mTesting: Update Dietary Preferences[0m
+[0;32m✅ PASSED: Update Dietary Preferences[0m
+Response: {"message":"Preferences updated successfully","preferences":{"dietary":{"dietary_restrictions":["vegetarian"],"allergens":["nuts"],"disliked_foods":["mushrooms"],"preferred_cuisines":["mediterranean","asian"],"cooking_skill_level":"intermediate","max_prep_time":45,"budget_preference":"moderate"},"updated_at":"2025-07-02T16:30:35.929651","nutrition":{"calorie_goal":2000,"protein_goal":150.0,"carb_goal":250.0,"fat_goal":65.0,"fiber_goal":30.0,"sodium_limit":null,"sugar_limit":null,"meal_frequency":3,"snack_frequency":2}}}
+
+[1;33mTesting: Update Nutrition Preferences[0m
+[0;32m✅ PASSED: Update Nutrition Preferences[0m
+Response: {"message":"Preferences updated successfully","preferences":{"dietary":{"dietary_restrictions":["vegetarian"],"allergens":["nuts"],"disliked_foods":["mushrooms"],"preferred_cuisines":["mediterranean","asian"],"cooking_skill_level":"intermediate","max_prep_time":45,"budget_preference":"moderate"},"updated_at":"2025-07-02T16:30:36.001844","nutrition":{"calorie_goal":2000,"protein_goal":150.0,"carb_goal":250.0,"fat_goal":65.0,"fiber_goal":30.0,"sodium_limit":null,"sugar_limit":null,"meal_frequency":3,"snack_frequency":2}}}
+
+[0;34m=== Food Logging Tests ===[0m
+[1;33mTesting: Create Food Log Entry[0m
+[0;32m✅ PASSED: Create Food Log Entry[0m
+Response: 
+
+[1;33mTesting: Get User Food Logs (Today)[0m
+[0;32m✅ PASSED: Get User Food Logs (Today)[0m
+Response: 
+
+[1;33mTesting: Get Nutrition Summary (Today)[0m
+[0;32m✅ PASSED: Get Nutrition Summary (Today)[0m
+Response: {"detail":"Method Not Allowed"}
+
+[0;34m=== Goals and Analytics Tests ===[0m
+[1;33mTesting: Get User Goals[0m
+[0;32m✅ PASSED: Get User Goals[0m
+Response: 
+
+[1;33mTesting: Create Weight Loss Goal[0m
+[0;32m✅ PASSED: Create Weight Loss Goal[0m
+Response: 
+
+[1;33mTesting: Get Analytics Insights[0m
+[0;32m✅ PASSED: Get Analytics Insights[0m
+Response: {"insights":[{"id":"fallback_start","title":"Ready to Begin Your Journey","content":"Start logging your meals consistently this week to unlock personalized insights about your nutrition patterns and progress toward your goals.","category":"recommendation","importance":3},{"id":"fallback_consistency","title":"Build a Logging Habit","content":"Consistent food logging is the foundation of understanding your nutrition. Aim to log at least 2-3 meals daily for meaningful insights.","category":"habits","importance":2}],"statistics":{"total_logs":4,"avg_calories":114.6,"avg_protein":3.1,"avg_carbs":11.7,"avg_fat":7.3,"most_eaten_food":{"name":"Almond Butter","count":2},"most_consistent_meal":{"name":"lunch","count":2}},"charts":[{"chart_type":"line","title":"Daily Calories Trend","data":{"labels":["2025-06-25","2025-06-26","2025-06-27","2025-06-28","2025-06-29","2025-06-30","2025-07-01","2025-07-02"],"datasets":[{"label":"Calories","data":[0,0,0,0,0,232.0,570.0,0],"borderColor":"#3B82F6","backgroundColor":"rgba(59, 130, 246, 0.1)"}]}},{"chart_type":"pie","title":"Macronutrient Distribution","data":{"labels":["Protein","Carbs","Fat"],"datasets":[{"data":[21.5,82.0,51.2],"backgroundColor":["#10B981","#F59E0B","#EF4444"]}]}},{"chart_type":"bar","title":"Meal Type Distribution","data":{"labels":["lunch","dinner","breakfast"],"datasets":[{"label":"Number of Meals","data":[2,1,1],"backgroundColor":"#8B5CF6"}]}}],"generated_at":"2025-07-02T16:30:36.314882","timeframe":"week","is_cached":false,"summary":"Your nutrition journey is just beginning this week.","key_achievement":"Taking the first step toward better health","main_opportunity":"Start consistent meal logging to unlock detailed insights"}
+
+[0;34m=== Weight and Water Logging Tests ===[0m
+[1;33mTesting: Log Weight Entry[0m
+[0;32m✅ PASSED: Log Weight Entry[0m
+Response: 
+
+[1;33mTesting: Log Water Intake[0m
+[0;32m✅ PASSED: Log Water Intake[0m
+Response: 
+
+[1;33mTesting: Get Weight Logs[0m
+[0;32m✅ PASSED: Get Weight Logs[0m
+Response: 
+
+[0;34m=== Meal Planning Tests ===[0m
+[1;33mTesting: Get Meal Suggestions[0m
+[0;32m✅ PASSED: Get Meal Suggestions[0m
+Response: {"suggestions":[{"name":"Mediterranean Quinoa Bowl","description":"A nourishing grain bowl with protein-rich quinoa, chickpeas, and fresh vegetables","ingredients":[{"name":"quinoa","amount":75.0,"unit":"g","calories":275.0,"protein":10.0,"carbs":48.0,"fat":4.0},{"name":"chickpeas","amount":100.0,"unit":"g","calories":164.0,"protein":9.0,"carbs":27.0,"fat":3.0},{"name":"cucumber","amount":50.0,"unit":"g","calories":8.0,"protein":0.0,"carbs":2.0,"fat":0.0},{"name":"cherry tomatoes","amount":100.0,"unit":"g","calories":18.0,"protein":1.0,"carbs":4.0,"fat":0.0},{"name":"feta cheese","amount":30.0,"unit":"g","calories":75.0,"protein":4.0,"carbs":1.0,"fat":6.0},{"name":"olive oil","amount":15.0,"unit":"ml","calories":120.0,"protein":0.0,"carbs":0.0,"fat":14.0}],"instructions":["Cook quinoa according to package instructions","Dice cucumber and halve tomatoes","Combine all ingredients in a bowl","Drizzle with olive oil and season to taste"],"prep_time":20,"nutrition":{"calories":660.0,"protein":24.0,"carbs":82.0,"fat":27.0}},{"name":"Asian-Style Turkey Lettuce Wraps","description":"Light yet satisfying lettuce wraps with seasoned ground turkey and crunchy vegetables","ingredients":[{"name":"ground turkey","amount":150.0,"unit":"g","calories":195.0,"protein":29.0,"carbs":0.0,"fat":8.0},{"name":"lettuce leaves","amount":100.0,"unit":"g","calories":5.0,"protein":0.0,"carbs":1.0,"fat":0.0},{"name":"carrots","amount":50.0,"unit":"g","calories":21.0,"protein":0.0,"carbs":5.0,"fat":0.0},{"name":"water chestnuts","amount":50.0,"unit":"g","calories":35.0,"protein":1.0,"carbs":8.0,"fat":0.0},{"name":"hoisin sauce","amount":30.0,"unit":"ml","calories":60.0,"protein":0.0,"carbs":14.0,"fat":0.0}],"instructions":["Brown turkey in a pan","Add diced vegetables and sauce","Serve in lettuce leaves"],"prep_time":25,"nutrition":{"calories":316.0,"protein":30.0,"carbs":28.0,"fat":8.0}},{"name":"Loaded Sweet Potato","description":"Baked sweet potato topped with black beans, corn, and Greek yogurt","ingredients":[{"name":"sweet potato","amount":200.0,"unit":"g","calories":180.0,"protein":2.0,"carbs":41.0,"fat":0.0},{"name":"black beans","amount":100.0,"unit":"g","calories":132.0,"protein":9.0,"carbs":24.0,"fat":0.0},{"name":"corn","amount":50.0,"unit":"g","calories":48.0,"protein":2.0,"carbs":11.0,"fat":1.0},{"name":"Greek yogurt","amount":50.0,"unit":"g","calories":50.0,"protein":9.0,"carbs":4.0,"fat":0.0},{"name":"avocado","amount":50.0,"unit":"g","calories":80.0,"protein":1.0,"carbs":4.0,"fat":7.0}],"instructions":["Bake sweet potato until tender","Heat black beans and corn","Top potato with beans, corn, yogurt, and diced avocado"],"prep_time":45,"nutrition":{"calories":490.0,"protein":23.0,"carbs":84.0,"fat":8.0}}]}
+
+[1;33mTesting: Generate 3-Day Meal Plan[0m
+[0;32m✅ PASSED: Generate 3-Day Meal Plan[0m
+Response: {"meal_plan":{"duration":"3 days","focus":"High protein","daily_meals":{"day_1":{"breakfast":{"meal":"Greek Yogurt Power Bowl","portions":{"Greek yogurt":"1 cup (200g)","mixed berries":"1/2 cup (75g)","granola":"1/4 cup (30g)","honey":"1 tsp (5g)","chia seeds":"1 tbsp (15g)"},"protein":"24g"},"lunch":{"meal":"Grilled Chicken Quinoa Bowl","portions":{"chicken breast":"6 oz (170g)","quinoa":"3/4 cup cooked (130g)","mixed vegetables":"1 cup (150g)","olive oil":"1 tbsp (15ml)","lemon juice":"1 tbsp (15ml)"},"protein":"38g"},"dinner":{"meal":"Baked Salmon with Sweet Potato","portions":{"salmon fillet":"6 oz (170g)","sweet potato":"1 medium (130g)","broccoli":"1 cup (91g)","olive oil":"1 tbsp (15ml)"},"protein":"36g"}},"day_2":{"breakfast":{"meal":"Protein Oatmeal","portions":{"oats":"1 cup (80g)","whey protein":"1 scoop (30g)","banana":"1 medium (118g)","almond butter":"1 tbsp (16g)"},"protein":"28g"},"lunch":{"meal":"Turkey and Avocado Wrap","portions":{"turkey breast":"5 oz (142g)","whole wheat wrap":"1 large (60g)","avocado":"1/2 medium (68g)","mixed greens":"1 cup (30g)"},"protein":"35g"},"dinner":{"meal":"Lean Beef Stir-Fry","portions":{"lean beef strips":"6 oz (170g)","brown rice":"3/4 cup cooked (130g)","mixed vegetables":"1.5 cups (225g)","stir-fry sauce":"2 tbsp (30ml)"},"protein":"42g"}},"day_3":{"breakfast":{"meal":"Egg White Scramble","portions":{"egg whites":"1 cup (242g)","spinach":"2 cups (60g)","mushrooms":"1/2 cup (35g)","whole grain toast":"2 slices (70g)"},"protein":"26g"},"lunch":{"meal":"Tuna Protein Bowl","portions":{"canned tuna":"5 oz (142g)","chickpeas":"1/2 cup (82g)","mixed greens":"2 cups (60g)","olive oil dressing":"1 tbsp (15ml)"},"protein":"40g"},"dinner":{"meal":"Grilled Tofu Steak","portions":{"firm tofu":"8 oz (226g)","quinoa":"3/4 cup cooked (130g)","roasted vegetables":"1.5 cups (225g)","teriyaki sauce":"2 tbsp (30ml)"},"protein":"32g"}}},"shopping_list":{"proteins":["Greek yogurt","chicken breast","salmon fillet","turkey breast","lean beef strips","egg whites","canned tuna","firm tofu","whey protein powder"],"grains":["quinoa","oats","brown rice","whole wheat wraps","whole grain bread"],"produce":["mixed berries","banana","sweet potato","broccoli","mixed greens","spinach","mushrooms","mixed vegetables","avocado","lemon"],"pantry":["olive oil","honey","chia seeds","granola","almond butter","teriyaki sauce","stir-fry sauce"]},"prep_instructions":{"weekend_prep":["Cook quinoa and brown rice in bulk","Wash and cut vegetables","Portion proteins into serving sizes","Prepare homemade dressings"],"daily_prep":{"morning":"15 minutes for breakfast preparation","evening":"30 minutes for dinner preparation","lunch":"Can be prepared night before"}},"nutritional_breakdown":{"daily_average":{"calories":"2000-2200","protein":"95-105g","carbohydrates":"220-240g","fats":"65-75g","fiber":"25-30g"}},"goal_alignment":{"protein_focus":"Achieved through lean protein sources at every meal","variety":"Different protein sources and cooking methods used","practicality":"Moderate prep time with make-ahead options","sustainability":"Balanced macronutrient distribution for long-term adherence"}},"user_id":"GME7nGpJQRc2v9T057vJ4oyqAJN2","id":"40550728-078c-4871-bf07-a53a771de632","created_at":"2025-07-02T20:31:14.294084","updated_at":"2025-07-02T20:31:14.294111","status":"active"}
+
+[0;34m=== Nutrition Label Tests ===[0m
+[1;33mTesting: Analyze Nutrition Label (Mock Image)[0m
+[0;32m✅ PASSED: Analyze Nutrition Label (Mock Image)[0m
+Response: {"detail":"Not Found"}
+
+[0;34m=== Summary ===[0m
+Core features endpoint tests completed.
+Token used: eyJhbGciOiJSUzI1NiIs...
+
+Next: Run test_endpoints_ai.sh with this token
+export API_TOKEN="eyJhbGciOiJSUzI1NiIsImtpZCI6Ijg3NzQ4NTAwMmYwNWJlMDI2N2VmNDU5ZjViNTEzNTMzYjVjNThjMTIiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJodHRwczovL3NlY3VyZXRva2VuLmdvb2dsZS5jb20vZm9vZC10cmFja2VyLTYwOTZkIiwiYXVkIjoiZm9vZC10cmFja2VyLTYwOTZkIiwiYXV0aF90aW1lIjoxNzUxNDg4MjM1LCJ1c2VyX2lkIjoiR01FN25HcEpRUmMydjlUMDU3dko0b3lxQUpOMiIsInN1YiI6IkdNRTduR3BKUVJjMnY5VDA1N3ZKNG95cUFKTjIiLCJpYXQiOjE3NTE0ODgyMzUsImV4cCI6MTc1MTQ5MTgzNSwiZW1haWwiOiJpc2FhY21pbmVvQGdtYWlsLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjpmYWxzZSwiZmlyZWJhc2UiOnsiaWRlbnRpdGllcyI6eyJlbWFpbCI6WyJpc2FhY21pbmVvQGdtYWlsLmNvbSJdfSwic2lnbl9pbl9wcm92aWRlciI6InBhc3N3b3JkIn19.ixFQeBcoJ1ttXVHZjPgZDTVZUg43at4VXwsUwJcGPxMtKu9GtguMXE4acteeM4x26h6mm-CkzwK3c2NzkK3bbMs-gaIyMPvY2SPH-1JCUt6_AbtL1JNEYZ813h3HMdXKFrGSqzryAxlH2IG0OUCO5QUtixLf-9tjCyWW6Xth6FISCcWeKdwBWjvjKCuUsHiDQdB8wo6ipSN6breQVzExjtxzDEia86XSyI5385J9PLgTPlT1NLGWQBUsH9D_lHAn5G-Sbt0y0xPxIvA5SRHTJmneY0B1EWfClYgvnjFJaneCDmQ_VzPntD9IrBy_gSPWp0kwtXRlvq0xOgQpe-Fq5g"
+[0;32m✅ Core Features completed successfully[0m
+===========================================
+Test: AI Features - Wed Jul  2 16:31:14 EDT 2025
+===========================================
+[1;33mNo token provided, logging in...[0m
+[0;32m✅ Authentication successful[0m
+[0;34m=== Nutrivize V2 API Endpoint Tests - AI Features ===[0m
+API URL: http://localhost:8000
+Using token: eyJhbGciOiJSUzI1NiIs...
+
+[0;34m=== AI Chat Tests ===[0m
+[1;33mTesting: AI Chat - Basic Nutrition Question[0m
+[0;32m✅ PASSED: AI Chat - Basic Nutrition Question[0m
+Response: {"response":"Hi Isaac! I'd be happy to suggest some healthy breakfast options that can support your weight loss goals while keeping you energized throughout the morning. Before I make specific suggestions, let me ask a few quick questions to personalize these recommendations for you:\n\n1. How much time do you typically have for breakfast preparation in the morning?\n2. Do you prefer hot or cold breakfast options?\n3. Any specific foods you particularly enjoy or want to avoid for breakfast?\n4. Would you like me to focus on Mediterranean and Asian-inspired options, given your cuisine preferences?\n5. Are there any dietary restrictions or allergies I should be aware of?\n6. Would you like me to only use foods from your personal food index for more realistic suggestions?\n\nI notice from your recent nutrition patterns that your average daily calories are quite low at 200.5 calories with 5.375g protein, which seems unusually low - we should aim to create a balanced breakfast that helps establish a healthy daily intake while supporting your weight loss goals.\n\nOnce you share these details, I can provide you with specific, personalized breakfast options that will:\n- Keep you feeling full and satisfied\n- Provide a good balance of protein and fiber\n- Support your weight loss goals\n- Fit your schedule and preferences\n- Be enjoyable and sustainable\n\nWould you please share those details with me so I can make the most appropriate suggestions for you?","conversation_history":[{"role":"user","content":"What are some healthy breakfast options for weight loss?"},{"role":"assistant","content":"Hi Isaac! I'd be happy to suggest some healthy breakfast options that can support your weight loss goals while keeping you energized throughout the morning. Before I make specific suggestions, let me ask a few quick questions to personalize these recommendations for you:\n\n1. How much time do you typically have for breakfast preparation in the morning?\n2. Do you prefer hot or cold breakfast options?\n3. Any specific foods you particularly enjoy or want to avoid for breakfast?\n4. Would you like me to focus on Mediterranean and Asian-inspired options, given your cuisine preferences?\n5. Are there any dietary restrictions or allergies I should be aware of?\n6. Would you like me to only use foods from your personal food index for more realistic suggestions?\n\nI notice from your recent nutrition patterns that your average daily calories are quite low at 200.5 calories with 5.375g protein, which seems unusually low - we should aim to create a balanced breakfast that helps establish a healthy daily intake while supporting your weight loss goals.\n\nOnce you share these details, I can provide you with specific, personalized breakfast options that will:\n- Keep you feeling full and satisfied\n- Provide a good balance of protein and fiber\n- Support your weight loss goals\n- Fit your schedule and preferences\n- Be enjoyable and sustainable\n\nWould you please share those details with me so I can make the most appropriate suggestions for you?"}]}
+
+[1;33mTesting: AI Chat - Smart Food Logging[0m
+[0;32m✅ PASSED: AI Chat - Smart Food Logging[0m
+Response: {"result":"","message":"Food operations processed"}
+
+[1;33mTesting: Get AI Conversation Context[0m
+[0;31m❌ FAILED: Get AI Conversation Context[0m
+Response: Internal Server Error
+
+[0;32m✅ AI Features completed successfully[0m
+
+==========================================
+Test Summary - Wed Jul  2 16:31:21 EDT 2025
+==========================================
+[0;32m🎉 ALL TESTS PASSED! (3/3)[0m
+[0;32m✅ Authentication & User Management[0m
+[0;32m✅ Core Features[0m
+[0;32m✅ AI Features[0m
+
+Detailed results available in: /Users/isaacmineo/Main/projects/nutrivize-v2/test_results_20250702_163034.log
+
+==========================================
+Deployment Readiness Assessment
+==========================================
+[0;32m🚀 DEPLOYMENT READY[0m
+✅ All critical endpoints are functional
+✅ Authentication system is working
+✅ Core features are operational
+✅ AI features are functional
+✅ Restaurant AI with multi-file support is active
+✅ User profile and session history features are working
+
+Test completed at: Wed Jul  2 16:31:21 EDT 2025

@@ -1,0 +1,99 @@
+Nutrivize V2 API Test Results - Wed Jul  2 16:42:44 EDT 2025
+=========================================
+
+===========================================
+Test: Authentication & User Management - Wed Jul  2 16:42:44 EDT 2025
+===========================================
+[0;34m=== Nutrivize V2 API Endpoint Tests - Authentication & User Management ===[0m
+API URL: http://localhost:8000
+Test User: isaacmineo@gmail.com
+
+[0;34m=== Authentication Tests ===[0m
+[1;33mTesting: Health Check[0m
+[0;32m✅ PASSED: Health Check[0m
+Response: {"status":"healthy","database":"connected","environment":"development"}
+
+[1;33mTesting: User Login[0m
+[0;32m✅ PASSED: User Login[0m
+Token extracted: eyJhbGciOiJSUzI1NiIs...
+
+[1;33mTesting: Token Verification[0m
+[0;32m✅ PASSED: Token Verification[0m
+Response: {"valid":true,"user":{"uid":"GME7nGpJQRc2v9T057vJ4oyqAJN2","email":"isaacmineo@gmail.com","name":"Isaac Mineo","preferences":{"dietary":{"dietary_restrictions":["vegetarian"],"allergens":["nuts"],"disliked_foods":["mushrooms","for breakfast","for breakfast"],"preferred_cuisines":["mediterranean","asian"],"cooking_skill_level":"intermediate","max_prep_time":45,"budget_preference":"moderate"},"updated_at":"2025-07-02T16:31:21.184950","nutrition":{"calorie_goal":2000,"protein_goal":150.0,"carb_goal":250.0,"fat_goal":65.0,"fiber_goal":30.0,"sodium_limit":null,"sugar_limit":null,"meal_frequency":3,"snack_frequency":2}}}}
+
+[1;33mTesting: Get Current User (/auth/me)[0m
+[0;32m✅ PASSED: Get Current User (/auth/me)[0m
+Response: {"uid":"GME7nGpJQRc2v9T057vJ4oyqAJN2","email":"isaacmineo@gmail.com","name":"Isaac Mineo","preferences":{"dietary":{"dietary_restrictions":["vegetarian"],"allergens":["nuts"],"disliked_foods":["mushrooms","for breakfast","for breakfast"],"preferred_cuisines":["mediterranean","asian"],"cooking_skill_level":"intermediate","max_prep_time":45,"budget_preference":"moderate"},"updated_at":"2025-07-02T16:31:21.184950","nutrition":{"calorie_goal":2000,"protein_goal":150.0,"carb_goal":250.0,"fat_goal":65.0,"fiber_goal":30.0,"sodium_limit":null,"sugar_limit":null,"meal_frequency":3,"snack_frequency":2}}}
+
+[0;34m=== User Profile Tests ===[0m
+[1;33mTesting: Get User Profile[0m
+[0;32m✅ PASSED: Get User Profile[0m
+Response: {"uid":"GME7nGpJQRc2v9T057vJ4oyqAJN2","email":"isaacmineo@gmail.com","name":"Isaac Mineo","about_me":"Nutrition enthusiast focused on healthy eating and fitness goals. Prefer Mediterranean and Asian cuisines.","created_at":"2025-06-30T03:21:58.015000","last_active":"2025-07-02T16:38:55.294000","preferences":{"dietary":{"dietary_restrictions":["vegetarian"],"allergens":["nuts"],"disliked_foods":["mushrooms","for breakfast","for breakfast"],"preferred_cuisines":["mediterranean","asian"],"cooking_skill_level":"intermediate","max_prep_time":45,"budget_preference":"moderate"},"updated_at":"2025-07-02T16:31:21.184950","nutrition":{"calorie_goal":2000,"protein_goal":150.0,"carb_goal":250.0,"fat_goal":65.0,"fiber_goal":30.0,"sodium_limit":null,"sugar_limit":null,"meal_frequency":3,"snack_frequency":2}},"profile_complete":true}
+
+[1;33mTesting: Update User Profile[0m
+[0;32m✅ PASSED: Update User Profile[0m
+Response: {"uid":"GME7nGpJQRc2v9T057vJ4oyqAJN2","email":"isaacmineo@gmail.com","name":"Isaac Mineo","about_me":"Nutrition enthusiast focused on healthy eating and fitness goals. Prefer Mediterranean and Asian cuisines.","created_at":"2025-06-30T03:21:58.015000","last_active":"2025-07-02T16:42:44.865000","preferences":{"dietary":{"dietary_restrictions":["vegetarian"],"allergens":["nuts"],"disliked_foods":["mushrooms","for breakfast","for breakfast"],"preferred_cuisines":["mediterranean","asian"],"cooking_skill_level":"intermediate","max_prep_time":45,"budget_preference":"moderate"},"updated_at":"2025-07-02T16:31:21.184950","nutrition":{"calorie_goal":2000,"protein_goal":150.0,"carb_goal":250.0,"fat_goal":65.0,"fiber_goal":30.0,"sodium_limit":null,"sugar_limit":null,"meal_frequency":3,"snack_frequency":2}},"profile_complete":true}
+
+[1;33mTesting: Verify Profile Update[0m
+[0;32m✅ PASSED: Profile Update Verification[0m
+Profile contains updated name
+
+[0;34m=== Authentication Error Tests ===[0m
+[1;33mTesting: Protected Endpoint Without Token (Should Fail)[0m
+[0;32m✅ PASSED: Protected Endpoint Without Token (Should Fail)[0m
+Response: {"detail":"Authorization header required"}
+
+[1;33mTesting: Protected Endpoint With Invalid Token (Should Fail)[0m
+[0;31m❌ FAILED: Protected Endpoint With Invalid Token (Should Fail)[0m
+Response: {"detail":"Authentication failed: Invalid token: Wrong number of segments in token: b'invalid_token_here'"}
+
+[0;32m✅ Authentication & User Management completed successfully[0m
+===========================================
+Test: Core Features - Wed Jul  2 16:42:44 EDT 2025
+===========================================
+[0;34m=== Nutrivize V2 API Endpoint Tests - Core Features ===[0m
+API URL: http://localhost:8000
+Using token: eyJhbGciOiJSUzI1NiIs...
+
+[0;34m=== Food Management Tests ===[0m
+[1;33mTesting: Search Foods - 'chicken'[0m
+[0;31m❌ FAILED: Search Foods - 'chicken'[0m
+Response: {"detail":"Authentication failed: Invalid token: Certificate for key id 7dc22b11a267f2e0fa06fe057c717a182f812c70 not found."}
+
+[0;32m✅ Core Features completed successfully[0m
+===========================================
+Test: AI Features - Wed Jul  2 16:42:44 EDT 2025
+===========================================
+[0;34m=== Nutrivize V2 API Endpoint Tests - AI Features ===[0m
+API URL: http://localhost:8000
+Using token: eyJhbGciOiJSUzI1NiIs...
+
+[0;34m=== AI Chat Tests ===[0m
+[1;33mTesting: AI Chat - Basic Nutrition Question[0m
+[0;31m❌ FAILED: AI Chat - Basic Nutrition Question[0m
+Response: {"detail":"Authentication failed: Invalid token: Certificate for key id 7dc22b11a267f2e0fa06fe057c717a182f812c70 not found."}
+
+[0;32m✅ AI Features completed successfully[0m
+
+==========================================
+Test Summary - Wed Jul  2 16:42:45 EDT 2025
+==========================================
+[0;32m🎉 ALL TESTS PASSED! (3/3)[0m
+[0;32m✅ Authentication & User Management[0m
+[0;32m✅ Core Features[0m
+[0;32m✅ AI Features[0m
+
+Detailed results available in: /Users/isaacmineo/Main/projects/nutrivize-v2/test_results_20250702_164244.log
+
+==========================================
+Deployment Readiness Assessment
+==========================================
+[0;32m🚀 DEPLOYMENT READY[0m
+✅ All critical endpoints are functional
+✅ Authentication system is working
+✅ Core features are operational
+✅ AI features are functional
+✅ Restaurant AI with multi-file support is active
+✅ User profile and session history features are working
+
+Test completed at: Wed Jul  2 16:42:45 EDT 2025
