@@ -56,7 +56,7 @@ import { AddIcon, ViewIcon, DeleteIcon, EditIcon } from '@chakra-ui/icons'
 import { MdCheckCircle, MdSchedule, MdShoppingCart } from 'react-icons/md'
 import { FiInfo } from 'react-icons/fi'
 import api from '../utils/api'
-import { getCurrentDateInTimezone, getUserTimezone } from '../utils/timezone'
+// Note: timezone utilities removed as they were unused after function cleanup
 import EnhancedShoppingList from '../components/EnhancedShoppingList'
 import { ShoppingList } from '../types'
 import LogMealFoodModal from '../components/LogMealFoodModal'
@@ -189,7 +189,7 @@ const MealPlans: React.FC = () => {
   
   // New modals for enhanced features
   const { isOpen: isEditMealOpen, onOpen: onEditMealOpen, onClose: onEditMealClose } = useDisclosure()
-  const { isOpen: isMultiFoodLogOpen, onOpen: onMultiFoodLogOpen, onClose: onMultiFoodLogClose } = useDisclosure()
+  const { isOpen: isMultiFoodLogOpen, onClose: onMultiFoodLogClose } = useDisclosure()
   // Add disclosure for single meal food logging
   const { isOpen: isSingleMealLogOpen, onOpen: onSingleMealLogOpen, onClose: onSingleMealLogClose } = useDisclosure()
 
@@ -712,48 +712,7 @@ const MealPlans: React.FC = () => {
   }
 
   // Functions for multi-food logging
-  const openMultiFoodLog = (meal: MealPlanMeal, date: string) => {
-    // Convert date to timezone-aware format
-    const currentDate = getCurrentDateInTimezone(getUserTimezone())
-    const logDate = date || currentDate
-
-    let ingredients = []
-
-    if (meal.ingredients && meal.ingredients.length > 0) {
-      // Use detailed ingredients if available
-      ingredients = meal.ingredients.map(ingredient => ({
-        name: ingredient.name,
-        amount: ingredient.amount,
-        unit: ingredient.unit,
-        calories: ingredient.calories || 0,
-        protein: ingredient.protein || 0,
-        carbs: ingredient.carbs || 0,
-        fat: ingredient.fat || 0,
-        selected: true,
-        food_id: `ingredient_${ingredient.name.toLowerCase().replace(/\s+/g, '_')}`
-      }))
-    } else {
-      // Fallback to the whole meal as a single item
-      ingredients = [{
-        name: meal.food_name,
-        amount: parseFloat(meal.portion_size) || 1,
-        unit: 'serving',
-        calories: meal.calories,
-        protein: meal.protein,
-        carbs: meal.carbs,
-        fat: meal.fat,
-        selected: true,
-        food_id: `meal_${meal.food_name.toLowerCase().replace(/\s+/g, '_')}`
-      }]
-    }
-
-    setMultiFoodLog({
-      mealType: meal.meal_type,
-      date: logDate,
-      ingredients
-    })
-    onMultiFoodLogOpen()
-  }
+  // Note: openMultiFoodLog function removed as it was unused
 
   const updateMultiFoodIngredient = (index: number, field: string, value: any) => {
     if (!multiFoodLog) return
@@ -840,65 +799,7 @@ const MealPlans: React.FC = () => {
     onSingleMealLogOpen()
   }
 
-  const saveSingleMealLog = async () => {
-    if (!singleMealToLog) return
-
-    try {
-      const { meal, mealType } = singleMealToLog
-      const foodLogEntry = {
-        date: getCurrentDateInTimezone(getUserTimezone()),
-        meal_type: mealType,
-        food_id: `meal_${meal.food_name.toLowerCase().replace(/\s+/g, '_')}`,
-        food_name: meal.food_name,
-        amount: parseFloat(meal.portion_size) || 1,
-        unit: 'serving',
-        nutrition: {
-          calories: meal.calories,
-          protein: meal.protein,
-          carbs: meal.carbs,
-          fat: meal.fat
-        },
-        notes: 'Logged from meal plan'
-      }
-
-      await logSingleFoodItem(foodLogEntry)
-
-      toast({
-        title: 'Meal Logged',
-        description: `${meal.food_name} has been logged to your food diary.`,
-        status: 'success',
-        duration: 3000,
-        isClosable: true
-      })
-
-      // Mark meal as logged in the meal plan
-      if (selectedPlan) {
-        const updatedPlan = { ...selectedPlan }
-        const dayIndex = updatedPlan.days.findIndex(day => day.date === getCurrentDateInTimezone(getUserTimezone()))
-        if (dayIndex !== -1) {
-          const mealIndex = updatedPlan.days[dayIndex].meals.findIndex(m => 
-            m.meal_type === mealType && m.food_name === meal.food_name
-          )
-          if (mealIndex !== -1) {
-            updatedPlan.days[dayIndex].meals[mealIndex].is_logged = true
-            setSelectedPlan(updatedPlan)
-          }
-        }
-      }
-    } catch (err: any) {
-      console.error('Error logging meal:', err)
-      toast({
-        title: 'Error',
-        description: 'Failed to log meal',
-        status: 'error',
-        duration: 5000,
-        isClosable: true
-      })
-    } finally {
-      onSingleMealLogClose()
-      setSingleMealToLog(null)
-    }
-  }
+  // Note: saveSingleMealLog function removed as it was unused
 
   // Helper function to format dates
   const formatDate = (dateString: string) => {
@@ -1422,7 +1323,7 @@ const MealPlans: React.FC = () => {
                                         <Button
                                           size="sm"
                                           colorScheme={meal.is_logged ? "gray" : "green"}
-                                          onClick={() => openSingleFoodLog(meal, meal.meal_type)}
+                                          onClick={() => openSingleMealLog(meal, meal.meal_type)}
                                           isDisabled={meal.is_logged}
                                         >
                                           {meal.is_logged ? "Already Logged" : "Log Food"}
