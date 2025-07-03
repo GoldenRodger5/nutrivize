@@ -2,6 +2,8 @@ import { Routes, Route } from 'react-router-dom'
 import { Box, useBreakpointValue, useDisclosure } from '@chakra-ui/react'
 import NavBar from './NavBar'
 import MobileBottomNav from './MobileBottomNav'
+import PWAStatus from './PWAStatus'
+import PWAInstall from './PWAInstall'
 import Dashboard from '../pages/Dashboard'
 import AIDashboard from '../pages/AIDashboard'
 import FoodLog from '../pages/FoodLogEnhanced'
@@ -14,13 +16,35 @@ import Settings from '../pages/Settings'
 import Analytics from '../pages/Analytics'
 import RestaurantAI from '../pages/RestaurantAI'
 import SmartMealPlanning from '../pages/SmartMealPlanning'
+import { useState, useEffect } from 'react'
 
 export default function MainLayout() {
   const isMobile = useBreakpointValue({ base: true, lg: false })
   const { isOpen, onOpen, onClose } = useDisclosure()
+  const [showPWAInstall, setShowPWAInstall] = useState(false)
+
+  useEffect(() => {
+    // Check if we should show PWA install prompt
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+      (window.navigator as any).standalone === true
+    
+    // Show install prompt after a delay if not already installed
+    if (!isStandalone) {
+      const timer = setTimeout(() => {
+        const hasSeenPrompt = localStorage.getItem('pwa-install-prompt-seen')
+        if (!hasSeenPrompt) {
+          setShowPWAInstall(true)
+          localStorage.setItem('pwa-install-prompt-seen', 'true')
+        }
+      }, 5000) // Show after 5 seconds
+      
+      return () => clearTimeout(timer)
+    }
+  }, [])
 
   return (
     <Box minH="100vh" bg="linear-gradient(135deg, #f6f9fc 0%, #e9f4f9 100%)">
+      <PWAStatus />
       <NavBar isDrawerOpen={isOpen} onDrawerOpen={onOpen} onDrawerClose={onClose} />
       <Box pb={isMobile ? "80px" : 0}>
         <Routes>
@@ -42,6 +66,11 @@ export default function MainLayout() {
         </Routes>
       </Box>
       <MobileBottomNav onMenuOpen={onOpen} />
+      
+      <PWAInstall 
+        isOpen={showPWAInstall} 
+        onClose={() => setShowPWAInstall(false)} 
+      />
     </Box>
   )
 }

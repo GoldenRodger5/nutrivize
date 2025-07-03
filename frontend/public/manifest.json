@@ -1,17 +1,30 @@
 {
   "name": "Nutrivize - Smart Nutrition Tracker",
   "short_name": "Nutrivize",
-  "description": "AI-powered nutrition tracking and meal planning app",
+  "description": "AI-powered nutrition tracking and meal planning app optimized for iPhone",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#48bb78",
   "orientation": "portrait-primary",
   "scope": "/",
-  "categories": ["health", "lifestyle", "food"],
+  "categories": ["health", "lifestyle", "food", "productivity"],
   "lang": "en",
   "dir": "ltr",
+  "display_override": ["window-controls-overlay", "standalone", "fullscreen"],
   "icons": [
+    {
+      "src": "/icons/icon-16x16.png",
+      "sizes": "16x16",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-32x32.png",
+      "sizes": "32x32",
+      "type": "image/png",
+      "purpose": "any"
+    },
     {
       "src": "/icons/icon-72x72.png",
       "sizes": "72x72",
@@ -63,18 +76,18 @@
   ],
   "screenshots": [
     {
-      "src": "/screenshots/mobile-screenshot-1.png",
+      "src": "/icons/splash/iphone-14.png",
       "sizes": "390x844",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "Dashboard view"
+      "label": "Dashboard view on iPhone"
     },
     {
-      "src": "/screenshots/mobile-screenshot-2.png",
-      "sizes": "390x844",
+      "src": "/icons/splash/iphone-14-pro.png",
+      "sizes": "393x852",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "Food logging"
+      "label": "Food logging on iPhone Pro"
     }
   ],
   "shortcuts": [
@@ -83,15 +96,41 @@
       "short_name": "Log Food",
       "description": "Quickly log your meals",
       "url": "/food-logs",
-      "icons": [{ "src": "/icons/shortcut-log.png", "sizes": "96x96" }]
+      "icons": [{ 
+        "src": "/icons/shortcut-log.png", 
+        "sizes": "96x96",
+        "type": "image/png"
+      }]
     },
     {
       "name": "Meal Plans",
       "short_name": "Meals",
       "description": "View your meal plans",
       "url": "/meal-plans",
-      "icons": [{ "src": "/icons/shortcut-meals.png", "sizes": "96x96" }]
+      "icons": [{ 
+        "src": "/icons/shortcut-meals.png", 
+        "sizes": "96x96",
+        "type": "image/png"
+      }]
+    },
+    {
+      "name": "Analytics",
+      "short_name": "Stats",
+      "description": "View nutrition analytics",
+      "url": "/analytics",
+      "icons": [{ 
+        "src": "/icons/icon-96x96.png", 
+        "sizes": "96x96",
+        "type": "image/png"
+      }]
     }
   ],
-  "prefer_related_applications": false
+  "prefer_related_applications": false,
+  "edge_side_panel": {
+    "preferred_width": 400
+  },
+  "launch_handler": {
+    "client_mode": "focus-existing"
+  },
+  "handle_links": "preferred"
 }

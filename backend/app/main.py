@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 import os
 from dotenv import load_dotenv
@@ -45,10 +46,22 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS middleware - Enhanced configuration
+# Mount static files for PWA support (if running in development or serving frontend)
+# This allows the backend to serve PWA assets if needed
+try:
+    # Check if we're serving the frontend from the backend
+    frontend_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "..", "frontend", "dist")
+    if os.path.exists(frontend_path):
+        app.mount("/static", StaticFiles(directory=frontend_path), name="static")
+        print(f"✅ Serving static files from {frontend_path}")
+except Exception as e:
+    print(f"ℹ️  Static files not mounted: {e}")
+
+# CORS middleware - Enhanced configuration for production
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        # Local development
         "http://localhost:3000",
         "http://localhost:5173", 
         "http://localhost:5174",
@@ -61,16 +74,17 @@ app.add_middleware(
         "https://localhost:5173",
         "https://localhost:5174",
         "https://localhost:5175",
-        # Production URLs
+        # Production URLs - ensure these are exact matches
         "https://nutrivize-frontend.onrender.com",
-        "https://nutrivize-backend.onrender.com",
+        "https://nutrivize.onrender.com",
+        # Environment variable fallback
         os.getenv("FRONTEND_URL", "http://localhost:5173")
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=[
         "Accept",
-        "Accept-Language",
+        "Accept-Language", 
         "Content-Language",
         "Content-Type",
         "Authorization",
@@ -78,16 +92,21 @@ app.add_middleware(
         "Origin",
         "Access-Control-Request-Method",
         "Access-Control-Request-Headers",
+        "Cache-Control",
+        "Pragma"
     ],
     expose_headers=["*"],
     max_age=3600
 )
 
-# Manual OPTIONS handler for all routes
-@app.options("/{full_path:path}")
-async def options_handler(request: Request, response: Response):
-    """Handle CORS preflight requests"""
+# Enhanced middleware for CORS debugging and PWA headers
+@app.middleware("http")
+async def enhanced_cors_middleware(request: Request, call_next):
+    """Enhanced CORS and PWA headers middleware"""
     origin = request.headers.get("origin")
+    method = request.method
+    
+    # List of allowed origins
     allowed_origins = [
         "http://localhost:3000",
         "http://localhost:5173", 
@@ -102,18 +121,55 @@ async def options_handler(request: Request, response: Response):
         "https://localhost:5174",
         "https://localhost:5175",
         "https://nutrivize-frontend.onrender.com",
-        "https://nutrivize-backend.onrender.com",
+        "https://nutrivize.onrender.com",
         os.getenv("FRONTEND_URL", "http://localhost:5173")
     ]
     
+    # Handle OPTIONS preflight requests
+    if method == "OPTIONS":
+        response = Response()
+        if origin in allowed_origins:
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+            response.headers["Access-Control-Allow-Headers"] = "Accept, Accept-Language, Content-Language, Content-Type, Authorization, X-Requested-With, Origin, Access-Control-Request-Method, Access-Control-Request-Headers, Cache-Control, Pragma"
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Max-Age"] = "3600"
+        return response
+    
+    # Process the request
+    response = await call_next(request)
+    
+    # Add CORS headers to all responses
     if origin in allowed_origins:
         response.headers["Access-Control-Allow-Origin"] = origin
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
-        response.headers["Access-Control-Allow-Headers"] = "Accept, Accept-Language, Content-Language, Content-Type, Authorization, X-Requested-With, Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
         response.headers["Access-Control-Allow-Credentials"] = "true"
-        response.headers["Access-Control-Max-Age"] = "3600"
     
-    return {"message": "OK"}
+    # Add PWA-specific headers
+    if request.url.path.endswith('/manifest.json'):
+        response.headers["Content-Type"] = "application/manifest+json"
+        response.headers["Cache-Control"] = "public, max-age=3600"
+    
+    if request.url.path.endswith('/sw.js'):
+        response.headers["Content-Type"] = "application/javascript"
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Service-Worker-Allowed"] = "/"
+    
+    # Add security headers for PWA
+    if request.url.path.startswith('/icons/') or request.url.path.endswith('.png'):
+        response.headers["Cache-Control"] = "public, max-age=31536000"  # 1 year
+    
+    # Add CSP headers for PWA security
+    if request.url.path.endswith('.html') or request.url.path == '/':
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+            "style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data: https:; "
+            "connect-src 'self' https://nutrivize.onrender.com https://api.anthropic.com; "
+            "manifest-src 'self'"
+        )
+    
+    return response
 
 # Include routers
 app.include_router(auth.router)
