@@ -1,7 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, BackgroundTasks
+from fastapi.responses import JSONResponse
 from typing import Dict, Any, List, Optional
 from datetime import date, datetime, timedelta
 from pydantic import BaseModel
+import asyncio
+import uuid
 
 from .auth import get_current_user
 from ..models.user import UserResponse
@@ -12,6 +15,76 @@ from ..services.meal_planning_service import meal_planning_service
 from ..services.goals_service import goals_service
 
 router = APIRouter(prefix="/meal-planning", tags=["meal-planning"])
+
+# Global dictionary to store meal plan generation status
+meal_plan_status = {}
+
+# Add explicit CORS headers for all responses
+def add_cors_headers(response: Response):
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "*"
+    response.headers["Access-Control-Allow-Credentials"] = "true"
+    return response
+
+# Explicit OPTIONS handler for preflight requests
+@router.options("/generate-plan")
+async def options_generate_plan():
+    """Handle preflight CORS requests"""
+    return JSONResponse(
+        content={"detail": "OK"},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Max-Age": "86400",
+        }
+    )
+
+# Add OPTIONS handlers for all meal planning endpoints
+@router.options("/{path:path}")
+async def options_all():
+    """Handle all preflight CORS requests"""
+    return JSONResponse(
+        content={"detail": "OK"},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Max-Age": "86400",
+        }
+    )
+
+# Add OPTIONS handlers for the new async endpoints
+@router.options("/generate-plan-async")
+async def options_generate_plan_async():
+    """Handle preflight CORS requests for async endpoint"""
+    return JSONResponse(
+        content={"detail": "OK"},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Max-Age": "86400",
+        }
+    )
+
+@router.options("/status/{task_id}")
+async def options_status():
+    """Handle preflight CORS requests for status endpoint"""
+    return JSONResponse(
+        content={"detail": "OK"},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Max-Age": "86400",
+        }
+    )
 
 # Pydantic models for meal planning
 class MealPlanRequest(BaseModel):
@@ -64,7 +137,8 @@ class QuickMealRequest(BaseModel):
 @router.post("/generate-plan")
 async def generate_meal_plan(
     request: MealPlanRequest,
-    current_user: UserResponse = Depends(get_current_user)
+    current_user: UserResponse = Depends(get_current_user),
+    response: Response = None
 ):
     """Generate a personalized meal plan based on user preferences and nutrition goals"""
     try:
@@ -117,13 +191,38 @@ async def generate_meal_plan(
         }
         
         ai_service = AIService()
-        meal_plan = await ai_service.generate_meal_plan(meal_plan_data)
+        
+        # Add timeout handling for AI request
+        try:
+            # Set timeout to 60 seconds for faster response
+            meal_plan = await asyncio.wait_for(
+                ai_service.generate_meal_plan(meal_plan_data),
+                timeout=60.0
+            )
+        except asyncio.TimeoutError:
+            # If timeout, suggest using async endpoint
+            raise HTTPException(
+                status_code=408, 
+                detail="Meal plan generation timed out. For complex plans, use /meal-planning/generate-plan-async endpoint for background processing."
+            )
         
         # Automatically save the generated meal plan to the database
         saved_plan = await meal_planning_service.save_meal_plan(user_id, meal_plan)
         
-        # Return the saved meal plan
-        return saved_plan
+        # Create response with explicit CORS headers
+        response_data = saved_plan
+        if response:
+            add_cors_headers(response)
+        
+        return JSONResponse(
+            content=response_data,
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                "Access-Control-Allow-Headers": "*",
+                "Access-Control-Allow-Credentials": "true",
+            }
+        )
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate meal plan: {str(e)}")
@@ -690,3 +789,137 @@ async def get_shopping_item_nutrition(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get nutrition data: {str(e)}")
+
+
+async def generate_meal_plan_background(task_id: str, meal_plan_data: Dict[str, Any], user_id: str):
+    """Background task to generate meal plan"""
+    try:
+        meal_plan_status[task_id] = {"status": "processing", "progress": 0}
+        
+        ai_service = AIService()
+        meal_plan_status[task_id]["progress"] = 25
+        
+        # Generate meal plan
+        meal_plan = await ai_service.generate_meal_plan(meal_plan_data)
+        meal_plan_status[task_id]["progress"] = 75
+        
+        # Save to database
+        saved_plan = await meal_planning_service.save_meal_plan(user_id, meal_plan)
+        meal_plan_status[task_id] = {
+            "status": "completed", 
+            "progress": 100,
+            "result": saved_plan
+        }
+        
+    except Exception as e:
+        meal_plan_status[task_id] = {
+            "status": "failed", 
+            "progress": 0,
+            "error": str(e)
+        }
+
+@router.post("/generate-plan-async")
+async def generate_meal_plan_async(
+    request: MealPlanRequest,
+    background_tasks: BackgroundTasks,
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Start meal plan generation as background task - returns immediately with task ID"""
+    try:
+        user_id = current_user.uid
+        task_id = str(uuid.uuid4())
+        
+        # Validate request
+        if request.days < 1 or request.days > 30:
+            raise HTTPException(status_code=400, detail="Days must be between 1 and 30")
+        
+        # Get nutrition targets from active goal if not provided
+        nutrition_targets = {
+            "calories": request.calories_per_day,
+            "protein": request.protein_target,
+            "carbs": request.carbs_target,
+            "fat": request.fat_target,
+        }
+        
+        # If no targets provided, use active goal targets
+        if not any(nutrition_targets.values()):
+            goal_targets = await goals_service.get_active_goal_nutrition_targets(user_id)
+            if goal_targets:
+                nutrition_targets.update(goal_targets)
+
+        # Fetch user dietary preferences to get disliked foods
+        from ..core.config import get_database
+        db = get_database()
+        user_preferences_doc = db.user_preferences.find_one({"user_id": user_id})
+        user_preferences = user_preferences_doc if user_preferences_doc else {}
+        
+        # Merge user's disliked foods with explicitly excluded foods
+        exclude_foods = list(request.exclude_foods or [])
+        if user_preferences and user_preferences.get("disliked_foods"):
+            exclude_foods.extend(user_preferences["disliked_foods"])
+        
+        # Remove duplicates while preserving order
+        exclude_foods = list(dict.fromkeys(exclude_foods))
+        
+        # Prepare meal plan data
+        meal_plan_data = {
+            "user_id": user_id,
+            "name": request.name,
+            "days": request.days,
+            "dietary_restrictions": request.dietary_restrictions or [],
+            "preferred_cuisines": request.preferred_cuisines or [],
+            "nutrition_targets": nutrition_targets,
+            "exclude_foods": exclude_foods,
+            "meal_types": request.meal_types or ["breakfast", "lunch", "dinner"],
+            "complexity_level": request.complexity_level or "any",
+            "use_food_index_only": request.use_food_index_only
+        }
+        
+        # Start background task
+        background_tasks.add_task(
+            generate_meal_plan_background, 
+            task_id, 
+            meal_plan_data, 
+            user_id
+        )
+        
+        # Initialize status
+        meal_plan_status[task_id] = {"status": "started", "progress": 0}
+        
+        return JSONResponse(
+            content={
+                "task_id": task_id,
+                "status": "started",
+                "message": "Meal plan generation started. Use /meal-planning/status/{task_id} to check progress."
+            },
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                "Access-Control-Allow-Headers": "*",
+                "Access-Control-Allow-Credentials": "true",
+            }
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to start meal plan generation: {str(e)}")
+
+@router.get("/status/{task_id}")
+async def get_meal_plan_status(
+    task_id: str,
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Check the status of a meal plan generation task"""
+    if task_id not in meal_plan_status:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    status_data = meal_plan_status[task_id]
+    
+    return JSONResponse(
+        content=status_data,
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Credentials": "true",
+        }
+    )

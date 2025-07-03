@@ -17,7 +17,7 @@ class AIService:
     def __init__(self):
         self.client = anthropic.Anthropic(
             api_key=os.getenv("ANTHROPIC_API_KEY"),
-            timeout=120.0  # 2 minute timeout for AI requests
+            timeout=90.0  # 90 second timeout for AI requests
         )
     
     async def chat(self, request: ChatRequest) -> ChatResponse:
@@ -48,12 +48,13 @@ Guidelines:
 - Keep responses concise but informative
 - If asked about specific calorie counts or nutritional values, provide reasonable estimates but mention that actual values may vary"""
             
-            # Call Claude API
+            # Call Claude API with optimized settings
             response = self.client.messages.create(
-                model="claude-opus-4-20250514",
+                model="claude-3-5-sonnet-20241022",  # Use faster model
                 max_tokens=2000,
                 system=system_prompt,
-                messages=messages
+                messages=messages,
+                timeout=30.0  # Shorter timeout for chat
             )
             
             assistant_response = response.content[0].text
@@ -176,9 +177,10 @@ Return valid JSON only (no additional text):
 {"suggestions":[{"name":"Creative and specific name","description":"Brief description highlighting unique aspects","ingredients":[{"name":"item","amount":100,"unit":"g","calories":50,"protein":5,"carbs":10,"fat":2}],"instructions":["step1","step2","step3"],"prep_time":15,"nutrition":{"calories":300,"protein":25,"carbs":30,"fat":10},"goal_alignment":"Brief note on goal support"}]}"""
             
             response = self.client.messages.create(
-                model="claude-opus-4-20250514",
-                max_tokens=8000,  # Increased for more comprehensive meal suggestions
-                messages=[{"role": "user", "content": prompt}]
+                model="claude-3-5-sonnet-20241022",  # Use faster model
+                max_tokens=6000,  # Reduced for faster processing 
+                messages=[{"role": "user", "content": prompt}],
+                timeout=45.0  # Timeout for meal suggestions
             )
             
             # Parse JSON response
@@ -455,11 +457,12 @@ Return valid JSON only (no additional text):
             - Ingredient amounts are realistic and specific
             """
             
-            # Use AI service to generate meal plan
+            # Use AI service to generate meal plan with optimized settings
             response = self.client.messages.create(
-                model="claude-opus-4-20250514",
-                max_tokens=8000,  # Restored for comprehensive meal plans
-                messages=[{"role": "user", "content": prompt}]
+                model="claude-3-5-sonnet-20241022",  # Use faster model for better response times
+                max_tokens=6000,  # Reduced for faster processing
+                messages=[{"role": "user", "content": prompt}],
+                timeout=60.0  # Shorter timeout for individual API calls
             )
             
             # Parse JSON response

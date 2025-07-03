@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 import os
 from dotenv import load_dotenv
@@ -64,11 +65,11 @@ async def lifespan(app: FastAPI):
 # Create FastAPI app
 app = FastAPI(lifespan=lifespan)
 
-# Configure CORS
+# Configure CORS - COMPREHENSIVE SETUP
 origins = [
     "http://localhost:3000",
     "http://localhost:5173",
-    "http://localhost:5174",
+    "http://localhost:5174", 
     "http://localhost:5175",
     "http://127.0.0.1:3000",
     "http://127.0.0.1:5173",
@@ -86,11 +87,47 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"],
+    allow_headers=[
+        "Accept",
+        "Accept-Language",
+        "Content-Language", 
+        "Content-Type",
+        "Authorization",
+        "X-Requested-With",
+        "X-CSRFToken",
+        "Access-Control-Allow-Origin",
+        "Access-Control-Allow-Headers",
+        "Access-Control-Allow-Methods",
+        "Origin",
+        "User-Agent",
+        "DNT",
+        "Cache-Control",
+        "X-Mx-ReqToken",
+        "Keep-Alive",
+        "X-Requested-With",
+        "If-Modified-Since",
+    ],
+    expose_headers=["*"],
+    max_age=86400,  # Cache preflight requests for 24 hours
 )
 
 print(f"✅ CORS configured with origins: {origins}")
+
+# Add global OPTIONS handler for preflight requests
+@app.options("/{path:path}")
+async def options_handler(path: str):
+    """Handle preflight CORS requests for all endpoints"""
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD, PATCH",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Max-Age": "86400",
+        }
+    )
 
 # Add routes
 app.include_router(auth.router)
