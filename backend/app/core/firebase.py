@@ -1,6 +1,7 @@
 import firebase_admin
 from firebase_admin import credentials, auth
 import os
+import json
 import requests
 from dotenv import load_dotenv
 
@@ -19,14 +20,30 @@ class FirebaseManager:
         if firebase_admin._apps:
             self.app = firebase_admin.get_app()
             return
-            
+        
+        # Try to get credentials from environment variable first (for production)
+        firebase_creds_json = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON")
+        
+        if firebase_creds_json:
+            # Parse JSON from environment variable
+            try:
+                creds_dict = json.loads(firebase_creds_json)
+                cred = credentials.Certificate(creds_dict)
+                self.app = firebase_admin.initialize_app(cred)
+                print("Firebase Admin SDK initialized from environment variable")
+                return
+            except json.JSONDecodeError as e:
+                print(f"Error parsing Firebase credentials JSON: {e}")
+        
+        # Fallback to file-based credentials (for development)
         service_account_path = os.getenv("FIREBASE_SERVICE_ACCOUNT_PATH")
-        if not service_account_path or not os.path.exists(service_account_path):
-            raise ValueError("Firebase service account file not found")
+        if service_account_path and os.path.exists(service_account_path):
+            cred = credentials.Certificate(service_account_path)
+            self.app = firebase_admin.initialize_app(cred)
+            print("Firebase Admin SDK initialized from file")
+            return
             
-        cred = credentials.Certificate(service_account_path)
-        self.app = firebase_admin.initialize_app(cred)
-        print("Firebase Admin SDK initialized successfully")
+        raise ValueError("Firebase service account credentials not found in environment variable or file")
     
     def verify_token(self, id_token: str) -> dict:
         """Verify Firebase ID token and return user info"""

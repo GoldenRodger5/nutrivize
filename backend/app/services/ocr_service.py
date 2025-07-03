@@ -1,6 +1,7 @@
 from google.cloud import vision
 import io
 import os
+import json
 import logging
 from typing import Optional
 
@@ -13,16 +14,46 @@ class OCRService:
     
     def __init__(self):
         # Check if credentials are available
-        self.credentials_available = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS') is not None
-        if self.credentials_available:
-            try:
+        self.credentials_available = False
+        self.client = None
+        
+        # Try to initialize client with credentials from environment
+        try:
+            # First, try to get credentials from JSON environment variable (for production)
+            google_creds_json = os.environ.get('GOOGLE_CLOUD_VISION_CREDENTIALS_JSON')
+            
+            if google_creds_json:
+                # Parse JSON from environment variable and set up credentials
+                creds_dict = json.loads(google_creds_json)
+                
+                # Create a temporary credentials file for the Google Cloud client
+                import tempfile
+                with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+                    json.dump(creds_dict, f)
+                    temp_creds_path = f.name
+                
+                # Set the environment variable for Google Cloud client
+                os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = temp_creds_path
+                
                 self.client = vision.ImageAnnotatorClient()
-                logger.info("Google Cloud Vision client initialized successfully")
-            except Exception as e:
-                logger.warning(f"Failed to initialize Google Cloud Vision client: {e}")
-                self.credentials_available = False
-        else:
-            logger.warning("GOOGLE_APPLICATION_CREDENTIALS environment variable not set")
+                self.credentials_available = True
+                logger.info("Google Cloud Vision client initialized from environment variable")
+                
+                # Clean up the temporary file
+                os.unlink(temp_creds_path)
+                
+            # Fallback to file-based credentials (for development)
+            elif os.environ.get('GOOGLE_APPLICATION_CREDENTIALS'):
+                self.client = vision.ImageAnnotatorClient()
+                self.credentials_available = True
+                logger.info("Google Cloud Vision client initialized from file")
+                
+            else:
+                logger.warning("Google Cloud Vision credentials not found in environment variable or file")
+                
+        except Exception as e:
+            logger.warning(f"Failed to initialize Google Cloud Vision client: {e}")
+            self.credentials_available = False
     
     def extract_text_from_image(self, image_bytes: bytes) -> Optional[str]:
         """
