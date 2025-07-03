@@ -210,6 +210,52 @@ def test_food_log_range(base_url, token=None):
         print_color(RED, f"❌ Food log range request failed: {e}")
         return False
 
+def test_ai_endpoints(base_url, token=None):
+    """Test AI endpoints specifically"""
+    print_color(BLUE, f"\nTesting AI endpoints...")
+    
+    if not token:
+        print_color(RED, "❌ No token available, skipping AI endpoint tests")
+        return False
+    
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+        "Origin": DEFAULT_FRONTEND_URL
+    }
+    
+    # Test meal suggestions endpoint
+    endpoint = "/ai/meal-suggestions"
+    test_data = {
+        "meal_type": "dinner",
+        "dietary_preferences": ["vegetarian"],
+        "allergies": [],
+        "prep_time_preference": "moderate"
+    }
+    
+    print_color(BLUE, f"Testing {endpoint}...")
+    try:
+        response = requests.post(
+            f"{base_url}{endpoint}",
+            headers=headers,
+            json=test_data,
+            timeout=30  # AI endpoints might need more time
+        )
+        
+        print(f"Response status: {response.status_code}")
+        print(f"CORS headers: {response.headers.get('Access-Control-Allow-Origin', 'Not set')}")
+        
+        if response.status_code == 200:
+            print_color(GREEN, f"✅ {endpoint}: Success ({response.status_code})")
+            return True
+        else:
+            print_color(YELLOW, f"⚠️  {endpoint}: Response {response.status_code}")
+            print(f"Response: {response.text[:200]}...")
+            return False
+    except Exception as e:
+        print_color(RED, f"❌ {endpoint}: Request failed - {e}")
+        return False
+
 def main():
     parser = argparse.ArgumentParser(description="Verify Nutrivize API deployment")
     parser.add_argument("--api-url", default=DEFAULT_API_URL, help="API base URL")
@@ -243,6 +289,9 @@ def main():
     # Test API endpoints
     test_api_endpoints(args.api_url, token)
     
+    # Test AI endpoints
+    ai_result = test_ai_endpoints(args.api_url, token)
+    
     # Print summary
     print_color(BLUE, "\n===== VERIFICATION SUMMARY =====")
     if cors_result:
@@ -254,6 +303,11 @@ def main():
         print_color(GREEN, "✅ Food log range endpoint is working correctly")
     else:
         print_color(RED, "❌ Food log range issues still exist - needs attention")
+        
+    if ai_result:
+        print_color(GREEN, "✅ AI endpoints are working correctly")
+    else:
+        print_color(RED, "❌ AI endpoint issues still exist - needs attention")
         
     print_color(BLUE, "\n🏁 Verification complete!")
 
