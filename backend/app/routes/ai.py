@@ -1,13 +1,35 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from ..routes.auth import get_current_user
 from ..models.user import UserResponse
 from ..models.chat import ChatRequest, ChatResponse, MealSuggestionRequest, MealSuggestionResponse
 from ..services.unified_ai_service import unified_ai_service
-from typing import Dict, Any
+from typing import Dict, Any, Callable
 from pydantic import BaseModel
+import logging
 
+logger = logging.getLogger(__name__)
+
+# Custom dependency to ensure CORS headers are added to AI endpoint responses
+async def ensure_cors_headers(request: Request) -> None:
+    """Dependency that logs AI endpoint requests and ensures CORS headers will be added"""
+    # Log the request for debugging
+    logger.info(f"AI endpoint accessed: {request.url.path} from origin: {request.headers.get('origin', 'unknown')}")
+    # The actual header addition happens in the enhanced_cors_middleware in main.py
+    # This is just for logging and debugging purposes
+    return None
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/ai", tags=["ai"])
+
+# Custom dependency to ensure CORS headers are added to AI endpoint responses
+async def ensure_cors_headers(request: Request) -> None:
+    """Dependency that logs AI endpoint requests and ensures CORS headers will be added"""
+    # Log the request for debugging
+    logger.info(f"AI endpoint accessed: {request.url.path} from origin: {request.headers.get('origin', 'unknown')}")
+    # The actual header addition happens in the enhanced_cors_middleware in main.py
+    # This is just for logging and debugging purposes
+    return None
 
 
 class MealPlanRequest(BaseModel):
@@ -26,7 +48,8 @@ class HealthInsightRequest(BaseModel):
 @router.post("/chat", response_model=ChatResponse)
 async def chat_with_assistant(
     request: ChatRequest,
-    current_user: UserResponse = Depends(get_current_user)
+    current_user: UserResponse = Depends(get_current_user),
+    _: None = Depends(ensure_cors_headers)
 ):
     """Enhanced chat with AI nutrition assistant with full context awareness"""
     try:
@@ -39,7 +62,9 @@ async def chat_with_assistant(
 @router.post("/meal-suggestions", response_model=MealSuggestionResponse)
 async def get_meal_suggestions(
     request: MealSuggestionRequest,
-    current_user: UserResponse = Depends(get_current_user)
+    current_user: UserResponse = Depends(get_current_user),
+    _: None = Depends(ensure_cors_headers),
+    _: None = Depends(ensure_cors_headers)
 ):
     """Get AI-generated meal suggestions with enhanced user context"""
     try:
@@ -53,7 +78,8 @@ async def get_meal_suggestions(
 @router.post("/meal-plan")
 async def generate_meal_plan(
     request: MealPlanRequest,
-    current_user: UserResponse = Depends(get_current_user)
+    current_user: UserResponse = Depends(get_current_user),
+    _: None = Depends(ensure_cors_headers)
 ) -> Dict[str, Any]:
     """Generate comprehensive AI-powered meal plan"""
     try:
@@ -85,7 +111,8 @@ async def generate_meal_plan(
 @router.post("/health-insights")
 async def get_health_insights(
     request: HealthInsightRequest,
-    current_user: UserResponse = Depends(get_current_user)
+    current_user: UserResponse = Depends(get_current_user),
+    _: None = Depends(ensure_cors_headers)
 ) -> Dict[str, Any]:
     """Get comprehensive AI-powered health insights and analysis"""
     try:
@@ -98,7 +125,8 @@ async def get_health_insights(
 @router.post("/smart-food-log")
 async def smart_food_logging(
     message: str,
-    current_user: UserResponse = Depends(get_current_user)
+    current_user: UserResponse = Depends(get_current_user),
+    _: None = Depends(ensure_cors_headers)
 ) -> Dict[str, Any]:
     """Process natural language food logging with AI assistance"""
     try:
@@ -110,7 +138,8 @@ async def smart_food_logging(
 
 @router.get("/conversation-context")
 async def get_conversation_context(
-    current_user: UserResponse = Depends(get_current_user)
+    current_user: UserResponse = Depends(get_current_user),
+    _: None = Depends(ensure_cors_headers)
 ) -> Dict[str, Any]:
     """Get current conversation context for the user"""
     try:
@@ -140,7 +169,8 @@ async def get_conversation_context(
 
 @router.delete("/conversation-context")
 async def clear_conversation_context(
-    current_user: UserResponse = Depends(get_current_user)
+    current_user: UserResponse = Depends(get_current_user),
+    _: None = Depends(ensure_cors_headers)
 ) -> Dict[str, Any]:
     """Clear conversation context for the user"""
     try:
@@ -157,7 +187,8 @@ async def clear_conversation_context(
 
 @router.get("/chat/history")
 async def get_chat_history(
-    current_user: UserResponse = Depends(get_current_user)
+    current_user: UserResponse = Depends(get_current_user),
+    _: None = Depends(ensure_cors_headers)
 ) -> Dict[str, Any]:
     """Get user's AI chat session history"""
     try:

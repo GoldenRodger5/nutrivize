@@ -142,13 +142,26 @@ async def enhanced_cors_middleware(request: Request, call_next):
     # Handle OPTIONS preflight requests
     if method == "OPTIONS":
         response = Response()
-        if origin in allowed_origins or is_render_domain:
+        # Force CORS headers for all responses, especially AI endpoints
+    if origin and (origin in allowed_origins or is_render_domain):
             response.headers["Access-Control-Allow-Origin"] = origin
             response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
             response.headers["Access-Control-Allow-Headers"] = "Accept, Accept-Language, Content-Language, Content-Type, Authorization, X-Requested-With, Origin, Access-Control-Request-Method, Access-Control-Request-Headers, Cache-Control, Pragma"
             response.headers["Access-Control-Allow-Credentials"] = "true"
+        
+        # Additional debugging for AI endpoints
+        if is_ai_endpoint:
+            # Force CORS headers for AI endpoints to ensure they're present
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+            response.headers["Access-Control-Allow-Headers"] = "Accept, Accept-Language, Content-Language, Content-Type, Authorization, X-Requested-With, Origin"
             response.headers["Access-Control-Max-Age"] = "3600"
         return response
+    
+    # Special handling for AI endpoints with additional logging
+    is_ai_endpoint = "/ai/" in request.url.path
+    
+    # Special handling for AI endpoints with additional logging
+    is_ai_endpoint = "/ai/" in request.url.path
     
     # Process the request
     response = await call_next(request)
@@ -157,9 +170,22 @@ async def enhanced_cors_middleware(request: Request, call_next):
     # Check if origin is from onrender.com domain
     is_render_domain = origin and "onrender.com" in origin.lower()
     
-    if origin in allowed_origins or is_render_domain:
+    # Force CORS headers for all responses, especially AI endpoints
+    if origin and (origin in allowed_origins or is_render_domain):
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Access-Control-Allow-Credentials"] = "true"
+        
+        # Additional debugging for AI endpoints
+        if is_ai_endpoint:
+            # Force CORS headers for AI endpoints to ensure they're present
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+            response.headers["Access-Control-Allow-Headers"] = "Accept, Accept-Language, Content-Language, Content-Type, Authorization, X-Requested-With, Origin"
+        
+        # Additional debugging for AI endpoints
+        if is_ai_endpoint:
+            # Force CORS headers for AI endpoints to ensure they're present
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+            response.headers["Access-Control-Allow-Headers"] = "Accept, Accept-Language, Content-Language, Content-Type, Authorization, X-Requested-With, Origin"
     
     # Add PWA-specific headers
     if request.url.path.endswith('/manifest.json'):
