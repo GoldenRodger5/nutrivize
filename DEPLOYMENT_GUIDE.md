@@ -28,11 +28,13 @@ git push -u origin master
    - **Branch**: `master`
    - **Root Directory**: `backend`
    - **Runtime**: `Python 3`
+   - **Python Version**: Set to `3.11.9` (in Environment Variables: `PYTHON_VERSION=3.11.9`)
    - **Build Command**: `pip install -r requirements.txt`
    - **Start Command**: `gunicorn app.main:app --worker-class uvicorn.workers.UvicornWorker --workers 4 --bind 0.0.0.0:$PORT`
 
 4. **Set Environment Variables**:
    ```
+   PYTHON_VERSION=3.11.9
    ENVIRONMENT=production
    MONGODB_URL=mongodb+srv://isaacmineo:1vWVKLtI4cFn1LNN@nutrivize.rbj6ly6.mongodb.net/nutrivize_v2?retryWrites=true&w=majority&tls=true&tlsAllowInvalidCertificates=true
    ANTHROPIC_API_KEY=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
