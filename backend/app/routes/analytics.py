@@ -7,6 +7,7 @@ import json
 from .auth import get_current_user
 from ..models.user import UserResponse
 from ..services.analytics_service import analytics_service
+from ..core.error_handler import handle_analytics_error, DataNotFoundError, DatabaseError
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
@@ -79,6 +80,7 @@ async def get_monthly_summary(
 
 
 @router.get("/insights")
+@handle_analytics_error
 async def get_ai_insights(
     timeframe: str = Query("week", description="Timeframe: 'week', 'month', or 'all'"),
     force_refresh: bool = Query(False, description="Force refresh insights (skip cache)"),
@@ -88,95 +90,128 @@ async def get_ai_insights(
     Generate AI-powered insights based on user's food logs, nutrition patterns, and goals.
     Returns personalized insights about nutrition habits, progress, and recommendations.
     """
-    try:
-        user_id = current_user.uid
-        
-        # Validate timeframe
-        if timeframe not in ["week", "month", "all"]:
-            raise HTTPException(status_code=400, detail="Timeframe must be 'week', 'month', or 'all'")
-        
-        # Get insights from analytics service
-        insights_data = await analytics_service.generate_ai_insights(
-            user_id=user_id,
-            timeframe=timeframe,
-            force_refresh=force_refresh
-        )
-        
-        return insights_data
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to generate insights: {str(e)}")
+    user_id = current_user.uid
+    
+    # Validate timeframe
+    if timeframe not in ["week", "month", "all"]:
+        raise HTTPException(status_code=400, detail="Timeframe must be 'week', 'month', or 'all'")
+    
+    # Get insights from analytics service
+    insights_data = await analytics_service.generate_ai_insights(
+        user_id=user_id,
+        timeframe=timeframe,
+        force_refresh=force_refresh
+    )
+    
+    # If no insights, return empty structure
+    if not insights_data or (isinstance(insights_data, dict) and not insights_data.get("insights")):
+        return {
+            "message": f"No insights available for {timeframe}. Try adding more food logs.",
+            "insights": [],
+            "summary": "No summary available",
+            "insightsCount": 0,
+            "trendsCount": 0
+        }
+    
+    return insights_data
 
 
 @router.get("/nutrition-trends")
+@handle_analytics_error
 async def get_nutrition_trends(
     days: int = Query(30, description="Number of days to analyze (default: 30)"),
     current_user: UserResponse = Depends(get_current_user)
 ):
     """Get nutrition trends over specified number of days"""
-    try:
-        user_id = current_user.uid
+    user_id = current_user.uid
+    
+    if days < 1 or days > 365:
+        raise HTTPException(status_code=400, detail="Days must be between 1 and 365")
+    
+    trends = await analytics_service.get_nutrition_trends(user_id, days)
+    
+    # If no data, return empty response instead of error
+    if not trends or (isinstance(trends, dict) and not trends.get("data")):
+        return {
+            "message": f"No nutrition trend data available for the last {days} days",
+            "data": [],
+            "trends": []
+        }
         
-        if days < 1 or days > 365:
-            raise HTTPException(status_code=400, detail="Days must be between 1 and 365")
-        
-        trends = await analytics_service.get_nutrition_trends(user_id, days)
-        return trends
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get nutrition trends: {str(e)}")
+    return trends
 
 
 @router.get("/goal-progress")
+@handle_analytics_error
 async def get_goal_progress(
     current_user: UserResponse = Depends(get_current_user)
 ):
     """Get progress towards user's nutrition and health goals"""
-    try:
-        user_id = current_user.uid
-        progress = await analytics_service.get_goal_progress(user_id)
-        return progress
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get goal progress: {str(e)}")
+    user_id = current_user.uid
+    progress = await analytics_service.get_goal_progress(user_id)
+    
+    # If no goals or progress data, return default empty structure
+    if not progress or (isinstance(progress, dict) and not progress.get("goals")):
+        return {
+            "message": "No goal progress data available",
+            "goals": [],
+            "overall_progress": 0,
+            "recent_achievements": []
+        }
+    
+    return progress
 
 
 @router.get("/food-patterns")
+@handle_analytics_error
 async def get_food_patterns(
     days: int = Query(30, description="Number of days to analyze (default: 30)"),
     current_user: UserResponse = Depends(get_current_user)
 ):
     """Analyze food consumption patterns and habits"""
-    try:
-        user_id = current_user.uid
-        
-        if days < 1 or days > 365:
-            raise HTTPException(status_code=400, detail="Days must be between 1 and 365")
-        
-        patterns = await analytics_service.analyze_food_patterns(user_id, days)
-        return patterns
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to analyze food patterns: {str(e)}")
+    user_id = current_user.uid
+    
+    if days < 1 or days > 365:
+        raise HTTPException(status_code=400, detail="Days must be between 1 and 365")
+    
+    patterns = await analytics_service.analyze_food_patterns(user_id, days)
+    
+    # If no patterns found, return empty structure
+    if not patterns or (isinstance(patterns, dict) and not patterns.get("patterns")):
+        return {
+            "message": f"No food pattern data available for the last {days} days",
+            "patterns": [],
+            "meal_frequency": {},
+            "top_foods": []
+        }
+    
+    return patterns
 
 
 @router.get("/macro-breakdown")
+@handle_analytics_error
 async def get_macro_breakdown(
     timeframe: str = Query("week", description="Timeframe: 'week' or 'month'"),
     current_user: UserResponse = Depends(get_current_user)
 ):
     """Get detailed macronutrient breakdown with visualizations"""
-    try:
-        user_id = current_user.uid
+    user_id = current_user.uid
+    
+    if timeframe not in ["week", "month"]:
+        raise HTTPException(status_code=400, detail="Timeframe must be 'week' or 'month'")
+    
+    breakdown = await analytics_service.get_macro_breakdown(user_id, timeframe)
+    
+    # If no data, return empty response instead of error
+    if not breakdown or (isinstance(breakdown, dict) and not breakdown.get("data")):
+        return {
+            "message": f"No macro data available for {timeframe}",
+            "data": [],
+            "total": {"protein": 0, "carbs": 0, "fat": 0},
+            "percentages": {"protein": 0, "carbs": 0, "fat": 0}
+        }
         
-        if timeframe not in ["week", "month"]:
-            raise HTTPException(status_code=400, detail="Timeframe must be 'week' or 'month'")
-        
-        breakdown = await analytics_service.get_macro_breakdown(user_id, timeframe)
-        return breakdown
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get macro breakdown: {str(e)}")
+    return breakdown
 
 
 @router.delete("/insights/cache")

@@ -1,6 +1,6 @@
-const CACHE_NAME = 'nutrivize-v2.2.0';
-const STATIC_CACHE = 'nutrivize-static-v2.2.0';
-const DYNAMIC_CACHE = 'nutrivize-dynamic-v2.2.0';
+const CACHE_NAME = 'nutrivize-v2.2.1';
+const STATIC_CACHE = 'nutrivize-static-v2.2.1';
+const DYNAMIC_CACHE = 'nutrivize-dynamic-v2.2.1';
 
 // Enhanced cache strategy for better PWA performance
 const urlsToCache = [

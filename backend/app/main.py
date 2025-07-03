@@ -58,9 +58,10 @@ except Exception as e:
     print(f"ℹ️  Static files not mounted: {e}")
 
 # CORS middleware - Enhanced configuration for production
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
+# Get CORS origins from environment variable or use defaults
+cors_origins = os.getenv("CORS_ALLOW_ORIGINS", "").split(",")
+if not cors_origins or cors_origins == [""]:
+    cors_origins = [
         # Local development
         "http://localhost:3000",
         "http://localhost:5173", 
@@ -74,12 +75,22 @@ app.add_middleware(
         "https://localhost:5173",
         "https://localhost:5174",
         "https://localhost:5175",
-        # Production URLs - ensure these are exact matches
+        # Production URLs
         "https://nutrivize-frontend.onrender.com",
-        "https://nutrivize.onrender.com",
-        # Environment variable fallback
-        os.getenv("FRONTEND_URL", "http://localhost:5173")
-    ],
+        "https://nutrivize.onrender.com"
+    ]
+
+# Add frontend URL from environment if available
+frontend_url = os.getenv("FRONTEND_URL")
+if frontend_url and frontend_url not in cors_origins:
+    cors_origins.append(frontend_url)
+
+print(f"✅ CORS configured with origins: {cors_origins}")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=cors_origins,
+    allow_origin_regex="https://.*\.onrender\.com$",  # Allow all onrender.com subdomains
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=[

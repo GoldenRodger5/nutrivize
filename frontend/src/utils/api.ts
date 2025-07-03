@@ -12,6 +12,10 @@ const api = axios.create({
   },
 })
 
+// Track token refresh to prevent multiple simultaneous refreshes
+let isRefreshing = false
+let refreshPromise: Promise<string> | null = null
+
 // Add auth token to requests
 api.interceptors.request.use(async (config) => {
   const token = localStorage.getItem('authToken')
@@ -22,7 +26,8 @@ api.interceptors.request.use(async (config) => {
   // If user is logged in, try to refresh token if needed
   if (auth.currentUser) {
     try {
-      const freshToken = await auth.currentUser.getIdToken(false) // Don't force refresh unless needed
+      // Check if token is about to expire (refresh 5 minutes before expiry)
+      const freshToken = await auth.currentUser.getIdToken(false)
       if (freshToken !== token) {
         localStorage.setItem('authToken', freshToken)
         config.headers.Authorization = `Bearer ${freshToken}`
@@ -35,28 +40,57 @@ api.interceptors.request.use(async (config) => {
   return config
 })
 
-// Handle auth errors
+// Handle auth errors with better token refresh logic
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    if (error.response?.status === 401 && auth.currentUser) {
-      try {
-        // Try to refresh token once
-        const freshToken = await auth.currentUser.getIdToken(true) // Force refresh
-        localStorage.setItem('authToken', freshToken)
-        
-        // Retry the original request with new token
-        error.config.headers.Authorization = `Bearer ${freshToken}`
-        return api(error.config)
-      } catch (refreshError) {
-        console.error('Token refresh failed:', refreshError)
+    const originalRequest = error.config
+
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true
+
+      if (auth.currentUser) {
+        try {
+          // Use shared refresh promise to prevent multiple simultaneous refreshes
+          if (isRefreshing && refreshPromise) {
+            const freshToken = await refreshPromise
+            originalRequest.headers.Authorization = `Bearer ${freshToken}`
+            return api(originalRequest)
+          }
+
+          if (!isRefreshing) {
+            isRefreshing = true
+            refreshPromise = auth.currentUser.getIdToken(true) // Force refresh
+            
+            const freshToken = await refreshPromise
+            localStorage.setItem('authToken', freshToken)
+            
+            // Update the original request with new token
+            originalRequest.headers.Authorization = `Bearer ${freshToken}`
+            
+            isRefreshing = false
+            refreshPromise = null
+            
+            return api(originalRequest)
+          }
+        } catch (refreshError) {
+          console.error('Token refresh failed:', refreshError)
+          localStorage.removeItem('authToken')
+          isRefreshing = false
+          refreshPromise = null
+          
+          // Only redirect if we're not already on the login page
+          if (!window.location.pathname.includes('/login')) {
+            window.location.href = '/login'
+          }
+        }
+      } else {
+        // No current user, redirect to login
         localStorage.removeItem('authToken')
-        window.location.href = '/login'
+        if (!window.location.pathname.includes('/login')) {
+          window.location.href = '/login'
+        }
       }
-    } else if (error.response?.status === 401) {
-      // No current user, redirect to login
-      localStorage.removeItem('authToken')
-      window.location.href = '/login'
     }
     return Promise.reject(error)
   }
