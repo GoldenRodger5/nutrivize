@@ -14,7 +14,7 @@ First, create the GitHub repository and push your code:
 
 ```bash
 # After creating the 'nutrivize' repository on GitHub
-git remote set-url origin https://github.com/YOUR_USERNAME/nutrivize.git
+git remote set-url origin https://github.com/GoldenRodger5/nutrivize.git
 git push -u origin master
 ```
 
