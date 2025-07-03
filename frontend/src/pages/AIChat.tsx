@@ -27,6 +27,7 @@ import {
 import { AddIcon, DeleteIcon, CopyIcon } from '@chakra-ui/icons'
 import { ChatMessage } from '../types'
 import api from '../utils/api'
+import ReactMarkdown from 'react-markdown'
 
 // Quick prompt suggestions for mobile
 const quickPrompts = [
@@ -128,10 +129,74 @@ export default function AIChat() {
     ])
   }
 
+  // Helper function to format AI responses properly
+  const formatAIResponse = (content: string) => {
+    // Handle different types of AI responses
+    
+    // 1. Clean up any backend operation markers that shouldn't be visible
+    let cleanedContent = content
+      .replace(/AI_SEARCH_FOODS:\s*[^\n]*/gi, '')
+      .replace(/AI_LOG_FOOD:\s*[^\n]*/gi, '')
+      .replace(/AI_CREATE_MEAL_PLAN:\s*[^\n]*/gi, '')
+      .replace(/AI_INDEX_FOOD:\s*[^\n]*/gi, '')
+      .replace(/AI_SAVE_PREFERENCES:\s*[^\n]*/gi, '')
+      .replace(/AI_UPDATE_GOAL:\s*[^\n]*/gi, '')
+      .replace(/AI_SEARCH_USER_LOGS:\s*[^\n]*/gi, '')
+    
+    // 2. Handle error messages and make them user-friendly
+    cleanedContent = cleanedContent
+      .replace(/❌ Couldn't search foods:[^\n]*/gi, '🔍 Searching your food database...')
+      .replace(/Expecting property name enclosed in double quotes[^\n]*/gi, '')
+      .replace(/line \d+ column \d+ \(char \d+\)/gi, '')
+    
+    // 3. Format common response patterns better
+    
+    // Food index responses
+    if (content.toLowerCase().includes('food index')) {
+      cleanedContent = cleanedContent
+        .replace(/Let me search your food index\.?\s*/gi, '🍎 **Your Food Index:**\n\n')
+        .replace(/Based on the context provided,?\s*/gi, '')
+        .replace(/I can see that your food index is currently empty or not available/gi, 'Your food index appears to be empty. You can add foods by logging meals or manually adding them.')
+    }
+    
+    // Calorie questions
+    if (content.toLowerCase().includes('calorie') && content.toLowerCase().includes('should')) {
+      cleanedContent = cleanedContent
+        .replace(/Based on your profile/gi, '📊 **Calorie Recommendation:**\n\nBased on your profile')
+    }
+    
+    // Meal planning responses
+    if (content.toLowerCase().includes('meal plan') || content.toLowerCase().includes('meal suggestion')) {
+      cleanedContent = cleanedContent
+        .replace(/I'd love to help you/gi, "🍽️ **Meal Planning:**\n\nI'd love to help you")
+    }
+    
+    // 4. Clean up extra spacing and formatting
+    cleanedContent = cleanedContent
+      .replace(/\n\s*\n\s*\n/g, '\n\n') // Remove triple line breaks
+      .replace(/^\s+|\s+$/g, '') // Trim whitespace
+      .replace(/\s+([.!?])/g, '$1') // Fix spacing before punctuation
+    
+    // 5. Handle lists and structured content
+    if (cleanedContent.includes('•') || cleanedContent.includes('-')) {
+      // Ensure proper list formatting
+      cleanedContent = cleanedContent.replace(/(^|\n)([•-])\s*/gm, '$1$2 ')
+    }
+    
+    // 6. Add helpful emojis for context
+    if (!cleanedContent.match(/^[🔍🍎📊🍽️💡⚠️✅❌]/)) {
+      if (content.toLowerCase().includes('nutrition') || content.toLowerCase().includes('health')) {
+        cleanedContent = '💡 ' + cleanedContent
+      }
+    }
+    
+    return cleanedContent
+  }
+
   // Helper function to detect and parse JSON
   const parseJsonContent = (content: string) => {
     // Look for JSON blocks in the content
-    const jsonRegex = /```json\s*([\s\S]*?)\s*```/g
+    const jsonRegex = /```json\\s*([\\s\\S]*?)\\s*```/g
     const matches = []
     let match
     
@@ -154,7 +219,10 @@ export default function AIChat() {
   // Mobile Message Component
   const MessageBubble = ({ message, isUser }: { message: ChatMessage; isUser: boolean }) => {
     const { onCopy, hasCopied } = useClipboard("")
-    const jsonBlocks = parseJsonContent(message.content)
+    
+    // Format the content properly
+    const formattedContent = isUser ? message.content : formatAIResponse(message.content)
+    const jsonBlocks = parseJsonContent(formattedContent)
     
     return (
       <Flex justify={isUser ? 'flex-end' : 'flex-start'} w="full">
@@ -183,10 +251,10 @@ export default function AIChat() {
                   {/* Render text content without JSON blocks */}
                   <Text
                     fontSize={isMobile ? "sm" : "md"}
-                    lineHeight="1.4"
+                    lineHeight="1.6"
                     whiteSpace="pre-wrap"
                   >
-                    {message.content.replace(/```json\s*[\s\S]*?\s*```/g, '[JSON Response - see below]')}
+                    {formattedContent.replace(/```json\s*[\s\S]*?\s*```/g, '[JSON Response - see below]')}
                   </Text>
                   
                   {/* Render JSON blocks */}
@@ -223,13 +291,30 @@ export default function AIChat() {
                   ))}
                 </VStack>
               ) : (
-                <Text
-                  fontSize={isMobile ? "sm" : "md"}
-                  lineHeight="1.4"
-                  whiteSpace="pre-wrap"
-                >
-                  {message.content}
-                </Text>
+                <Box>
+                  <ReactMarkdown
+                    components={{
+                      // Custom components for better formatting
+                      h1: ({ children }) => <Text fontSize="lg" fontWeight="bold" mb={2}>{children}</Text>,
+                      h2: ({ children }) => <Text fontSize="md" fontWeight="bold" mb={2}>{children}</Text>,
+                      h3: ({ children }) => <Text fontSize="sm" fontWeight="bold" mb={1}>{children}</Text>,
+                      p: ({ children }) => <Text fontSize={isMobile ? "sm" : "md"} lineHeight="1.6" mb={2}>{children}</Text>,
+                      strong: ({ children }) => <Text as="span" fontWeight="bold">{children}</Text>,
+                      em: ({ children }) => <Text as="span" fontStyle="italic">{children}</Text>,
+                      ul: ({ children }) => <Box as="ul" pl={4} mb={2}>{children}</Box>,
+                      ol: ({ children }) => <Box as="ol" pl={4} mb={2}>{children}</Box>,
+                      li: ({ children }) => <Text as="li" fontSize={isMobile ? "sm" : "md"} mb={1}>{children}</Text>,
+                      code: ({ children }) => <Code fontSize="xs" px={1}>{children}</Code>,
+                      blockquote: ({ children }) => (
+                        <Box borderLeft="3px solid" borderColor="gray.300" pl={3} ml={2} mb={2}>
+                          {children}
+                        </Box>
+                      )
+                    }}
+                  >
+                    {formattedContent}
+                  </ReactMarkdown>
+                </Box>
               )}
             </CardBody>
           </Card>
