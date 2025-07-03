@@ -1,3 +1,51 @@
+#!/bin/bash
+
+# Deploy fixed version of the app
+# This script replaces the problematic files with hotfixed versions
+
+# Set up colors for output
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+NC='\033[0m' # No Color
+
+echo -e "${YELLOW}Starting hotfix deployment...${NC}"
+
+# Create backup directory
+BACKUP_DIR="/tmp/nutrivize_backup_$(date +%Y%m%d%H%M%S)"
+mkdir -p "$BACKUP_DIR"
+echo -e "${GREEN}Created backup directory: $BACKUP_DIR${NC}"
+
+# Backup and replace analytics.py with analytics_hotfix.py
+if [ -f "app/routes/analytics.py" ] && [ -f "app/routes/analytics_hotfix.py" ]; then
+    echo -e "${YELLOW}Backing up and replacing analytics.py...${NC}"
+    cp "app/routes/analytics.py" "$BACKUP_DIR/analytics.py.bak"
+    cp "app/routes/analytics_hotfix.py" "app/routes/analytics.py"
+    echo -e "${GREEN}Replaced analytics.py with hotfix version${NC}"
+else
+    echo -e "${RED}Analytics files not found${NC}"
+fi
+
+# Fix any indentation issues in unified_ai_service.py
+if [ -f "app/services/unified_ai_service.py" ]; then
+    echo -e "${YELLOW}Fixing unified_ai_service.py...${NC}"
+    cp "app/services/unified_ai_service.py" "$BACKUP_DIR/unified_ai_service.py.bak"
+    
+    # Fix indentation with sed
+    sed -i.bak 's/    user_context = await self._get_comprehensive_user_context/            user_context = await self._get_comprehensive_user_context/g' "app/services/unified_ai_service.py"
+    
+    echo -e "${GREEN}Fixed indentation in unified_ai_service.py${NC}"
+else
+    echo -e "${RED}unified_ai_service.py not found${NC}"
+fi
+
+# Update main.py to use try-except when importing routes
+if [ -f "app/main.py" ]; then
+    echo -e "${YELLOW}Updating main.py with safer imports...${NC}"
+    cp "app/main.py" "$BACKUP_DIR/main.py.bak"
+    
+    # Create a new version of main.py with safer imports
+    cat > "app/main.py.new" << 'EOL'
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -125,3 +173,14 @@ else:
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "version": "2.0.0"}
+EOL
+    
+    # Replace the main.py file with the new version
+    mv "app/main.py.new" "app/main.py"
+    echo -e "${GREEN}Updated main.py with safer imports${NC}"
+else
+    echo -e "${RED}main.py not found${NC}"
+fi
+
+echo -e "${GREEN}Hotfix deployment completed!${NC}"
+echo -e "${YELLOW}Backup files are in: $BACKUP_DIR${NC}"

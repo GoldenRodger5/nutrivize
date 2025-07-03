@@ -53,7 +53,7 @@ class UnifiedAIService:
         """
         try:
             # Get user context for personalized responses
-            user_context = await self._get_comprehensive_user_context(user_id)
+                            user_context = await self._get_comprehensive_user_context(user_id)
 
             # Process any embedded operations in the message
             processed_request, operations_results = await self._process_smart_operations(
@@ -136,7 +136,7 @@ class UnifiedAIService:
         Generate a comprehensive meal plan using AI with full user context
         """
         try:
-            user_context = await self._get_comprehensive_user_context(user_id)
+                                            user_context = await self._get_comprehensive_user_context(user_id)
 
             prompt = f"""
             Create a comprehensive {plan_request.get('duration', 7)}-day meal plan for this user:
@@ -230,7 +230,7 @@ class UnifiedAIService:
         Generate comprehensive health insights using AI analysis
         """
         try:
-            user_context = await self._get_comprehensive_user_context(user_id)
+                                            user_context = await self._get_comprehensive_user_context(user_id)
 
             # Analyze user data patterns
             nutrition_analysis = await self._analyze_nutrition_patterns(user_id)
@@ -1073,7 +1073,7 @@ RESPONSE STYLE:
         """Get AI-generated meal suggestions with enhanced user context"""
         try:
             # Get comprehensive user context
-            user_context = await self._get_comprehensive_user_context(user_id)
+                                            user_context = await self._get_comprehensive_user_context(user_id)
 
             # Get user's food index if the filter is enabled
             user_food_index = []
@@ -1174,7 +1174,7 @@ Create diverse, creative suggestions that match their preferences and goals. For
     async def get_dashboard_data(self, user_id: str, data_type: str) -> Dict[str, Any]:
         """Get specific dashboard data for the AI dashboard"""
         try:
-            user_context = await self._get_comprehensive_user_context(user_id)
+                                            user_context = await self._get_comprehensive_user_context(user_id)
 
             if data_type == "coaching":
                 return await self._generate_coaching_insights(user_id, user_context)
