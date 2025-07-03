@@ -53,7 +53,13 @@ class UnifiedAIService:
         """
         try:
             # Get user context for personalized responses
-            user_context = await self._get_comprehensive_user_context(user_id)
+            # Check if the message is about the food index
+            if any(term in processed_request.message.lower() for term in ["food index", "my foods", "foods i have", "foods in my"]):
+                # Update the food index summary for immediate use
+                user_context["food_index_summary"] = await self.get_food_index_summary(user_id)
+                logger.info(f"Food index query detected. Retrieved food index for user {user_id}")
+            
+                        user_context = await self._get_comprehensive_user_context(user_id)
             
             # Process any embedded operations in the message
             processed_request, operations_results = await self._process_smart_operations(
@@ -429,7 +435,61 @@ class UnifiedAIService:
             logger.error(f"Error getting user context: {e}")
             return {}
     
-    async def _build_contextual_system_prompt(self, user_context: Dict[str, Any]) -> str:
+    async def get_food_index_summary(self, user_id: str, limit: int = 30) -> str:
+        """Get a summary of the user's food index items"""
+        try:
+            if not self.db:
+                return "Unable to access food database."
+            
+            # Get user foods collection
+            user_foods_collection = self.db.user_foods
+            
+            # Query for user's foods
+            user_foods = list(user_foods_collection.find({"user_id": user_id}).limit(limit))
+            
+            if not user_foods:
+                # Check the main food index if user doesn't have personal foods
+                foods_collection = self.db.foods
+                foods = list(foods_collection.find().limit(limit))
+                
+                if not foods:
+                    return "No foods found in your food index."
+                
+                # Format foods from main index
+                foods_summary = "Here are some foods from the main food index:\n"
+                for i, food in enumerate(foods[:20], 1):
+                    name = food.get("name", "Unknown food")
+                    category = food.get("category", "Uncategorized")
+                    foods_summary += f"{i}. {name} ({category})\n"
+                
+                if len(foods) > 20:
+                    foods_summary += f"...and {len(foods) - 20} more foods.\n"
+                
+                foods_summary += "\nNote: These are from the main food index. You haven't added any personal foods yet."
+                return foods_summary
+            
+            # Format user foods
+            foods_summary = "Here are foods in your personal food index:\n"
+            for i, food in enumerate(user_foods[:20], 1):
+                name = food.get("name", "Unknown food")
+                category = food.get("category", "Uncategorized")
+                date_added = food.get("date_added", "Unknown date")
+                if isinstance(date_added, datetime):
+                    date_str = date_added.strftime("%Y-%m-%d")
+                else:
+                    date_str = str(date_added)
+                foods_summary += f"{i}. {name} ({category}) - Added: {date_str}\n"
+            
+            if len(user_foods) > 20:
+                foods_summary += f"...and {len(user_foods) - 20} more foods.\n"
+                
+            return foods_summary
+            
+        except Exception as e:
+            logger.error(f"Error getting food index summary: {e}")
+            return f"Unable to retrieve food index data. Error: {str(e)}"
+    
+        async def _build_contextual_system_prompt(self, user_context: Dict[str, Any]) -> str:
         """Build a personalized system prompt based on user context"""
         
         base_prompt = """You are Nutrivize AI, an advanced nutrition and wellness coach with comprehensive food and meal management capabilities. You can help users with ALL aspects of their nutrition journey through natural conversation.

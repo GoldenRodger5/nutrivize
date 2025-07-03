@@ -40,8 +40,13 @@ class AnalyticsResponse(BaseModel):
 
 
 @router.get("/weekly-summary")
-async def get_weekly_summary(
+async def get_weekly_summary
+    args: Optional[str] = Query(None, description="Optional arguments"),
+    kwargs: Optional[str] = Query(None, description="Optional keyword arguments"),
+    
     end_date: Optional[str] = Query(None, description="End date in YYYY-MM-DD format"),
+    args: Optional[str] = Query(None, description="Optional arguments"),
+    kwargs: Optional[str] = Query(None, description="Optional keyword arguments"),
     current_user: UserResponse = Depends(get_current_user)
 ):
     """Get weekly nutrition summary"""
@@ -64,9 +69,14 @@ async def get_weekly_summary(
 
 
 @router.get("/monthly-summary")
-async def get_monthly_summary(
+async def get_monthly_summary
+    args: Optional[str] = Query(None, description="Optional arguments"),
+    kwargs: Optional[str] = Query(None, description="Optional keyword arguments"),
+    
     year: Optional[int] = Query(None, description="Year (default: current year)"),
     month: Optional[int] = Query(None, description="Month 1-12 (default: current month)"),
+    args: Optional[str] = Query(None, description="Optional arguments"),
+    kwargs: Optional[str] = Query(None, description="Optional keyword arguments"),
     current_user: UserResponse = Depends(get_current_user)
 ):
     """Get monthly nutrition summary"""
@@ -84,6 +94,8 @@ async def get_monthly_summary(
 async def get_ai_insights(
     timeframe: str = Query("week", description="Timeframe: 'week', 'month', or 'all'"),
     force_refresh: bool = Query(False, description="Force refresh insights (skip cache)"),
+    args: Optional[str] = Query(None, description="Optional arguments"),
+    kwargs: Optional[str] = Query(None, description="Optional keyword arguments"),
     current_user: UserResponse = Depends(get_current_user)
 ):
     """
@@ -120,6 +132,8 @@ async def get_ai_insights(
 @handle_analytics_error
 async def get_nutrition_trends(
     days: int = Query(30, description="Number of days to analyze (default: 30)"),
+    args: Optional[str] = Query(None, description="Optional arguments"),
+    kwargs: Optional[str] = Query(None, description="Optional keyword arguments"),
     current_user: UserResponse = Depends(get_current_user)
 ):
     """Get nutrition trends over specified number of days"""
@@ -144,6 +158,8 @@ async def get_nutrition_trends(
 @router.get("/goal-progress")
 @handle_analytics_error
 async def get_goal_progress(
+    args: Optional[str] = Query(None, description="Optional arguments"),
+    kwargs: Optional[str] = Query(None, description="Optional keyword arguments"),
     current_user: UserResponse = Depends(get_current_user)
 ):
     """Get progress towards user's nutrition and health goals"""
@@ -166,6 +182,8 @@ async def get_goal_progress(
 @handle_analytics_error
 async def get_food_patterns(
     days: int = Query(30, description="Number of days to analyze (default: 30)"),
+    args: Optional[str] = Query(None, description="Optional arguments"),
+    kwargs: Optional[str] = Query(None, description="Optional keyword arguments"),
     current_user: UserResponse = Depends(get_current_user)
 ):
     """Analyze food consumption patterns and habits"""
@@ -192,6 +210,8 @@ async def get_food_patterns(
 @handle_analytics_error
 async def get_macro_breakdown(
     timeframe: str = Query("week", description="Timeframe: 'week' or 'month'"),
+    args: Optional[str] = Query(None, description="Optional arguments"),
+    kwargs: Optional[str] = Query(None, description="Optional keyword arguments"),
     current_user: UserResponse = Depends(get_current_user)
 ):
     """Get detailed macronutrient breakdown with visualizations"""

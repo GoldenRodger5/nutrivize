@@ -90,7 +90,7 @@ print(f"✅ CORS configured with origins: {cors_origins}")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
-    allow_origin_regex=r"https?://.*\.?onrender\.com(:[0-9]+)?$",  # Allow all onrender.com subdomains with optional port
+    allow_origin_regex=r"https?://(.*\.)?onrender\.(com|app|internal)(:[0-9]+)?$",  # Allow all onrender.com subdomains with optional port
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=[
@@ -143,7 +143,7 @@ async def enhanced_cors_middleware(request: Request, call_next):
     if method == "OPTIONS":
         response = Response()
         # Force CORS headers for all responses, especially AI endpoints
-    if origin and (origin in allowed_origins or is_render_domain):
+        if origin and (origin in allowed_origins or is_render_domain):
             response.headers["Access-Control-Allow-Origin"] = origin
             response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
             response.headers["Access-Control-Allow-Headers"] = "Accept, Accept-Language, Content-Language, Content-Type, Authorization, X-Requested-With, Origin, Access-Control-Request-Method, Access-Control-Request-Headers, Cache-Control, Pragma"
@@ -161,7 +161,7 @@ async def enhanced_cors_middleware(request: Request, call_next):
     is_ai_endpoint = "/ai/" in request.url.path
     
     # Special handling for AI endpoints with additional logging
-    is_ai_endpoint = "/ai/" in request.url.path
+    
     
     # Process the request
     response = await call_next(request)
@@ -175,44 +175,7 @@ async def enhanced_cors_middleware(request: Request, call_next):
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Access-Control-Allow-Credentials"] = "true"
         
-        # Additional debugging for AI endpoints
-        if is_ai_endpoint:
-            # Force CORS headers for AI endpoints to ensure they're present
-            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
-            response.headers["Access-Control-Allow-Headers"] = "Accept, Accept-Language, Content-Language, Content-Type, Authorization, X-Requested-With, Origin"
-        
-        # Additional debugging for AI endpoints
-        if is_ai_endpoint:
-            # Force CORS headers for AI endpoints to ensure they're present
-            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
-            response.headers["Access-Control-Allow-Headers"] = "Accept, Accept-Language, Content-Language, Content-Type, Authorization, X-Requested-With, Origin"
-    
-    # Add PWA-specific headers
-    if request.url.path.endswith('/manifest.json'):
-        response.headers["Content-Type"] = "application/manifest+json"
-        response.headers["Cache-Control"] = "public, max-age=3600"
-    
-    if request.url.path.endswith('/sw.js'):
-        response.headers["Content-Type"] = "application/javascript"
-        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-        response.headers["Service-Worker-Allowed"] = "/"
-    
-    # Add security headers for PWA
-    if request.url.path.startswith('/icons/') or request.url.path.endswith('.png'):
-        response.headers["Cache-Control"] = "public, max-age=31536000"  # 1 year
-    
-    # Add CSP headers for PWA security
-    if request.url.path.endswith('.html') or request.url.path == '/':
-        response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
-            "style-src 'self' 'unsafe-inline'; "
-            "img-src 'self' data: https:; "
-            "connect-src 'self' https://*.onrender.com https://api.anthropic.com; "
-            "manifest-src 'self'"
-        )
-    
-    return response
+
 
 # Include routers
 app.include_router(auth.router)
