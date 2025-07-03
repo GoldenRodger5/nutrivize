@@ -34,12 +34,32 @@ import DietaryProfileBuilder from '../components/DietaryProfileBuilder'
 import SmartMealAnalysis from '../components/SmartMealAnalysis'
 import api from '../utils/api'
 
+// Backend API interfaces
+interface ApiMealSuggestion {
+  name: string
+  description: string
+  ingredients: Array<{
+    name: string
+    amount: number
+    unit: string
+  }>
+  instructions: string[]
+  prep_time?: number
+  nutrition: {
+    calories: number
+    protein: number
+    carbs: number
+    fat: number
+    [key: string]: number
+  }
+}
+
 // Smart meal recommendation interface
 interface MealRecommendation {
   name: string
   score: number
   reasons: string[]
-  nutrition_highlights: string[]
+  nutrition_highlights: string[] | Record<string, number | string>
   meal_suitability: string
   food_item?: FoodItem
 }
@@ -139,16 +159,67 @@ export default function SmartMealPlanning() {
     setRecommendationsLoading(true)
     try {
       // Call real AI meal recommendation API
-      // Changed from '/ai/meal-recommendations' to '/ai/meal-suggestions' to match backend endpoint
       const response = await api.post('/ai/meal-suggestions', {
         meal_type: selectedMealType,
-        dietary_profile: userProfile,
+        dietary_preferences: userProfile.dietary_restrictions || [],
+        allergies: userProfile.allergens || [],
+        prep_time_preference: "moderate", // Default to moderate prep time
         max_results: 5
       })
       
-      if (response.data && response.data.recommendations) {
-        setRecommendations(response.data.recommendations)
+      console.log('API Response:', response.data); // Debug log
+      
+      // Transform the backend response format to match frontend expectations
+      if (response.data && response.data.suggestions) {
+        // Create a unique timestamp for this batch of suggestions
+        const batchTimestamp = Date.now();
+        
+        const transformedRecommendations: MealRecommendation[] = response.data.suggestions.map((suggestion: ApiMealSuggestion, index: number) => {
+          // Create a unique ID for each food item
+          const uniqueId = `ai_${batchTimestamp}_${index}_${Math.random().toString(36).substr(2, 5)}`;
+          
+          // Format nutrition highlights properly
+          const nutritionHighlights = Object.entries(suggestion.nutrition).map(
+            ([key, value]) => `${key.replace('_', ' ')}: ${typeof value === 'number' ? Math.round(value) : value}${key === 'calories' ? '' : 'g'}`
+          );
+          
+          // Create the transformed recommendation
+          return {
+            name: suggestion.name,
+            score: 90, // Assume high score for AI-generated suggestions
+            reasons: [suggestion.description],
+            nutrition_highlights: nutritionHighlights,
+            meal_suitability: selectedMealType,
+            food_item: {
+              id: uniqueId,
+              name: suggestion.name,
+              brand: 'AI Suggestion',
+              serving_size: 1,
+              serving_unit: 'serving',
+              nutrition: {
+                calories: suggestion.nutrition.calories || 300,
+                protein: suggestion.nutrition.protein || 20,
+                carbs: suggestion.nutrition.carbs || 30,
+                fat: suggestion.nutrition.fat || 10,
+                fiber: suggestion.nutrition.fiber || 5,
+                sugar: suggestion.nutrition.sugar || 5,
+                sodium: suggestion.nutrition.sodium || 400
+              },
+              source: 'ai_suggestion',
+              barcode: '',
+              dietary_attributes: {
+                dietary_restrictions: userProfile.dietary_restrictions || [],
+                allergens: [],
+                food_categories: [selectedMealType]
+              }
+            }
+          };
+        });
+        
+        console.log('Transformed recommendations:', transformedRecommendations); // Debug log
+        setRecommendations(transformedRecommendations);
       } else {
+        console.warn("Unexpected response format:", response.data)
         setRecommendations([])
       }
     } catch (error) {
@@ -165,29 +236,32 @@ export default function SmartMealPlanning() {
   }
 
   const addToMeal = (recommendation: MealRecommendation) => {
-    // Convert recommendation to FoodItem format
-    const foodItem: FoodItem = {
-      id: recommendation.food_item?.id || `rec_${Date.now()}`,
-      name: recommendation.name,
-      brand: 'AI Suggestion',
-      serving_size: 1,
-      serving_unit: 'serving',
-      nutrition: {
-        calories: 300, // Default values, would normally come from recommendation
-        protein: 20,
-        carbs: 30,
-        fat: 10,
-        fiber: 5,
-        sugar: 5,
-        sodium: 400
-      },
-      source: 'ai_suggestion',
-      barcode: '',
-      dietary_attributes: {
-        dietary_restrictions: [],
-        allergens: [],
-        food_categories: ['meals']
-      }
+    if (!recommendation.food_item) {
+      console.error("Food item is missing in recommendation", recommendation);
+      toast({
+        title: 'Error Adding Item',
+        description: 'Could not add this item to your meal',
+        status: 'error',
+        duration: 2000
+      });
+      return;
+    }
+    
+    console.log('Adding to meal:', recommendation); // Debug log
+    
+    // Use the food item from the recommendation directly
+    const foodItem: FoodItem = recommendation.food_item;
+    
+    // Ensure the food item has all required fields
+    if (!foodItem.id || !foodItem.name || !foodItem.nutrition) {
+      console.error("Food item is missing required fields", foodItem);
+      toast({
+        title: 'Invalid Food Item',
+        description: 'The food item is missing required information',
+        status: 'error',
+        duration: 2000
+      });
+      return;
     }
 
     setSelectedMealFoods(prev => {
@@ -432,6 +506,16 @@ export default function SmartMealPlanning() {
                       <Text fontSize="sm">Getting personalized recommendations...</Text>
                     </VStack>
                   </Center>
+                ) : recommendations.length === 0 ? (
+                  <Center py={8}>
+                    <VStack spacing={3}>
+                      <Text fontSize="md">No recommendations available</Text>
+                      <Text fontSize="sm" color="gray.500">Try updating your dietary profile or selecting a different meal type</Text>
+                      <Button colorScheme="blue" size="sm" onClick={loadRecommendations}>
+                        Retry
+                      </Button>
+                    </VStack>
+                  </Center>
                 ) : (
                   <VStack spacing={4} align="stretch">
                     {recommendations.map((rec, idx) => (
@@ -497,16 +581,24 @@ export default function SmartMealPlanning() {
                                     </Box>
                                     
                                     <Box>
-                                      <Text fontSize="sm" fontWeight="medium" mb={1}>Nutrition highlights:</Text>
-                                      <Wrap spacing={1}>
-                                        {rec.nutrition_highlights.map((highlight, i) => (
-                                          <WrapItem key={i}>
-                                            <Badge colorScheme="green" size="sm" variant="outline">
-                                              {highlight}
-                                            </Badge>
-                                          </WrapItem>
-                                        ))}
-                                      </Wrap>
+                                      <Text fontSize="sm" fontWeight="medium" mb={1}>Nutrition highlights:</Text>                                <Wrap spacing={1}>
+                                  {Array.isArray(rec.nutrition_highlights) ? 
+                                    rec.nutrition_highlights.map((highlight: string, i: number) => (
+                                      <WrapItem key={i}>
+                                        <Badge colorScheme="green" size="sm" variant="outline">
+                                          {highlight}
+                                        </Badge>
+                                      </WrapItem>
+                                    )) : 
+                                    Object.entries(rec.nutrition_highlights || {}).map(([key, value], i) => (
+                                      <WrapItem key={i}>
+                                        <Badge colorScheme="green" size="sm" variant="outline">
+                                          {key}: {String(value)}
+                                        </Badge>
+                                      </WrapItem>
+                                    ))
+                                  }
+                                </Wrap>
                                     </Box>
                                   </VStack>
                                 </Collapse>
@@ -529,13 +621,22 @@ export default function SmartMealPlanning() {
                                 <Box>
                                   <Text fontSize="sm" fontWeight="medium" mb={1}>Nutrition highlights:</Text>
                                   <Wrap spacing={1}>
-                                    {rec.nutrition_highlights.map((highlight, i) => (
-                                      <WrapItem key={i}>
-                                        <Badge colorScheme="green" size="sm" variant="outline">
-                                          {highlight}
-                                        </Badge>
-                                      </WrapItem>
-                                    ))}
+                                    {Array.isArray(rec.nutrition_highlights) ? 
+                                      rec.nutrition_highlights.map((highlight: string, i: number) => (
+                                        <WrapItem key={i}>
+                                          <Badge colorScheme="green" size="sm" variant="outline">
+                                            {highlight}
+                                          </Badge>
+                                        </WrapItem>
+                                      )) : 
+                                      Object.entries(rec.nutrition_highlights || {}).map(([key, value], i) => (
+                                        <WrapItem key={i}>
+                                          <Badge colorScheme="green" size="sm" variant="outline">
+                                            {key}: {String(value)}
+                                          </Badge>
+                                        </WrapItem>
+                                      ))
+                                    }
                                   </Wrap>
                                 </Box>
                               </>
@@ -558,13 +659,22 @@ export default function SmartMealPlanning() {
                                   <Box mt={2} p={3} borderWidth={1} borderRadius="md" borderColor="gray.200">
                                     <Text fontSize="sm" fontWeight="medium" mb={1}>Detailed Nutrition Info:</Text>
                                     <Wrap spacing={2}>
-                                      {Object.entries(rec.nutrition_highlights).map(([key, value], i) => (
-                                        <WrapItem key={i}>
-                                          <Badge colorScheme="green" size="sm" variant="outline">
-                                            {key}: {value}
-                                          </Badge>
-                                        </WrapItem>
-                                      ))}
+                                      {Array.isArray(rec.nutrition_highlights) 
+                                        ? rec.nutrition_highlights.map((highlight, i) => (
+                                            <WrapItem key={i}>
+                                              <Badge colorScheme="green" size="sm" variant="outline">
+                                                {highlight}
+                                              </Badge>
+                                            </WrapItem>
+                                          ))
+                                        : Object.entries(rec.nutrition_highlights || {}).map(([key, value], i) => (
+                                            <WrapItem key={i}>
+                                              <Badge colorScheme="green" size="sm" variant="outline">
+                                                {key}: {String(value)}
+                                              </Badge>
+                                            </WrapItem>
+                                          ))
+                                      }
                                     </Wrap>
                                   </Box>
                                 </Collapse>
