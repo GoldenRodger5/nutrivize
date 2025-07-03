@@ -207,7 +207,15 @@ async def generate_meal_plan(
             )
         
         # Automatically save the generated meal plan to the database
-        saved_plan = await meal_planning_service.save_meal_plan(user_id, meal_plan)
+        try:
+            print(f"DEBUG: About to save meal plan for user {user_id}")
+            saved_plan = await meal_planning_service.save_meal_plan(user_id, meal_plan)
+            print(f"DEBUG: Successfully saved meal plan")
+        except Exception as save_error:
+            print(f"ERROR: Failed to save meal plan: {save_error}")
+            # Return the generated plan even if saving fails
+            saved_plan = meal_plan
+            saved_plan["warning"] = "Meal plan generated but not saved to database"
         
         # Create response with explicit CORS headers
         response_data = saved_plan

@@ -16,77 +16,182 @@ class MealPlanningService:
         self.shopping_lists_collection = None
         
         if self.db is not None:
-            self.meal_plans_collection = self.db["meal_plans"]
-            self.shopping_lists_collection = self.db["shopping_lists"]
-            
-            # Create indexes for efficient queries
             try:
-                self.meal_plans_collection.create_index([("user_id", 1), ("created_at", -1)])
-                self.shopping_lists_collection.create_index([("user_id", 1), ("created_at", -1)])
-                self.meal_plans_collection.create_index([("user_id", 1), ("plan_id", 1), ("version", -1)])
-                self.shopping_lists_collection.create_index([("user_id", 1), ("meal_plan_id", 1)])
-            except:
-                pass  # Indexes might already exist
+                self.meal_plans_collection = self.db["meal_plans"]
+                self.shopping_lists_collection = self.db["shopping_lists"]
+                
+                # Create indexes for efficient queries
+                try:
+                    self.meal_plans_collection.create_index([("user_id", 1), ("created_at", -1)])
+                    self.shopping_lists_collection.create_index([("user_id", 1), ("created_at", -1)])
+                    self.meal_plans_collection.create_index([("user_id", 1), ("plan_id", 1), ("version", -1)])
+                    self.shopping_lists_collection.create_index([("user_id", 1), ("meal_plan_id", 1)])
+                    print("✅ MealPlanningService: Database indexes created successfully")
+                except Exception as index_error:
+                    print(f"⚠️  MealPlanningService: Index creation failed (may already exist): {index_error}")
+                    
+                print("✅ MealPlanningService: Successfully initialized with database connection")
+            except Exception as collection_error:
+                print(f"❌ MealPlanningService: Failed to access collections: {collection_error}")
+                self.meal_plans_collection = None
+                self.shopping_lists_collection = None
         else:
-            print("⚠️  MealPlanningService initialized without database connection")
+            print("⚠️  MealPlanningService: Initialized without database connection")
     
     async def save_meal_plan(self, user_id: str, meal_plan_data: Dict[str, Any]) -> Dict[str, Any]:
         """Save a meal plan to the database with versioning support"""
         try:
+            print(f"DEBUG: Starting save_meal_plan for user_id: {user_id}")
+            print(f"DEBUG: Meal plan data keys: {list(meal_plan_data.keys())}")
+            
+            # Check database connection with better error handling
+            if self.meal_plans_collection is None:
+                print("ERROR: No database collection available")
+                
+                # Try to reconnect to database
+                print("🔄 Attempting to reconnect to database...")
+                self.db = get_database()
+                if self.db is not None:
+                    try:
+                        self.meal_plans_collection = self.db["meal_plans"]
+                        self.shopping_lists_collection = self.db["shopping_lists"]
+                        print("✅ Database reconnection successful")
+                    except Exception as reconnect_error:
+                        print(f"❌ Database reconnection failed: {reconnect_error}")
+                        raise ValueError(f"Database connection not available: {str(reconnect_error)}")
+                else:
+                    raise ValueError("Database connection not available and reconnection failed")
+            
             plan_id = meal_plan_data.get("plan_id", str(uuid.uuid4()))
+            print(f"DEBUG: Using plan_id: {plan_id}")
             
             # Check if this is a new version of an existing plan
-            existing_plan = self.meal_plans_collection.find_one({
-                "user_id": user_id,
-                "plan_id": plan_id
-            })
-            
-            # Determine version number
-            if existing_plan:
-                # Get the highest version number for this plan
-                max_version = self.meal_plans_collection.find({
+            existing_plan = None
+            try:
+                existing_plan = self.meal_plans_collection.find_one({
                     "user_id": user_id,
                     "plan_id": plan_id
-                }).sort("version", -1).limit(1)
-                
-                current_max = list(max_version)
-                version = (current_max[0].get("version", 1) + 1) if current_max else 2
-            else:
-                version = 1
+                })
+                print(f"DEBUG: Existing plan found: {existing_plan is not None}")
+            except Exception as db_error:
+                print(f"ERROR: Database query failed: {db_error}")
+                # Try to handle specific MongoDB errors
+                if "SSL" in str(db_error) or "TLS" in str(db_error):
+                    raise ValueError(f"Database SSL/TLS connection error: {str(db_error)}")
+                elif "timeout" in str(db_error).lower():
+                    raise ValueError(f"Database timeout error: {str(db_error)}")
+                else:
+                    raise ValueError(f"Database query failed: {str(db_error)}")
             
-            meal_plan = {
-                "user_id": user_id,
-                "plan_id": plan_id,
-                "version": version,
-                "name": meal_plan_data.get("name", meal_plan_data.get("title", f"Meal Plan - {datetime.now().strftime('%Y-%m-%d')}")),
-                "title": meal_plan_data.get("title", meal_plan_data.get("name", f"Meal Plan - {datetime.now().strftime('%Y-%m-%d')}")),  # Preserve user title
-                "description": meal_plan_data.get("description", ""),
-                "days": meal_plan_data.get("days", []),
-                "total_days": meal_plan_data.get("total_days", len(meal_plan_data.get("days", []))),
-                "dietary_restrictions": meal_plan_data.get("dietary_restrictions", []),
-                "target_nutrition": meal_plan_data.get("target_nutrition", {}),
-                "created_at": datetime.utcnow(),
-                "updated_at": datetime.utcnow(),
-                "is_active": meal_plan_data.get("is_active", False),
-                "is_current_version": True,  # Mark this as the current version
-                "parent_version": existing_plan.get("version") if existing_plan else None,
-                "tags": meal_plan_data.get("tags", [])
-            }
+            # Determine version number
+            version = 1
+            if existing_plan:
+                try:
+                    # Get the highest version number for this plan
+                    max_version = self.meal_plans_collection.find({
+                        "user_id": user_id,
+                        "plan_id": plan_id
+                    }).sort("version", -1).limit(1)
+                    
+                    current_max = list(max_version)
+                    version = (current_max[0].get("version", 1) + 1) if current_max else 2
+                    print(f"DEBUG: New version number: {version}")
+                except Exception as version_error:
+                    print(f"ERROR: Version query failed: {version_error}")
+                    version = 2  # Default to version 2 if query fails
+            
+            # Prepare meal plan document with proper data handling
+            try:
+                # Use timezone-aware datetime
+                from datetime import timezone
+                current_time = datetime.now(timezone.utc)
+                
+                meal_plan = {
+                    "user_id": user_id,
+                    "plan_id": plan_id,
+                    "version": version,
+                    "name": meal_plan_data.get("name", meal_plan_data.get("title", f"Meal Plan - {current_time.strftime('%Y-%m-%d')}")),
+                    "title": meal_plan_data.get("title", meal_plan_data.get("name", f"Meal Plan - {current_time.strftime('%Y-%m-%d')}")),  # Preserve user title
+                    "description": meal_plan_data.get("description", ""),
+                    "days": meal_plan_data.get("days", []),
+                    "total_days": meal_plan_data.get("total_days", len(meal_plan_data.get("days", []))),
+                    "dietary_restrictions": meal_plan_data.get("dietary_restrictions", []),
+                    "target_nutrition": meal_plan_data.get("target_nutrition", {}),
+                    "created_at": current_time,
+                    "updated_at": current_time,
+                    "is_active": meal_plan_data.get("is_active", False),
+                    "is_current_version": True,  # Mark this as the current version
+                    "parent_version": existing_plan.get("version") if existing_plan else None,
+                    "tags": meal_plan_data.get("tags", []),
+                    # Add additional fields from AI response
+                    "variety_score": meal_plan_data.get("variety_score", ""),
+                    "goal_alignment": meal_plan_data.get("goal_alignment", ""),
+                    "shopping_tips": meal_plan_data.get("shopping_tips", "")
+                }
+                print(f"DEBUG: Prepared meal plan document with {len(meal_plan)} fields")
+            except Exception as prep_error:
+                print(f"ERROR: Failed to prepare meal plan document: {prep_error}")
+                raise ValueError(f"Failed to prepare meal plan data: {str(prep_error)}")
             
             # If this is a new version, mark all previous versions as not current
             if existing_plan:
-                self.meal_plans_collection.update_many(
-                    {"user_id": user_id, "plan_id": plan_id},
-                    {"$set": {"is_current_version": False}}
-                )
+                try:
+                    update_result = self.meal_plans_collection.update_many(
+                        {"user_id": user_id, "plan_id": plan_id},
+                        {"$set": {"is_current_version": False}}
+                    )
+                    print(f"DEBUG: Updated {update_result.modified_count} previous versions")
+                except Exception as update_error:
+                    print(f"ERROR: Failed to update previous versions: {update_error}")
+                    # Continue with insert even if update fails
             
-            result = self.meal_plans_collection.insert_one(meal_plan)
-            meal_plan["_id"] = str(result.inserted_id)
+            # Insert the new meal plan with retry logic
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    result = self.meal_plans_collection.insert_one(meal_plan)
+                    meal_plan["_id"] = str(result.inserted_id)
+                    print(f"DEBUG: Successfully inserted meal plan with ID: {result.inserted_id}")
+                    break
+                except Exception as insert_error:
+                    print(f"ERROR: Insert attempt {attempt + 1} failed: {insert_error}")
+                    if attempt == max_retries - 1:
+                        # Last attempt failed
+                        if "SSL" in str(insert_error) or "TLS" in str(insert_error):
+                            raise ValueError(f"Database SSL/TLS error during save: {str(insert_error)}")
+                        elif "timeout" in str(insert_error).lower():
+                            raise ValueError(f"Database timeout during save: {str(insert_error)}")
+                        else:
+                            raise ValueError(f"Failed to insert meal plan after {max_retries} attempts: {str(insert_error)}")
+                    else:
+                        # Wait a bit before retrying
+                        import asyncio
+                        await asyncio.sleep(1)
             
-            return meal_plan
+            # Remove non-serializable fields for response
+            response_plan = meal_plan.copy()
+            # Convert datetime objects to strings for JSON serialization
+            if "created_at" in response_plan:
+                response_plan["created_at"] = response_plan["created_at"].isoformat()
+            if "updated_at" in response_plan:
+                response_plan["updated_at"] = response_plan["updated_at"].isoformat()
+            
+            print(f"DEBUG: Successfully saved meal plan")
+            return response_plan
             
         except Exception as e:
-            raise ValueError(f"Failed to save meal plan: {str(e)}")
+            print(f"ERROR: save_meal_plan failed: {e}")
+            import traceback
+            print(f"ERROR: Traceback: {traceback.format_exc()}")
+            # Provide more specific error messages
+            if "SSL" in str(e) or "TLS" in str(e):
+                raise ValueError(f"Database connection SSL/TLS error: {str(e)}")
+            elif "timeout" in str(e).lower():
+                raise ValueError(f"Database operation timed out: {str(e)}")
+            elif "connection" in str(e).lower():
+                raise ValueError(f"Database connection error: {str(e)}")
+            else:
+                raise ValueError(f"Failed to save meal plan: {str(e)}")
     
     async def get_user_meal_plans(self, user_id: str, limit: int = 10, skip: int = 0, include_versions: bool = False) -> List[Dict[str, Any]]:
         """Get user's saved meal plans (current versions only by default)"""
