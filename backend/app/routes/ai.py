@@ -26,6 +26,7 @@ router = APIRouter(prefix="/ai", tags=["ai"])
 
 
 class MealPlanRequest(BaseModel):
+    name: str = "My Meal Plan"  # Add name field with default
     duration: int = 7
     meals_per_day: int = 3
     budget: str = "moderate"
@@ -76,6 +77,7 @@ async def generate_meal_plan(
     """Generate comprehensive AI-powered meal plan"""
     try:
         plan_data = {
+            "name": request.name,  # Include the name
             "duration": request.duration,
             "meals_per_day": request.meals_per_day,
             "budget": request.budget,

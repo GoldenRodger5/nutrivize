@@ -148,6 +148,7 @@ class UnifiedAIService:
             {self._format_user_context_for_ai(user_context)}
 
             PLAN REQUIREMENTS:
+            - Plan Name: "{plan_request.get('name', 'My Meal Plan')}" (MUST be preserved in response)
             - Duration: {plan_request.get('duration', 7)} days
             - Meals per day: {plan_request.get('meals_per_day', 3)}
             - Budget preference: {plan_request.get('budget', 'moderate')}
@@ -158,13 +159,14 @@ class UnifiedAIService:
             {plan_request.get('special_requests', 'None')}
 
             Generate a detailed meal plan with:
-            1. Daily meal suggestions with exact portions
-            2. Shopping list organized by category
-            3. Prep instructions and timeline
-            4. Nutritional breakdown per day
-            5. Goal alignment analysis
+            1. Plan name exactly as specified: "{plan_request.get('name', 'My Meal Plan')}"
+            2. Daily meal suggestions with exact portions
+            3. Shopping list organized by category
+            4. Prep instructions and timeline
+            5. Nutritional breakdown per day
+            6. Goal alignment analysis
 
-            Format as JSON with detailed structure.
+            CRITICAL: The JSON response MUST include "name": "{plan_request.get('name', 'My Meal Plan')}" as the first field.
             """
 
             response = self.client.messages.create(
@@ -185,6 +187,7 @@ class UnifiedAIService:
             # Return a basic fallback meal plan instead of error
             return {
                 "id": str(uuid.uuid4()),
+                "name": plan_request.get('name', 'My Meal Plan'),  # Preserve name in fallback
                 "user_id": user_id,
                 "duration": plan_request.get('duration', 7),
                 "meals_per_day": plan_request.get('meals_per_day', 3),
@@ -438,54 +441,102 @@ class UnifiedAIService:
             logger.error(f"Error getting user context: {e}")
             return {}
 
-    async def get_food_index_summary(self, user_id: str, limit: int = 30) -> str:
-        """Get a summary of the user's food index items"""
+    async def get_food_index_summary(self, user_id: str, limit: int = 50) -> str:
+        """Get a comprehensive summary of the user's food index items"""
         try:
-            if not self.db:
+            if self.db is None:
                 return "Unable to access food database."
 
             # Get user foods collection
             user_foods_collection = self.db.user_foods
-
+            
             # Query for user's foods
             user_foods = list(user_foods_collection.find({"user_id": user_id}).limit(limit))
 
-            if not user_foods:
+            if not user_foods or len(user_foods) == 0:
                 # Check the main food index if user doesn't have personal foods
                 foods_collection = self.db.foods
                 foods = list(foods_collection.find().limit(limit))
 
                 if not foods:
-                    return "No foods found in your food index."
+                    return "Your food index is empty. To build your personal food index, start logging foods you eat regularly."
 
-                # Format foods from main index
-                foods_summary = "Here are some foods from the main food index:\n"
-                for i, food in enumerate(foods[:20], 1):
-                    name = food.get("name", "Unknown food")
-                    category = food.get("category", "Uncategorized")
-                    foods_summary += f"{i}. {name} ({category})\n"
+                # Format foods from main index  
+                foods_summary = f"**Your Personal Food Index: Empty (0 foods)**\n"
+                foods_summary += f"Here are {min(len(foods), 15)} foods from the main database that you can add:\n\n"
+                
+                # Group by category
+                categories = {}
+                for food in foods[:15]:
+                    category = food.get("category", "Other")
+                    if category not in categories:
+                        categories[category] = []
+                    categories[category].append(food.get("name", "Unknown food"))
+                
+                for category, food_names in categories.items():
+                    foods_summary += f"**{category}:**\n"
+                    for name in food_names[:5]:  # Limit per category
+                        foods_summary += f"  • {name}\n"
+                    foods_summary += "\n"
 
-                if len(foods) > 20:
-                    foods_summary += f"...and {len(foods) - 20} more foods.\n"
-
-                foods_summary += "\nNote: These are from the main food index. You haven't added any personal foods yet."
+                foods_summary += "**To build your personal food index:** Log foods you eat regularly using the food logging feature."
                 return foods_summary
 
-            # Format user foods
-            foods_summary = "Here are foods in your personal food index:\n"
-            for i, food in enumerate(user_foods[:20], 1):
+            # Format user foods with comprehensive details
+            foods_summary = f"**Your Personal Food Index: {len(user_foods)} foods**\n\n"
+            
+            # Group foods by category
+            categories = {}
+            total_logged = 0
+            recent_additions = []
+            
+            for food in user_foods:
+                category = food.get("category", "Other")
+                if category not in categories:
+                    categories[category] = []
+                
                 name = food.get("name", "Unknown food")
-                category = food.get("category", "Uncategorized")
-                date_added = food.get("date_added", "Unknown date")
+                times_logged = food.get("times_logged", 0)
+                date_added = food.get("date_added", None)
+                
+                categories[category].append({
+                    "name": name,
+                    "times_logged": times_logged,
+                    "date_added": date_added
+                })
+                
+                total_logged += times_logged
+                
+                # Track recent additions (last 7 days)
                 if isinstance(date_added, datetime):
-                    date_str = date_added.strftime("%Y-%m-%d")
-                else:
-                    date_str = str(date_added)
-                foods_summary += f"{i}. {name} ({category}) - Added: {date_str}\n"
+                    days_ago = (datetime.utcnow() - date_added).days
+                    if days_ago <= 7:
+                        recent_additions.append(name)
 
-            if len(user_foods) > 20:
-                foods_summary += f"...and {len(user_foods) - 20} more foods.\n"
+            # Display by category
+            for category, food_list in categories.items():
+                foods_summary += f"**{category} ({len(food_list)} foods):**\n"
+                # Sort by times logged (most used first)
+                food_list.sort(key=lambda x: x["times_logged"], reverse=True)
+                
+                for food in food_list[:8]:  # Show top 8 per category
+                    times_text = f" (logged {food['times_logged']}x)" if food['times_logged'] > 0 else ""
+                    foods_summary += f"  • {food['name']}{times_text}\n"
+                
+                if len(food_list) > 8:
+                    foods_summary += f"  ... and {len(food_list) - 8} more\n"
+                foods_summary += "\n"
 
+            # Add summary stats
+            foods_summary += f"**Summary:**\n"
+            foods_summary += f"  • Total foods in your index: {len(user_foods)}\n"
+            foods_summary += f"  • Total times foods have been logged: {total_logged}\n"
+            
+            if recent_additions:
+                foods_summary += f"  • Recently added: {', '.join(recent_additions[:5])}\n"
+            
+            foods_summary += f"\n*This is your personal food index. These are foods you've previously logged or added.*"
+            
             return foods_summary
 
         except Exception as e:
@@ -504,6 +555,15 @@ class UnifiedAIService:
 - **Data Management**: Store and retrieve meal plans, food logs, and preferences
 - **Insights & Analytics**: Provide trends, progress tracking, and personalized insights
 - **Interactive Planning**: Ask follow-up questions to refine recommendations
+
+📊 RESPONSE GUIDELINES FOR DIRECT QUERIES:
+When users ask direct questions like "what's in my food index", "show me my recent meals", or "how many calories should I eat":
+- Keep responses CONCISE (under 300 characters for simple questions)
+- Provide DIRECT, ORGANIZED answers without extra commentary
+- Use the available data in the context below
+- Format information clearly and briefly
+- Don't add motivational text or lengthy explanations unless specifically asked for advice
+- For calorie questions: give the number and a brief reason, nothing more
 
 🤖 SMART OPERATIONS - You can perform these actions by including operation markers:
 
@@ -1620,7 +1680,7 @@ Format as JSON:
     async def get_chat_history(self, user_id: str) -> List[Dict[str, Any]]:
         """Get user's chat session history for display in settings"""
         try:
-            if not self.db:
+            if self.db is None:
                 return []
 
             # Query chat sessions from database

@@ -70,7 +70,7 @@ class FoodLogService:
                 id=str(log["_id"]),
                 date=log_date,
                 meal_type=log["meal_type"],
-                food_id=log["food_id"],
+                food_id=log.get("food_id", ""),  # Handle missing food_id gracefully
                 food_name=log["food_name"],
                 amount=log["amount"],
                 unit=log["unit"],
