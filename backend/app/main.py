@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import os
@@ -61,13 +61,59 @@ app.add_middleware(
         "https://localhost:5173",
         "https://localhost:5174",
         "https://localhost:5175",
+        # Production URLs
+        "https://nutrivize-frontend.onrender.com",
+        "https://nutrivize-backend.onrender.com",
         os.getenv("FRONTEND_URL", "http://localhost:5173")
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-    allow_headers=["*"],
-    expose_headers=["*"]
+    allow_headers=[
+        "Accept",
+        "Accept-Language",
+        "Content-Language",
+        "Content-Type",
+        "Authorization",
+        "X-Requested-With",
+        "Origin",
+        "Access-Control-Request-Method",
+        "Access-Control-Request-Headers",
+    ],
+    expose_headers=["*"],
+    max_age=3600
 )
+
+# Manual OPTIONS handler for all routes
+@app.options("/{full_path:path}")
+async def options_handler(request: Request, response: Response):
+    """Handle CORS preflight requests"""
+    origin = request.headers.get("origin")
+    allowed_origins = [
+        "http://localhost:3000",
+        "http://localhost:5173", 
+        "http://localhost:5174",
+        "http://localhost:5175",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174", 
+        "http://127.0.0.1:5175",
+        "https://localhost:3000",
+        "https://localhost:5173",
+        "https://localhost:5174",
+        "https://localhost:5175",
+        "https://nutrivize-frontend.onrender.com",
+        "https://nutrivize-backend.onrender.com",
+        os.getenv("FRONTEND_URL", "http://localhost:5173")
+    ]
+    
+    if origin in allowed_origins:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+        response.headers["Access-Control-Allow-Headers"] = "Accept, Accept-Language, Content-Language, Content-Type, Authorization, X-Requested-With, Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Max-Age"] = "3600"
+    
+    return {"message": "OK"}
 
 # Include routers
 app.include_router(auth.router)
