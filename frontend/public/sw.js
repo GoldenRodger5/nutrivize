@@ -20,6 +20,14 @@ const networkFirstPaths = [
   '/analytics'
 ];
 
+// Never cache these paths (always bypass cache)
+const neverCachePaths = [
+  '/auth/login',
+  '/auth/register',
+  '/auth/me',
+  '/auth/logout'
+];
+
 // Cache-first resources (static assets)
 const cacheFirstPaths = [
   '/icons/',
@@ -87,13 +95,22 @@ self.addEventListener('fetch', (event) => {
   const request = event.request;
   const url = new URL(request.url);
   
-  // Skip non-GET requests
+  // Skip non-GET requests (let them pass through)
   if (request.method !== 'GET') {
     return;
   }
   
+  // Check for auth token in headers - always go to network for authenticated requests
+  const hasAuthHeader = request.headers.has('Authorization');
+  
+  // Skip caching for auth-related endpoints (never cache)
+  if (neverCachePaths.some(path => url.pathname.includes(path))) {
+    // Just let the request go to the network
+    return;
+  }
+  
   // Handle different types of requests with appropriate strategies
-  if (isNetworkFirst(url.pathname)) {
+  if (hasAuthHeader || isNetworkFirst(url.pathname)) {
     event.respondWith(networkFirst(request));
   } else if (isCacheFirst(url.pathname)) {
     event.respondWith(cacheFirst(request));
@@ -104,11 +121,20 @@ self.addEventListener('fetch', (event) => {
 
 // Network-first strategy for API calls and dynamic content
 async function networkFirst(request) {
+  // Check if this request has auth headers
+  const hasAuthHeader = request.headers.has('Authorization');
+  const url = new URL(request.url);
+  
   try {
-    const networkResponse = await fetch(request);
+    // Clone the request to ensure we can read it multiple times
+    const requestToFetch = request.clone();
+    const networkResponse = await fetch(requestToFetch);
     
-    // Cache successful responses
-    if (networkResponse.ok) {
+    // Cache successful responses, but only if they don't have auth headers
+    // and aren't part of the never-cache list
+    if (networkResponse.ok && 
+        !hasAuthHeader && 
+        !neverCachePaths.some(path => url.pathname.includes(path))) {
       const cache = await caches.open(DYNAMIC_CACHE);
       cache.put(request, networkResponse.clone());
     }
@@ -117,7 +143,21 @@ async function networkFirst(request) {
   } catch (error) {
     console.log('[SW] Network failed, trying cache:', request.url);
     
-    // Try to get from cache
+    // Don't use cache for authenticated requests or auth-related paths
+    if (hasAuthHeader || neverCachePaths.some(path => url.pathname.includes(path))) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'Authentication required. Please log in again.',
+          auth_required: true
+        }),
+        {
+          headers: { 'Content-Type': 'application/json' },
+          status: 401
+        }
+      );
+    }
+    
+    // Try to get from cache for non-auth requests
     const cachedResponse = await caches.match(request);
     if (cachedResponse) {
       return cachedResponse;

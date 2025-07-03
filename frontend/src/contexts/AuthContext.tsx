@@ -31,14 +31,102 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [loading, setLoading] = useState(true)
   const [hasCheckedAuth, setHasCheckedAuth] = useState(false)
 
+  // Helper function to store token securely across contexts
+  const storeAuthToken = (token: string) => {
+    // Store in localStorage
+    localStorage.setItem('authToken', token)
+    
+    // Store in sessionStorage as backup for iOS PWA
+    sessionStorage.setItem('authToken', token)
+    
+    // Set expiry time - 50 minutes from now (Firebase tokens last 1 hour)
+    const expiryTime = Date.now() + (50 * 60 * 1000)
+    localStorage.setItem('authTokenExpiry', expiryTime.toString())
+    sessionStorage.setItem('authTokenExpiry', expiryTime.toString())
+    
+    // Set in API headers
+    api.defaults.headers.common['Authorization'] = `Bearer ${token}`
+  }
+  
+  // Helper function to clear auth tokens
+  const clearAuthTokens = () => {
+    localStorage.removeItem('authToken')
+    localStorage.removeItem('authTokenExpiry')
+    sessionStorage.removeItem('authToken')
+    sessionStorage.removeItem('authTokenExpiry')
+    delete api.defaults.headers.common['Authorization']
+  }
+  
+  // Function to refresh the token when needed
+  const refreshTokenIfNeeded = async () => {
+    if (auth.currentUser) {
+      try {
+        const freshToken = await auth.currentUser.getIdToken(true)
+        storeAuthToken(freshToken)
+        
+        // Get user data from our API
+        const response = await api.get('/auth/me')
+        setUser(response.data)
+        
+        return true
+      } catch (error) {
+        console.error('Failed to refresh token:', error)
+        return false
+      }
+    }
+    return false
+  }
+  
+  // Listen for PWA-specific events
   useEffect(() => {
-    // On first load, clear any existing auth to force login
+    const handleAppResume = async () => {
+      console.log('PWA resumed - checking authentication')
+      await refreshTokenIfNeeded()
+    }
+    
+    const handleTokenExpiring = async () => {
+      console.log('Token expiring - refreshing')
+      await refreshTokenIfNeeded()
+    }
+    
+    window.addEventListener('pwa:resumed', handleAppResume)
+    window.addEventListener('auth:tokenExpiring', handleTokenExpiring)
+    
+    return () => {
+      window.removeEventListener('pwa:resumed', handleAppResume)
+      window.removeEventListener('auth:tokenExpiring', handleTokenExpiring)
+    }
+  }, [])
+  
+  useEffect(() => {
+    // On first load, try to restore from storage (don't clear)
     if (!hasCheckedAuth) {
-      localStorage.removeItem('authToken')
-      delete api.defaults.headers.common['Authorization']
-      signOut(auth).catch(() => {}) // Silent logout
-      setLoading(false)
+      // Try to get token from storage
+      const storedToken = localStorage.getItem('authToken') || sessionStorage.getItem('authToken')
+      const tokenExpiry = localStorage.getItem('authTokenExpiry') || sessionStorage.getItem('authTokenExpiry')
+      
+      // If we have a valid non-expired token, use it
+      if (storedToken && tokenExpiry && parseInt(tokenExpiry) > Date.now()) {
+        api.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`
+      }
+      
+      // Check if we're in iOS PWA mode
+      const isPWA = window.matchMedia('(display-mode: standalone)').matches
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream
+      
+      if (isPWA && isIOS) {
+        console.log('iOS PWA detected - restoring navigation state')
+        // Restore last path if available (for iOS PWA)
+        const lastPath = sessionStorage.getItem('pwa:lastPath')
+        if (lastPath && lastPath !== '/' && lastPath !== '/login') {
+          setTimeout(() => {
+            window.history.pushState({}, '', lastPath)
+          }, 100)
+        }
+      }
+      
       setHasCheckedAuth(true)
+      setLoading(false)
       return
     }
 
@@ -46,24 +134,19 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       if (firebaseUser) {
         try {
           // Get Firebase token
-          const token = await firebaseUser.getIdToken(true) // Force refresh
-          localStorage.setItem('authToken', token)
-          
-          // Set token in axios headers immediately
-          api.defaults.headers.common['Authorization'] = `Bearer ${token}`
+          const token = await firebaseUser.getIdToken(false) // First try without refresh
+          storeAuthToken(token)
           
           // Get user data from our API
           const response = await api.get('/auth/me')
           setUser(response.data)
         } catch (error) {
           console.error('❌ Error fetching user data:', error)
-          localStorage.removeItem('authToken')
-          delete api.defaults.headers.common['Authorization']
+          clearAuthTokens()
           setUser(null)
         }
       } else {
-        localStorage.removeItem('authToken')
-        delete api.defaults.headers.common['Authorization']
+        clearAuthTokens()
         setUser(null)
       }
       setLoading(false)
