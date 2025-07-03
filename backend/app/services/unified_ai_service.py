@@ -166,7 +166,7 @@ class UnifiedAIService:
 
             response = self.client.messages.create(
                 model="claude-3-5-sonnet-20241022",
-                max_tokens=8000,
+                max_tokens=7000,  # Increased for comprehensive meal planning
                 messages=[{"role": "user", "content": prompt}]
             )
 

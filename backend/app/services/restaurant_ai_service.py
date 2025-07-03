@@ -382,7 +382,7 @@ Return ONLY the JSON object, no additional text."""
             # Use enhanced AI service with higher token limit
             response = await self.ai_service.generate_response(
                 prompt, 
-                max_tokens=8000,  # Increased token limit for comprehensive analysis
+                max_tokens=12000,  # Increased for comprehensive menu analysis
                 model="claude-opus-4-20250514"  # Use Claude-4 Opus for best analysis quality
             )
             

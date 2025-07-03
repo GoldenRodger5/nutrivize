@@ -174,7 +174,7 @@ Return valid JSON only (no additional text):
             
             response = self.client.messages.create(
                 model="claude-opus-4-20250514",
-                max_tokens=9000,  # Increased token limit
+                max_tokens=6000,  # Increased for detailed meal suggestions with ingredients
                 messages=[{"role": "user", "content": prompt}]
             )
             
@@ -455,7 +455,7 @@ Return valid JSON only (no additional text):
             # Use AI service to generate meal plan
             response = self.client.messages.create(
                 model="claude-opus-4-20250514",
-                max_tokens=30000,  # Just under Claude Opus limit (32000 max)
+                max_tokens=8000,  # Reduced to avoid timeout/streaming requirement
                 messages=[{"role": "user", "content": prompt}]
             )
             
@@ -736,7 +736,7 @@ Return valid JSON only (no additional text):
             
             response = self.client.messages.create(
                 model="claude-opus-4-20250514",
-                max_tokens=6000,
+                max_tokens=6000,  # Increased for comprehensive insights analysis
                 messages=[{"role": "user", "content": prompt}]
             )
             
