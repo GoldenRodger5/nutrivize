@@ -23,10 +23,26 @@ class FirebaseManager:
         
         # Try to get credentials from environment variable first (for production)
         firebase_creds_json = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON")
+        firebase_creds_base64 = os.getenv("FIREBASE_SERVICE_ACCOUNT_BASE64")
+        
+        if firebase_creds_base64:
+            # Decode base64 encoded credentials
+            try:
+                import base64
+                decoded_json = base64.b64decode(firebase_creds_base64).decode('utf-8')
+                creds_dict = json.loads(decoded_json)
+                cred = credentials.Certificate(creds_dict)
+                self.app = firebase_admin.initialize_app(cred)
+                print("Firebase Admin SDK initialized from base64 environment variable")
+                return
+            except Exception as e:
+                print(f"Error parsing base64 Firebase credentials: {e}")
         
         if firebase_creds_json:
             # Parse JSON from environment variable
             try:
+                # Handle escaped newlines in private key
+                firebase_creds_json = firebase_creds_json.replace('\\n', '\n')
                 creds_dict = json.loads(firebase_creds_json)
                 cred = credentials.Certificate(creds_dict)
                 self.app = firebase_admin.initialize_app(cred)

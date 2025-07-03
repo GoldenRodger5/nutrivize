@@ -94,8 +94,8 @@ nutrivize/
 - `MONGODB_URL` - Your MongoDB Atlas connection string
 - `ANTHROPIC_API_KEY` - Your Anthropic API key
 - `OPENAI_API_KEY` - Your OpenAI API key
-- `FIREBASE_SERVICE_ACCOUNT_JSON` - Firebase service account credentials as JSON string
-- `GOOGLE_CLOUD_VISION_CREDENTIALS_JSON` - Google Cloud Vision credentials as JSON string
+- `FIREBASE_SERVICE_ACCOUNT_BASE64` - Firebase service account credentials as base64 encoded JSON
+- `GOOGLE_CLOUD_VISION_CREDENTIALS_BASE64` - Google Cloud Vision credentials as base64 encoded JSON
 - `SECRET_KEY` - A secure secret key for JWT tokens
 - `FRONTEND_URL` - Your frontend URL for CORS
 

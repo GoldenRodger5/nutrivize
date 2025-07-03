@@ -19,11 +19,35 @@ class OCRService:
         
         # Try to initialize client with credentials from environment
         try:
-            # First, try to get credentials from JSON environment variable (for production)
+            # First, try to get credentials from base64 environment variable (for production)
+            google_creds_base64 = os.environ.get('GOOGLE_CLOUD_VISION_CREDENTIALS_BASE64')
+            
+            if google_creds_base64:
+                # Decode base64 encoded credentials
+                import base64
+                decoded_json = base64.b64decode(google_creds_base64).decode('utf-8')
+                creds_dict = json.loads(decoded_json)
+                
+                # Create a temporary credentials file for the Google Cloud client
+                import tempfile
+                with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+                    json.dump(creds_dict, f)
+                    temp_creds_path = f.name
+                
+                # Set the environment variable for Google Cloud client
+                os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = temp_creds_path
+                
+                self.client = vision.ImageAnnotatorClient()
+                self.credentials_available = True
+                logger.info("Google Cloud Vision client initialized from base64 environment variable")
+                return
+            
+            # Fallback to JSON environment variable (for production)
             google_creds_json = os.environ.get('GOOGLE_CLOUD_VISION_CREDENTIALS_JSON')
             
             if google_creds_json:
-                # Parse JSON from environment variable and set up credentials
+                # Handle escaped newlines in private key
+                google_creds_json = google_creds_json.replace('\\n', '\n')
                 creds_dict = json.loads(google_creds_json)
                 
                 # Create a temporary credentials file for the Google Cloud client
