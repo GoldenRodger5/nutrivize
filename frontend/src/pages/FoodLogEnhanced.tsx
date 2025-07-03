@@ -24,11 +24,6 @@ import {
   FormLabel,
   Input,
   Select,
-  NumberInput,
-  NumberInputField,
-  NumberInputStepper,
-  NumberIncrementStepper,
-  NumberDecrementStepper,
   InputGroup,
   InputLeftElement,
   Icon,
@@ -56,6 +51,7 @@ import { useAppState } from '../contexts/AppStateContext'
 import { FoodItem } from '../types'
 import api from '../utils/api'
 import WeeklyView from '../components/WeeklyView'
+import NumberInputField from '../components/NumberInputField'
 
 // Search Icon
 const SearchIcon = () => (
@@ -647,18 +643,14 @@ export default function FoodLog() {
 
                           <FormControl>
                             <FormLabel>Amount</FormLabel>
-                            <NumberInput
+                            <NumberInputField
                               value={logForm.amount}
-                              onChange={(_, value) => setLogForm({...logForm, amount: value || 1})}
+                              onChange={(value) => setLogForm({...logForm, amount: value})}
                               min={0.1}
                               step={0.1}
-                            >
-                              <NumberInputField />
-                              <NumberInputStepper>
-                                <NumberIncrementStepper />
-                                <NumberDecrementStepper />
-                              </NumberInputStepper>
-                            </NumberInput>
+                              allowDecimal={true}
+                              precision={2}
+                            />
                           </FormControl>
                         </SimpleGrid>
 

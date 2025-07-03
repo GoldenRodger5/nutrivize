@@ -17,8 +17,6 @@ import {
   Card,
   CardBody,
   useToast,
-  NumberInput,
-  NumberInputField,
   SimpleGrid,
   Badge,
   Spinner,
@@ -34,6 +32,7 @@ import {
 import api from '../utils/api'
 import { FoodItem } from '../types'
 import { SERVING_UNITS } from '../constants/servingUnits'
+import NumberInputField from './NumberInputField'
 
 interface FoodLogModalProps {
   isOpen: boolean
@@ -434,9 +433,15 @@ export default function FoodLogModal({ isOpen, onClose, onSuccess }: FoodLogModa
                     <SimpleGrid columns={3} spacing={4}>
                       <FormControl>
                         <FormLabel fontSize="sm">Amount</FormLabel>
-                        <NumberInput value={amount} onChange={(value) => setAmount(Number(value) || 1)} min={0.1} step={0.1}>
-                          <NumberInputField />
-                        </NumberInput>
+                        <NumberInputField 
+                          value={amount} 
+                          onChange={(value) => setAmount(value)} 
+                          min={0.1} 
+                          step={0.1}
+                          allowDecimal={true}
+                          precision={2}
+                          placeholder="1.0"
+                        />
                       </FormControl>
 
                       <FormControl>

@@ -45,13 +45,13 @@ import {
   AccordionIcon,
   List,
   ListItem,
-  ListIcon,
-  FormHelperText
+  ListIcon
 } from '@chakra-ui/react'
 import { AddIcon, ViewIcon, DeleteIcon, EditIcon } from '@chakra-ui/icons'
 import { MdCheckCircle, MdSchedule, MdRestaurant, MdShoppingCart } from 'react-icons/md'
 import api from '../utils/api'
 import { getCurrentDateInTimezone, getUserTimezone } from '../utils/timezone'
+import MacroDistributionSlider from '../components/MacroDistributionSlider'
 
 // TypeScript interfaces
 interface NutritionInfo {
@@ -843,56 +843,19 @@ const MealPlans: React.FC = () => {
                   </NumberInput>
                 </FormControl>
 
-                <FormControl>
-                  <FormLabel>Macro Distribution (%)</FormLabel>
-                  <SimpleGrid columns={3} spacing={3}>
-                    <Box>
-                      <Text fontSize="sm" mb={1}>Protein</Text>
-                      <NumberInput
-                        value={newPlanData.protein_percent}
-                        onChange={(_, num) => setNewPlanData({ ...newPlanData, protein_percent: num || 30 })}
-                        min={5}
-                        max={50}
-                        step={0.1}
-                        precision={1}
-                        allowMouseWheel={false}
-                      >
-                        <NumberInputField />
-                      </NumberInput>
-                    </Box>
-                    <Box>
-                      <Text fontSize="sm" mb={1}>Carbs</Text>
-                      <NumberInput
-                        value={newPlanData.carbs_percent}
-                        onChange={(_, num) => setNewPlanData({ ...newPlanData, carbs_percent: num || 40 })}
-                        min={20}
-                        max={70}
-                        step={0.1}
-                        precision={1}
-                        allowMouseWheel={false}
-                      >
-                        <NumberInputField />
-                      </NumberInput>
-                    </Box>
-                    <Box>
-                      <Text fontSize="sm" mb={1}>Fat</Text>
-                      <NumberInput
-                        value={newPlanData.fat_percent}
-                        onChange={(_, num) => setNewPlanData({ ...newPlanData, fat_percent: num || 30 })}
-                        min={15}
-                        max={45}
-                        step={0.1}
-                        precision={1}
-                        allowMouseWheel={false}
-                      >
-                        <NumberInputField />
-                      </NumberInput>
-                    </Box>
-                  </SimpleGrid>
-                  <FormHelperText>
-                    Percentages will be normalized to 100%
-                  </FormHelperText>
-                </FormControl>
+                <MacroDistributionSlider
+                  protein={newPlanData.protein_percent}
+                  carbs={newPlanData.carbs_percent}
+                  fat={newPlanData.fat_percent}
+                  onChange={({ protein, carbs, fat }) => 
+                    setNewPlanData({ 
+                      ...newPlanData, 
+                      protein_percent: protein, 
+                      carbs_percent: carbs, 
+                      fat_percent: fat 
+                    })
+                  }
+                />
 
                 <FormControl>
                   <FormLabel>Dietary Restrictions</FormLabel>
