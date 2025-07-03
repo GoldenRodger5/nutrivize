@@ -162,7 +162,7 @@ def test_api_endpoints(base_url, token):
             response = requests.get(
                 f"{base_url}{endpoint}",
                 headers=headers,
-                timeout=30  # Longer timeout for analytics endpoints
+                timeout=120  # Longer timeout for analytics endpoints
             )
             
             if response.status_code == 200:
@@ -239,7 +239,7 @@ def test_ai_endpoints(base_url, token=None):
             f"{base_url}{endpoint}",
             headers=headers,
             json=test_data,
-            timeout=30  # AI endpoints might need more time
+            timeout=120  # AI endpoints might need more time
         )
         
         print(f"Response status: {response.status_code}")

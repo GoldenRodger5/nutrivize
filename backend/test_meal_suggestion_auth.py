@@ -77,7 +77,7 @@ def test_meal_suggestion_endpoint():
     print(f"Headers: Authorization Bearer [TOKEN], Content-Type: application/json")
     
     try:
-        response = requests.post(url, headers=headers, json=data, timeout=60)
+        response = requests.post(url, headers=headers, json=data, timeout=120)
         
         print(f"\n📡 Response Status: {response.status_code}")
         print(f"Response Headers: {dict(response.headers)}")

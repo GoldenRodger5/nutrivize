@@ -78,7 +78,7 @@ def test_meal_suggestions_with_auth(token):
             f"{BASE_URL}/ai/meal-suggestions",
             json=payload,
             headers=headers,
-            timeout=60  # 60 second timeout for AI response
+            timeout=120  # 120 second timeout for AI response
         )
         end_time = time.time()
         

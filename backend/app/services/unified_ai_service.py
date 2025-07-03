@@ -36,7 +36,10 @@ class UnifiedAIService:
     """
 
     def __init__(self):
-        self.client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+        self.client = anthropic.Anthropic(
+            api_key=os.getenv("ANTHROPIC_API_KEY"),
+            timeout=120.0  # 2 minute timeout for AI requests
+        )
         self.db = get_database()
         self.food_service = FoodService()
         self.dietary_service = DietaryRecommendationService()
@@ -166,7 +169,7 @@ class UnifiedAIService:
 
             response = self.client.messages.create(
                 model="claude-3-5-sonnet-20241022",
-                max_tokens=7000,  # Increased for comprehensive meal planning
+                max_tokens=10000,  # Increased for maximum comprehensive meal planning
                 messages=[{"role": "user", "content": prompt}]
             )
 

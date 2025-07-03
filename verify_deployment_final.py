@@ -73,13 +73,13 @@ def test_endpoints():
             endpoint_headers = headers if endpoint.get("auth", False) else {}
             
             if endpoint["method"] == "GET":
-                response = requests.get(endpoint["url"], headers=endpoint_headers, timeout=30)
+                response = requests.get(endpoint["url"], headers=endpoint_headers, timeout=120)
             else:  # POST
                 response = requests.post(
                     endpoint["url"], 
                     headers={**endpoint_headers, "Content-Type": "application/json"}, 
                     json=endpoint.get("body", {}),
-                    timeout=30
+                    timeout=120
                 )
                 
             test_result["status_code"] = response.status_code

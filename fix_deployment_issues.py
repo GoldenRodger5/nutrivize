@@ -345,7 +345,7 @@ def test_analytics_endpoints(token):
             response = requests.get(
                 endpoint["url"],
                 headers=headers,
-                timeout=20  # Analytics endpoints might need more time
+                timeout=120  # Analytics endpoints might need more time
             )
             
             if response.status_code == 200:
@@ -366,7 +366,7 @@ def test_analytics_endpoints(token):
                     response = requests.get(
                         fixed_url,
                         headers=headers,
-                        timeout=20
+                        timeout=120
                     )
                     
                     if response.status_code == 200:
@@ -412,7 +412,7 @@ def test_ai_endpoints(token):
             f"{API_URL}/ai/meal-suggestions",
             json=payload,
             headers=headers,
-            timeout=30  # AI endpoints might need more time
+            timeout=120  # AI endpoints might need more time
         )
         
         # Check CORS headers
@@ -480,7 +480,7 @@ def test_chat_endpoint(token):
             f"{API_URL}/ai/chat",
             json=payload,
             headers=headers,
-            timeout=60  # Chat might need more time for AI processing
+            timeout=120  # Chat might need more time for AI processing
         )
         
         # Check CORS headers

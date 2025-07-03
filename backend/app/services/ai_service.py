@@ -15,7 +15,10 @@ class AIService:
     """AI service for chatbot and meal suggestions"""
     
     def __init__(self):
-        self.client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+        self.client = anthropic.Anthropic(
+            api_key=os.getenv("ANTHROPIC_API_KEY"),
+            timeout=120.0  # 2 minute timeout for AI requests
+        )
     
     async def chat(self, request: ChatRequest) -> ChatResponse:
         """Handle chatbot conversation"""
@@ -174,7 +177,7 @@ Return valid JSON only (no additional text):
             
             response = self.client.messages.create(
                 model="claude-opus-4-20250514",
-                max_tokens=6000,  # Increased for detailed meal suggestions with ingredients
+                max_tokens=8000,  # Increased for more comprehensive meal suggestions
                 messages=[{"role": "user", "content": prompt}]
             )
             
@@ -455,7 +458,7 @@ Return valid JSON only (no additional text):
             # Use AI service to generate meal plan
             response = self.client.messages.create(
                 model="claude-opus-4-20250514",
-                max_tokens=8000,  # Reduced to avoid timeout/streaming requirement
+                max_tokens=8000,  # Restored for comprehensive meal plans
                 messages=[{"role": "user", "content": prompt}]
             )
             
@@ -736,7 +739,7 @@ Return valid JSON only (no additional text):
             
             response = self.client.messages.create(
                 model="claude-opus-4-20250514",
-                max_tokens=6000,  # Increased for comprehensive insights analysis
+                max_tokens=8000,  # Increased for detailed comprehensive insights
                 messages=[{"role": "user", "content": prompt}]
             )
             

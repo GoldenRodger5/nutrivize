@@ -23,9 +23,9 @@ class DatabaseManager:
                 
                 self.client = MongoClient(
                     mongodb_url,
-                    serverSelectionTimeoutMS=5000,
-                    connectTimeoutMS=5000,
-                    socketTimeoutMS=5000
+                    serverSelectionTimeoutMS=120000,  # 2 minutes
+                    connectTimeoutMS=120000,          # 2 minutes  
+                    socketTimeoutMS=120000            # 2 minutes
                 )
                 self.db = self.client.get_default_database()
                 

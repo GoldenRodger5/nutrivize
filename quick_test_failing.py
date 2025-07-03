@@ -157,7 +157,7 @@ def test_failing_endpoints():
             "protein_target": 100,
             "meal_types": ["breakfast", "lunch"]
         }
-        response = requests.post(f"{base_url}/meal-planning/generate-plan", headers=headers, json=meal_plan_data, timeout=30)
+        response = requests.post(f"{base_url}/meal-planning/generate-plan", headers=headers, json=meal_plan_data, timeout=120)
         print(f"   Status: {response.status_code}")
         if response.status_code == 200:
             meal_plan = response.json()
@@ -168,7 +168,7 @@ def test_failing_endpoints():
             if plan_id:
                 print(f"\n6️⃣ Testing shopping list for plan {plan_id}")
                 try:
-                    response = requests.post(f"{base_url}/meal-planning/plans/{plan_id}/shopping-list", headers=headers, timeout=60)
+                    response = requests.post(f"{base_url}/meal-planning/plans/{plan_id}/shopping-list", headers=headers, timeout=120)
                     print(f"   Status: {response.status_code}")
                     if response.status_code == 200:
                         shopping_list = response.json()

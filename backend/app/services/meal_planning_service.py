@@ -328,7 +328,10 @@ class MealPlanningService:
                 print("No Anthropic API key found, using fallback pricing")
                 return self._fallback_pricing(ingredients_list)
             
-            client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+            client = anthropic.Anthropic(
+                api_key=os.getenv("ANTHROPIC_API_KEY"),
+                timeout=120.0  # 2 minute timeout for AI requests
+            )
             
             # Prepare ingredient list for AI (limit to first 20 to avoid huge responses)
             limited_ingredients = ingredients_list[:20]
@@ -398,7 +401,10 @@ Return ONLY valid JSON:
             import anthropic
             import os
             
-            client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+            client = anthropic.Anthropic(
+                api_key=os.getenv("ANTHROPIC_API_KEY"),
+                timeout=120.0  # 2 minute timeout for AI requests
+            )
             
             # Create a simpler prompt with fewer items
             items_str = ", ".join([f"{item['name']} ({item['amount']} {item['unit']})" for item in ingredients_list])

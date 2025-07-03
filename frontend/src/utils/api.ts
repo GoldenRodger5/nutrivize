@@ -6,7 +6,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://nutrivize.onr
 // Create axios instance
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 60000, // 60 second timeout for AI endpoints
+  timeout: 120000, // 120 second timeout for AI endpoints
   headers: {
     'Content-Type': 'application/json',
   },

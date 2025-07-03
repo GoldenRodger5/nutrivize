@@ -45,7 +45,7 @@ response = requests.post(
     "http://localhost:8000/ai/chat",
     headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
     json={"message": "Hello", "conversation_history": []},
-    timeout=30
+    timeout=120
 )
 print(f"Chat endpoint: {response.status_code}")
 if response.status_code != 200:
@@ -61,7 +61,7 @@ response = requests.post(
         "dietary_preferences": [],
         "allergies": []
     },
-    timeout=60
+    timeout=120
 )
 print(f"Meal suggestions endpoint: {response.status_code}")
 if response.status_code == 200:

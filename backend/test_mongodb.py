@@ -57,9 +57,9 @@ def test_ssl_connection():
             mongodb_url,
             tls=True,
             tlsAllowInvalidCertificates=False,
-            serverSelectionTimeoutMS=10000,
-            connectTimeoutMS=10000,
-            socketTimeoutMS=10000
+            serverSelectionTimeoutMS=120000,  # 2 minutes
+            connectTimeoutMS=120000,        # 2 minutes
+            socketTimeoutMS=120000          # 2 minutes
         )
         
         # Test ping
@@ -81,7 +81,7 @@ def test_simple_connection():
     
     try:
         # Simplest connection possible
-        client = MongoClient(mongodb_url, serverSelectionTimeoutMS=5000)
+        client = MongoClient(mongodb_url, serverSelectionTimeoutMS=120000)  # 2 minutes
         client.admin.command('ping')
         print("✅ Simple connection successful!")
         
