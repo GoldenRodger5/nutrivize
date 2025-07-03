@@ -18,6 +18,7 @@ import {
 } from '@chakra-ui/react'
 import { FaMicrophone, FaPaperPlane, FaChartLine } from 'react-icons/fa'
 import { motion, AnimatePresence } from 'framer-motion'
+import AIResponseFormatter from '../AIResponseFormatter'
 
 const MotionBox = motion(Box)
 const MotionText = motion(Text)
@@ -315,7 +316,14 @@ export default function AIHealthCoach({ coaching, onAskQuestion }: AIHealthCoach
                               <Text fontSize="xs" fontWeight="bold">AI Coach</Text>
                             </HStack>
                           )}
-                          <Text fontSize="sm">{message.text}</Text>
+                          {message.sender === 'ai' ? (
+                            <AIResponseFormatter 
+                              content={message.text}
+                              fontSize="sm"
+                            />
+                          ) : (
+                            <Text fontSize="sm">{message.text}</Text>
+                          )}
                         </Box>
                       </Flex>
                     </MotionBox>

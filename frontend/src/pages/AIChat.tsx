@@ -27,7 +27,7 @@ import {
 import { AddIcon, DeleteIcon, CopyIcon } from '@chakra-ui/icons'
 import { ChatMessage } from '../types'
 import api from '../utils/api'
-import ReactMarkdown from 'react-markdown'
+import AIResponseFormatter from '../components/AIResponseFormatter'
 
 // Quick prompt suggestions for mobile
 const quickPrompts = [
@@ -291,30 +291,11 @@ export default function AIChat() {
                   ))}
                 </VStack>
               ) : (
-                <Box>
-                  <ReactMarkdown
-                    components={{
-                      // Custom components for better formatting
-                      h1: ({ children }) => <Text fontSize="lg" fontWeight="bold" mb={2}>{children}</Text>,
-                      h2: ({ children }) => <Text fontSize="md" fontWeight="bold" mb={2}>{children}</Text>,
-                      h3: ({ children }) => <Text fontSize="sm" fontWeight="bold" mb={1}>{children}</Text>,
-                      p: ({ children }) => <Text fontSize={isMobile ? "sm" : "md"} lineHeight="1.6" mb={2}>{children}</Text>,
-                      strong: ({ children }) => <Text as="span" fontWeight="bold">{children}</Text>,
-                      em: ({ children }) => <Text as="span" fontStyle="italic">{children}</Text>,
-                      ul: ({ children }) => <Box as="ul" pl={4} mb={2}>{children}</Box>,
-                      ol: ({ children }) => <Box as="ol" pl={4} mb={2}>{children}</Box>,
-                      li: ({ children }) => <Text as="li" fontSize={isMobile ? "sm" : "md"} mb={1}>{children}</Text>,
-                      code: ({ children }) => <Code fontSize="xs" px={1}>{children}</Code>,
-                      blockquote: ({ children }) => (
-                        <Box borderLeft="3px solid" borderColor="gray.300" pl={3} ml={2} mb={2}>
-                          {children}
-                        </Box>
-                      )
-                    }}
-                  >
-                    {formattedContent}
-                  </ReactMarkdown>
-                </Box>
+                <AIResponseFormatter 
+                  content={message.content}
+                  isMobile={isMobile}
+                  fontSize={isMobile ? "sm" : "md"}
+                />
               )}
             </CardBody>
           </Card>

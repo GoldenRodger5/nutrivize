@@ -47,6 +47,7 @@ import TodaysNutritionDetailModal from '../components/TodaysNutritionDetailModal
 import WaterLogModal from '../components/WaterLogModal'
 import WeightLogModal from '../components/WeightLogModal'
 import FoodLogModal from '../components/FoodLogModal'
+import AIResponseFormatter from '../components/AIResponseFormatter'
 
 const MotionCard = motion(Card)
 const MotionBox = motion(Box)
@@ -152,9 +153,13 @@ const CompactAIHealthCoach = () => {
           <Icon as={FiTarget} color="purple.500" w={isMobile ? 4 : 5} h={isMobile ? 4 : 5} />
           <Text fontWeight="bold" color="purple.600" fontSize={isMobile ? "sm" : "lg"}>💡 Today's Insight</Text>
         </HStack>
-        <Text fontSize={isMobile ? "sm" : "md"} lineHeight="1.6" color="gray.700">
-          {(coaching as any).personalizedInsight}
-        </Text>
+        <Box fontSize={isMobile ? "sm" : "md"} lineHeight="1.6" color="gray.700">
+          <AIResponseFormatter 
+            content={(coaching as any).personalizedInsight}
+            isMobile={isMobile}
+            fontSize={isMobile ? "sm" : "md"}
+          />
+        </Box>
       </Box>
 
       {(coaching as any).urgentAction && (
@@ -1162,19 +1167,41 @@ const ProgressGoalsCard = () => {
                   <Text fontSize="md" fontWeight="bold" color="purple.700" mb={2}>AI-Powered Progress Analysis</Text>
                   {progressAnalytics?.ai_insights ? (
                     <>
-                      <Text fontSize="sm" mb={3}>{progressAnalytics.ai_insights.progress_summary}</Text>
-                      <Text fontSize="sm" mb={3}>{progressAnalytics.ai_insights.achievement_insights}</Text>
+                      <Box fontSize="sm" mb={3}>
+                        <AIResponseFormatter 
+                          content={progressAnalytics.ai_insights.progress_summary}
+                          isMobile={isMobile}
+                          fontSize="sm"
+                        />
+                      </Box>
+                      <Box fontSize="sm" mb={3}>
+                        <AIResponseFormatter 
+                          content={progressAnalytics.ai_insights.achievement_insights}
+                          isMobile={isMobile}
+                          fontSize="sm"
+                        />
+                      </Box>
                       <Text fontSize="sm" fontWeight="medium" color="purple.600">Focus Areas:</Text>
                       <VStack align="start" spacing={1} mt={1} pl={2}>
                         {progressAnalytics.ai_insights.focus_areas?.map((focus: string, index: number) => (
-                          <Text key={index} fontSize="sm">• {focus}</Text>
+                          <Box key={index} w="100%">
+                            <AIResponseFormatter 
+                              content={`• ${focus}`}
+                              isMobile={isMobile}
+                              fontSize="sm"
+                            />
+                          </Box>
                         ))}
                       </VStack>
                     </>
                   ) : (
-                    <Text fontSize="sm" color="gray.500">
-                      No detailed AI insights available. Continue tracking to get personalized analysis.
-                    </Text>
+                    <Box fontSize="sm" color="gray.500">
+                      <AIResponseFormatter 
+                        content="No detailed AI insights available. Continue tracking to get personalized analysis."
+                        isMobile={isMobile}
+                        fontSize="sm"
+                      />
+                    </Box>
                   )}
                 </Box>
                 
@@ -1186,7 +1213,13 @@ const ProgressGoalsCard = () => {
                       <VStack spacing={3} align="stretch">
                         {progressAnalytics.ai_insights.milestone_projections.map((milestone: { milestone: string; estimated_date: string }, index: number) => (
                           <HStack key={index} justify="space-between" p={2} bg={useColorModeValue('white', 'gray.700')} borderRadius="md" boxShadow="sm">
-                            <Text fontSize="sm" fontWeight="medium">{milestone.milestone}</Text>
+                            <Box fontSize="sm" fontWeight="medium" flex="1">
+                              <AIResponseFormatter 
+                                content={milestone.milestone}
+                                isMobile={isMobile}
+                                fontSize="sm"
+                              />
+                            </Box>
                             <Badge colorScheme="blue">{new Date(milestone.estimated_date).toLocaleDateString()}</Badge>
                           </HStack>
                         ))}

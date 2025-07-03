@@ -58,6 +58,7 @@ import {
   FiSave 
 } from 'react-icons/fi'
 import api from '../utils/api'
+import AIResponseFormatter from '../components/AIResponseFormatter'
 
 // Types for restaurant menu analysis
 interface MenuAnalysisRequest {
@@ -848,9 +849,13 @@ export default function RestaurantAI() {
                                     <Badge colorScheme="blue" variant="solid">#{index + 1}</Badge>
                                     <Heading size="sm">{item.name}</Heading>
                                   </HStack>
-                                  <Text fontSize="sm" color="gray.600" noOfLines={2}>
-                                    {item.description}
-                                  </Text>
+                                  <Box fontSize="sm" color="gray.600" noOfLines={2}>
+                                    <AIResponseFormatter 
+                                      content={item.description}
+                                      isMobile={isMobile}
+                                      fontSize="sm"
+                                    />
+                                  </Box>
                                   {item.price && (
                                     <Badge colorScheme="green" variant="outline">
                                       {item.price}
@@ -927,9 +932,13 @@ export default function RestaurantAI() {
                                     <Text fontSize="sm" fontWeight="bold" color="blue.600" mb={2}>
                                       🤖 AI Analysis:
                                     </Text>
-                                    <Text fontSize="sm" color="gray.700">
-                                      {item.reasoning}
-                                    </Text>
+                                    <Box fontSize="sm" color="gray.700">
+                                      <AIResponseFormatter 
+                                        content={item.reasoning}
+                                        isMobile={isMobile}
+                                        fontSize="sm"
+                                      />
+                                    </Box>
                                   </Box>
 
                                   {/* Dietary Attributes */}
