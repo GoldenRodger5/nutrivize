@@ -26,10 +26,10 @@ git push -u origin master
    - **Name**: `nutrivize-backend`
    - **Region**: Oregon (US West)
    - **Branch**: `master`
-   - **Root Directory**: Leave empty
+   - **Root Directory**: `backend`
    - **Runtime**: `Python 3`
-   - **Build Command**: `./build.sh`
-   - **Start Command**: `./start.sh`
+   - **Build Command**: `pip install -r requirements.txt`
+   - **Start Command**: `gunicorn app.main:app --worker-class uvicorn.workers.UvicornWorker --workers 4 --bind 0.0.0.0:$PORT`
 
 4. **Set Environment Variables**:
    ```
@@ -55,9 +55,10 @@ git push -u origin master
    - **Publish Directory**: `dist`
 
 4. **Update Frontend Environment**:
-   - Update `frontend/.env` with your backend URL:
+   - The frontend production environment is already configured in `frontend/.env.production`
+   - Update the `VITE_API_BASE_URL` after you get your backend URL:
    ```
-   VITE_API_URL=https://nutrivize-backend.onrender.com
+   VITE_API_BASE_URL=https://your-actual-backend-url.onrender.com
    ```
 
 ### 4. Update CORS Settings
@@ -97,7 +98,9 @@ nutrivize/
 - `FRONTEND_URL` - Your frontend URL for CORS
 
 ### Frontend Environment Variables
-- `VITE_API_URL` - Your backend API URL
+- `VITE_API_BASE_URL` - Your backend API URL
+- `VITE_ENVIRONMENT` - Set to "production"
+- `VITE_FIREBASE_*` - Firebase configuration (already set)
 
 ## Testing the Deployment
 
