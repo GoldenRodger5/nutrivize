@@ -69,8 +69,13 @@ async def get_logs_range(
     if start_date > end_date:
         raise HTTPException(status_code=400, detail="Start date must be before end date")
     
-    summaries = await food_log_service.get_date_range_logs(current_user.uid, start_date, end_date)
-    return summaries
+    try:
+        summaries = await food_log_service.get_date_range_logs(current_user.uid, start_date, end_date)
+        return summaries
+    except Exception as e:
+        logger.error(f"Error getting logs range for user {current_user.uid}: {str(e)}")
+        # Return empty summaries instead of throwing a 500 error
+        return []
 
 
 @router.put("/{log_id}", response_model=FoodLogResponse)

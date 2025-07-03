@@ -90,7 +90,7 @@ print(f"✅ CORS configured with origins: {cors_origins}")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
-    allow_origin_regex="https://.*\.onrender\.com$",  # Allow all onrender.com subdomains
+    allow_origin_regex=r"https?://.*\.?onrender\.com(:[0-9]+)?$",  # Allow all onrender.com subdomains with optional port
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=[
@@ -136,10 +136,13 @@ async def enhanced_cors_middleware(request: Request, call_next):
         os.getenv("FRONTEND_URL", "http://localhost:5173")
     ]
     
+    # Check if origin is from onrender.com domain
+    is_render_domain = origin and "onrender.com" in origin.lower()
+    
     # Handle OPTIONS preflight requests
     if method == "OPTIONS":
         response = Response()
-        if origin in allowed_origins:
+        if origin in allowed_origins or is_render_domain:
             response.headers["Access-Control-Allow-Origin"] = origin
             response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
             response.headers["Access-Control-Allow-Headers"] = "Accept, Accept-Language, Content-Language, Content-Type, Authorization, X-Requested-With, Origin, Access-Control-Request-Method, Access-Control-Request-Headers, Cache-Control, Pragma"
@@ -151,7 +154,10 @@ async def enhanced_cors_middleware(request: Request, call_next):
     response = await call_next(request)
     
     # Add CORS headers to all responses
-    if origin in allowed_origins:
+    # Check if origin is from onrender.com domain
+    is_render_domain = origin and "onrender.com" in origin.lower()
+    
+    if origin in allowed_origins or is_render_domain:
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Access-Control-Allow-Credentials"] = "true"
     
@@ -176,7 +182,7 @@ async def enhanced_cors_middleware(request: Request, call_next):
             "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
             "style-src 'self' 'unsafe-inline'; "
             "img-src 'self' data: https:; "
-            "connect-src 'self' https://nutrivize.onrender.com https://api.anthropic.com; "
+            "connect-src 'self' https://*.onrender.com https://api.anthropic.com; "
             "manifest-src 'self'"
         )
     

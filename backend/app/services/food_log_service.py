@@ -108,16 +108,40 @@ class FoodLogService:
     async def get_date_range_logs(self, user_id: str, start_date: date, end_date: date) -> List[DailyNutritionSummary]:
         """Get food logs for a date range"""
         from datetime import timedelta
+        import logging
         
+        logger = logging.getLogger(__name__)
         current_date = start_date
         summaries = []
         
-        while current_date <= end_date:
-            daily_summary = await self.get_daily_logs(user_id, current_date)
-            summaries.append(daily_summary)
-            current_date = current_date + timedelta(days=1)
+        # Safety check for too large date ranges
+        days_difference = (end_date - start_date).days
+        if days_difference > 60:  # Limit to 60 days to avoid performance issues
+            logger.warning(f"Requested date range too large: {days_difference} days")
+            end_date = start_date + timedelta(days=60)
+            logger.info(f"Limiting to 60 days: {start_date} to {end_date}")
         
-        return summaries
+        try:
+            while current_date <= end_date:
+                try:
+                    daily_summary = await self.get_daily_logs(user_id, current_date)
+                    summaries.append(daily_summary)
+                except Exception as e:
+                    logger.error(f"Error getting daily logs for {current_date}: {str(e)}")
+                    # Create an empty summary for this day to maintain continuity
+                    summaries.append(DailyNutritionSummary(
+                        date=current_date,
+                        total_nutrition=NutritionInfo(),
+                        meals=[],
+                        meal_breakdown={}
+                    ))
+                
+                current_date = current_date + timedelta(days=1)
+            
+            return summaries
+        except Exception as e:
+            logger.error(f"Error in get_date_range_logs: {str(e)}")
+            return []  # Return empty list instead of failing
     
     async def update_food_log(self, log_id: str, updates: dict, user_id: str) -> Optional[FoodLogResponse]:
         """Update a food log entry"""
