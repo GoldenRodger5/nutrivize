@@ -53,18 +53,18 @@ class UnifiedAIService:
         """
         try:
             # Get user context for personalized responses
-            # Check if the message is about the food index
-            if any(term in processed_request.message.lower() for term in ["food index", "my foods", "foods i have", "foods in my"]):
-                # Update the food index summary for immediate use
-                user_context["food_index_summary"] = await self.get_food_index_summary(user_id)
-                logger.info(f"Food index query detected. Retrieved food index for user {user_id}")
-            
-                        user_context = await self._get_comprehensive_user_context(user_id)
+            user_context = await self._get_comprehensive_user_context(user_id)
             
             # Process any embedded operations in the message
             processed_request, operations_results = await self._process_smart_operations(
                 request, user_id, user_context
             )
+            
+            # Check if the message is about the food index
+            if any(term in processed_request.message.lower() for term in ["food index", "my foods", "foods i have", "foods in my"]):
+                # Update the food index summary for immediate use
+                user_context["food_index_summary"] = await self.get_food_index_summary(user_id)
+                logger.info(f"Food index query detected. Retrieved food index for user {user_id}")
             
             # Build enhanced system prompt with user context
             system_prompt = await self._build_contextual_system_prompt(user_context)
@@ -489,7 +489,7 @@ class UnifiedAIService:
             logger.error(f"Error getting food index summary: {e}")
             return f"Unable to retrieve food index data. Error: {str(e)}"
     
-        async def _build_contextual_system_prompt(self, user_context: Dict[str, Any]) -> str:
+    async def _build_contextual_system_prompt(self, user_context: Dict[str, Any]) -> str:
         """Build a personalized system prompt based on user context"""
         
         base_prompt = """You are Nutrivize AI, an advanced nutrition and wellness coach with comprehensive food and meal management capabilities. You can help users with ALL aspects of their nutrition journey through natural conversation.

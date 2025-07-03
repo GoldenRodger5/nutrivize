@@ -40,10 +40,7 @@ class AnalyticsResponse(BaseModel):
 
 
 @router.get("/weekly-summary")
-async def get_weekly_summary
-    args: Optional[str] = Query(None, description="Optional arguments"),
-    kwargs: Optional[str] = Query(None, description="Optional keyword arguments"),
-    
+async def get_weekly_summary(
     end_date: Optional[str] = Query(None, description="End date in YYYY-MM-DD format"),
     args: Optional[str] = Query(None, description="Optional arguments"),
     kwargs: Optional[str] = Query(None, description="Optional keyword arguments"),
@@ -69,10 +66,7 @@ async def get_weekly_summary
 
 
 @router.get("/monthly-summary")
-async def get_monthly_summary
-    args: Optional[str] = Query(None, description="Optional arguments"),
-    kwargs: Optional[str] = Query(None, description="Optional keyword arguments"),
-    
+async def get_monthly_summary(
     year: Optional[int] = Query(None, description="Year (default: current year)"),
     month: Optional[int] = Query(None, description="Month 1-12 (default: current month)"),
     args: Optional[str] = Query(None, description="Optional arguments"),
