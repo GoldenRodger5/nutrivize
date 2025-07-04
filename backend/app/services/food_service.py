@@ -160,10 +160,18 @@ class FoodService:
         
         # User filtering for data separation
         if user_id:
-            query["user_id"] = user_id
+            # Include both user's personal foods and default foods
+            query["$or"] = [
+                {"user_id": user_id},       # User's personal foods
+                {"user_id": None},          # Default foods with None
+                {"user_id": {"$exists": False}}  # Foods without user_id field
+            ]
         else:
             # If no user_id provided, return empty results for security
             return []
+            
+        # Log the query for debugging
+        logger.info(f"Food search query: {query}, params: {search_params.dict()}, user_id: {user_id}")
         
         # Text search
         if search_params.query:
@@ -352,10 +360,18 @@ class FoodService:
             query = {}
             if user_id:
                 # Include both general foods and user's personal foods
-                query = {"$or": [{"user_id": user_id}, {"user_id": None}]}
+                # Fix: Include both null and None for user_id to handle default foods
+                query = {"$or": [
+                    {"user_id": user_id},  # User's personal foods
+                    {"user_id": None},      # Default foods with None
+                    {"user_id": {"$exists": False}}  # Foods without user_id field
+                ]}
             
             # Determine sort direction
             sort_direction = 1 if sort_order == "asc" else -1
+            
+            # Log the query for debugging
+            logger.info(f"Food query: {query}, sort_by: {sort_by}, sort_direction: {sort_direction}, user_id: {user_id}")
             
             # Execute query with sorting and pagination
             cursor = self.food_collection.find(query).sort(sort_by, sort_direction).skip(skip).limit(limit)

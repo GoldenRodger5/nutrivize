@@ -1,8 +1,28 @@
 from pymongo import MongoClient
 import os
+import sys
+from pathlib import Path
 from dotenv import load_dotenv
 
-load_dotenv()
+# Determine environment and load appropriate .env file
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+print(f"🌐 Running in {ENVIRONMENT} environment")
+
+# Try to load .env.local first, then fallback to .env
+env_local_path = Path(__file__).parent.parent.parent / ".env.local"
+env_path = Path(__file__).parent.parent.parent / ".env"
+
+if env_local_path.exists():
+    print(f"📂 Loading environment from {env_local_path}")
+    load_dotenv(dotenv_path=env_local_path)
+    print("✅ Loaded .env.local configuration")
+elif env_path.exists():
+    print(f"📂 Loading environment from {env_path}")
+    load_dotenv(dotenv_path=env_path)
+    print("✅ Loaded .env configuration")
+else:
+    print("⚠️ No .env file found, using system environment variables")
+    load_dotenv()
 
 class DatabaseManager:
     """Database connection manager"""

@@ -65,7 +65,8 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 # Configure CORS
-origins = [
+# Default origins list
+default_origins = [
     "http://localhost:3000",
     "http://localhost:5173",
     "http://localhost:5174",
@@ -81,6 +82,15 @@ origins = [
     "https://nutrivize-frontend.onrender.com",
     "https://nutrivize.onrender.com",
 ]
+
+# Allow additional origins from environment variable
+additional_origins = os.getenv("ADDITIONAL_CORS_ORIGINS", "")
+if additional_origins:
+    additional_origins_list = [origin.strip() for origin in additional_origins.split(",")]
+    default_origins.extend(additional_origins_list)
+    print(f"✅ Added additional CORS origins: {additional_origins_list}")
+
+origins = default_origins
 
 app.add_middleware(
     CORSMiddleware,

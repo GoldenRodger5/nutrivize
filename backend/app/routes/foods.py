@@ -163,3 +163,15 @@ async def get_foods(
         return results
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to retrieve foods: {str(e)}")
+
+
+@router.get("/user-index", response_model=List[dict])
+async def get_user_food_index(
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Get all foods from the user's personal food index"""
+    try:
+        foods = await food_service.get_user_food_index(current_user.uid)
+        return foods
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve user food index: {str(e)}")

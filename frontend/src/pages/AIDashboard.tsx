@@ -364,6 +364,7 @@ const CompactNutritionDisplay = ({ onOpenDetailModal }: {
 
 // Compact Health Score with Enhanced AI Insights
 const CompactHealthScore = () => {
+  // All hooks must be called at the top level
   const { healthScore, loading: basicLoading, error: basicError } = useHealthScore()
   const { enhancedHealthScore, loading: enhancedLoading, error: enhancedError } = useEnhancedHealthScore()
   const isMobile = useBreakpointValue({ base: true, lg: false })
@@ -376,6 +377,7 @@ const CompactHealthScore = () => {
   const loading = basicLoading || enhancedLoading
   const error = basicError && enhancedError
 
+  // Define helper functions
   const getScoreColor = (score: number) => {
     if (score >= 80) return 'green'
     if (score >= 60) return 'yellow'
@@ -390,34 +392,36 @@ const CompactHealthScore = () => {
     return 'Needs Improvement'
   }
 
-  if (loading) return (
-    isMobile ? (
+  // Handle loading state
+  if (loading) {
+    return isMobile ? (
       <CollapsibleCard title="Health Score" icon={FiHeart} colorScheme="red" size="sm">
         <Spinner size="sm" />
       </CollapsibleCard>
     ) : (
       <Spinner size="sm" />
     )
-  )
+  }
   
+  // Handle error state
   if (error || !scoreData) return null
 
   const content = (
     <VStack spacing={isMobile ? 3 : 5}>
       <HStack justify="space-between" w="full">
         <Badge 
-          colorScheme={getScoreColor((healthScore as any).overall_score)} 
+          colorScheme={getScoreColor((scoreData as any).overall_score)} 
           variant="solid" 
           fontSize={isMobile ? "xs" : "sm"}
         >
-          {(healthScore as any).trend === 'improving' ? '📈' : '📉'} {(healthScore as any).trend}
+          {(scoreData as any).trend === 'improving' ? '📈' : '📉'} {(scoreData as any).trend}
         </Badge>
         <Badge 
-          colorScheme={getScoreColor((healthScore as any).overall_score)} 
+          colorScheme={getScoreColor((scoreData as any).overall_score)} 
           variant="outline" 
           fontSize={isMobile ? "xs" : "sm"}
         >
-          {getScoreLabel((healthScore as any).overall_score)}
+          {getScoreLabel((scoreData as any).overall_score)}
         </Badge>
       </HStack>
 
@@ -428,17 +432,17 @@ const CompactHealthScore = () => {
         margin="0 auto"
       >
         <CircularProgress 
-          value={(healthScore as any).overall_score} 
+          value={(scoreData as any).overall_score} 
           size="100%"
           thickness={isMobile ? "8px" : "12px"}
-          color={getScoreColor((healthScore as any).overall_score) + '.400'}
+          color={getScoreColor((scoreData as any).overall_score) + '.400'}
           trackColor={trackColor}
           capIsRound
         >
           <CircularProgressLabel>
             <VStack spacing={0}>
-              <Text fontSize={isMobile ? "2xl" : "4xl"} fontWeight="bold" color={getScoreColor((healthScore as any).overall_score) + '.600'}>
-                {(healthScore as any).overall_score}
+              <Text fontSize={isMobile ? "2xl" : "4xl"} fontWeight="bold" color={getScoreColor((scoreData as any).overall_score) + '.600'}>
+                {(scoreData as any).overall_score}
               </Text>
               <Text fontSize={isMobile ? "xs" : "sm"} color="gray.500">
                 /100
@@ -453,7 +457,7 @@ const CompactHealthScore = () => {
           position="absolute"
           top="-10px"
           right="-10px"
-          bg={getScoreColor((healthScore as any).overall_score) + '.500'}
+          bg={getScoreColor((scoreData as any).overall_score) + '.500'}
           borderRadius="full"
           p={2}
           boxShadow="md"
@@ -468,7 +472,7 @@ const CompactHealthScore = () => {
           Score Breakdown
         </Text>
         <SimpleGrid columns={2} spacing={isMobile ? 2 : 3} w="full">
-          {Object.entries((healthScore as any).component_scores || {}).slice(0, 4).map(([key, value]: [string, any]) => (
+          {Object.entries((scoreData as any).component_scores || {}).slice(0, 4).map(([key, value]: [string, any]) => (
             <VStack spacing={1} key={key} p={2} bg={scoreBreakdownBg} borderRadius="md">
               <Text fontSize={isMobile ? "2xs" : "xs"} fontWeight="medium" textTransform="capitalize" textAlign="center" color="gray.600">
                 {key.replace('_', ' ')}
@@ -504,33 +508,33 @@ const CompactHealthScore = () => {
               {/* Score Visualization */}
               <Box textAlign="center" w="full">
                 <CircularProgress 
-                  value={(healthScore as any).overall_score} 
+                  value={(scoreData as any).overall_score} 
                   size="150px" 
                   thickness="12px"
-                  color={getScoreColor((healthScore as any).overall_score) + '.400'}
+                  color={getScoreColor((scoreData as any).overall_score) + '.400'}
                   capIsRound
                 >
                   <CircularProgressLabel>
                     <VStack spacing={0}>
                       <Text fontSize="3xl" fontWeight="bold">
-                        {(healthScore as any).overall_score}
+                        {(scoreData as any).overall_score}
                       </Text>
                       <Text fontSize="xs" color="gray.500">/100</Text>
                     </VStack>
                   </CircularProgressLabel>
                 </CircularProgress>
-                <Text mt={3} fontSize="xl" fontWeight="bold" color={getScoreColor((healthScore as any).overall_score) + '.600'}>
-                  {getScoreLabel((healthScore as any).overall_score)}
+                <Text mt={3} fontSize="xl" fontWeight="bold" color={getScoreColor((scoreData as any).overall_score) + '.600'}>
+                  {getScoreLabel((scoreData as any).overall_score)}
                 </Text>
                 
                 {/* Trend */}
                 <Badge 
-                  colorScheme={(healthScore as any).trend === 'improving' ? 'green' : 'orange'} 
+                  colorScheme={(scoreData as any).trend === 'improving' ? 'green' : 'orange'} 
                   variant="solid" 
                   fontSize="sm"
                   mt={2}
                 >
-                  {(healthScore as any).trend === 'improving' ? '📈 Improving' : '📉 Declining'}
+                  {(scoreData as any).trend === 'improving' ? '📈 Improving' : '📉 Declining'}
                 </Badge>
               </Box>
               
@@ -547,7 +551,7 @@ const CompactHealthScore = () => {
               {/* Score Breakdown */}
               <VStack spacing={4} w="full" align="start">
                 <Heading size="sm" color="gray.700">Score Breakdown</Heading>
-                {Object.entries((healthScore as any).component_scores || {}).map(([key, value]: [string, any]) => (
+                {Object.entries((scoreData as any).component_scores || {}).map(([key, value]: [string, any]) => (
                   <Box w="full" key={key}>
                     <HStack justify="space-between" w="full" mb={1}>
                       <Text fontSize="sm" fontWeight="medium" textTransform="capitalize">
@@ -572,23 +576,23 @@ const CompactHealthScore = () => {
               <Box w="full" p={4} bg={useColorModeValue('red.50', 'red.900')} borderRadius="md">
                 <Heading size="sm" mb={3} color="red.600">Areas to Improve</Heading>
                 <VStack spacing={2} align="start">
-                  {(healthScore as any).overall_score < 90 && (
+                  {(scoreData as any).overall_score < 90 && (
                     <>
-                      {(healthScore as any).component_scores?.nutrition < 70 && (
+                      {(scoreData as any).component_scores?.nutrition < 70 && (
                         <Text fontSize="sm">• Increase protein intake and reduce processed carbohydrates</Text>
                       )}
-                      {(healthScore as any).component_scores?.activity < 70 && (
+                      {(scoreData as any).component_scores?.activity < 70 && (
                         <Text fontSize="sm">• Add 15-30 minutes of moderate exercise 3-4 times per week</Text>
                       )}
-                      {(healthScore as any).component_scores?.sleep < 70 && (
+                      {(scoreData as any).component_scores?.sleep < 70 && (
                         <Text fontSize="sm">• Improve sleep quality by maintaining a consistent sleep schedule</Text>
                       )}
-                      {(healthScore as any).component_scores?.hydration < 70 && (
+                      {(scoreData as any).component_scores?.hydration < 70 && (
                         <Text fontSize="sm">• Increase daily water intake to at least 8 glasses</Text>
                       )}
                     </>
                   )}
-                  {(healthScore as any).overall_score >= 90 && (
+                  {(scoreData as any).overall_score >= 90 && (
                     <Text fontSize="sm">Great job! Focus on maintaining your excellent habits.</Text>
                   )}
                 </VStack>
@@ -1653,7 +1657,7 @@ export default function AIDashboard() {
                     <Box w={10} h={10} borderRadius="full" bg={useColorModeValue('green.100', 'green.700')} display="flex" alignItems="center" justifyContent="center">
                       <Icon as={FiTarget} color={useColorModeValue('green.600', 'green.200')} w={6} h={6} />
                     </Box>
-                    <Heading size="md" color={useColorModeValue('green.600', 'green.200')}>Today's Nutrition</Heading>
+                    <Heading size={isMobile ? "sm" : "md"} color={useColorModeValue('green.600', 'green.200')}>Today's Nutrition</Heading>
                   </HStack>
                   <Badge colorScheme="green" variant="outline" fontSize="xs">
                     Click for Details
@@ -1697,7 +1701,7 @@ export default function AIDashboard() {
                   <Box w={10} h={10} borderRadius="full" bg={useColorModeValue('purple.100', 'purple.700')} display="flex" alignItems="center" justifyContent="center">
                     <Icon as={FiActivity} color={useColorModeValue('purple.600', 'purple.200')} w={6} h={6} />
                   </Box>
-                  <Heading size="md" color={useColorModeValue('purple.600', 'purple.200')}>AI Health Coach</Heading>
+                  <Heading size={isMobile ? "sm" : "md"} color={useColorModeValue('purple.600', 'purple.200')}>AI Health Coach</Heading>
                 </HStack>
               </CardHeader>
               <CardBody pt={0}>
@@ -1724,7 +1728,7 @@ export default function AIDashboard() {
                     <Box w={10} h={10} borderRadius="full" bg={useColorModeValue('green.100', 'green.700')} display="flex" alignItems="center" justifyContent="center">
                       <Icon as={FiTarget} color={useColorModeValue('green.600', 'green.200')} w={6} h={6} />
                     </Box>
-                    <Heading size="md" color={useColorModeValue('green.600', 'green.200')}>Today's Nutrition</Heading>
+                    <Heading size={isMobile ? "sm" : "md"} color={useColorModeValue('green.600', 'green.200')}>Today's Nutrition</Heading>
                   </HStack>
                   <Badge colorScheme="green" variant="outline" fontSize="xs">
                     Click for Details
@@ -1753,7 +1757,7 @@ export default function AIDashboard() {
                   <Box w={10} h={10} borderRadius="full" bg={useColorModeValue('blue.100', 'blue.700')} display="flex" alignItems="center" justifyContent="center">
                     <Icon as={FiTrendingUp} color={useColorModeValue('blue.600', 'blue.200')} w={6} h={6} />
                   </Box>
-                  <Heading size="md" color={useColorModeValue('blue.600', 'blue.200')}>Progress & Goals</Heading>
+                  <Heading size={isMobile ? "sm" : "md"} color={useColorModeValue('blue.600', 'blue.200')}>Progress & Goals</Heading>
                 </HStack>
               </CardHeader>
               <CardBody pt={0}>
@@ -1778,7 +1782,7 @@ export default function AIDashboard() {
                   <Box w={10} h={10} borderRadius="full" bg={useColorModeValue('red.100', 'red.700')} display="flex" alignItems="center" justifyContent="center">
                     <Icon as={FiHeart} color={useColorModeValue('red.600', 'red.200')} w={6} h={6} />
                   </Box>
-                  <Heading size="md" color={useColorModeValue('red.600', 'red.200')}>Health Score</Heading>
+                  <Heading size={isMobile ? "sm" : "md"} color={useColorModeValue('red.600', 'red.200')}>Health Score</Heading>
                 </HStack>
               </CardHeader>
               <CardBody pt={0}>
@@ -1803,7 +1807,7 @@ export default function AIDashboard() {
                   <Box w={10} h={10} borderRadius="full" bg={useColorModeValue('orange.100', 'orange.700')} display="flex" alignItems="center" justifyContent="center">
                     <Icon as={FiZap} color={useColorModeValue('orange.600', 'orange.200')} w={6} h={6} />
                   </Box>
-                  <Heading size="md" color={useColorModeValue('orange.600', 'orange.200')}>Quick Actions</Heading>
+                  <Heading size={isMobile ? "sm" : "md"} color={useColorModeValue('orange.600', 'orange.200')}>Quick Actions</Heading>
                 </HStack>
               </CardHeader>
               <CardBody pt={0}>

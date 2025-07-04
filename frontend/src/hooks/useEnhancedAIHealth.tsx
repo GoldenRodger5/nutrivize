@@ -117,12 +117,52 @@ export function useProgressAnalytics() {
       try {
         setLoading(true);
         const response = await api.get('/ai-health/progress-analytics');
-        setProgressAnalytics(response.data);
+        
+        // Ensure we have default values for nested properties to prevent undefined errors
+        const data = response.data || {};
+        if (!data.weight_progress) {
+          data.weight_progress = {
+            start_weight: 0,
+            current_weight: 0,
+            target_weight: 0,
+            percent_complete: 0,
+            weight_lost_so_far: '0 lbs',
+            remaining_weight: '0 lbs',
+            current_rate: '0 lbs/week',
+            weekly_goal: 0,
+            estimated_completion: 'N/A'
+          };
+        }
+        
+        setProgressAnalytics(data);
         setError(null);
       } catch (err) {
         console.error('Error fetching progress analytics:', err);
         setError('Failed to load progress analytics data');
-        setProgressAnalytics(null);
+        
+        // Provide default values even when there's an error
+        setProgressAnalytics({
+          weight_progress: {
+            start_weight: 0,
+            current_weight: 0,
+            target_weight: 0,
+            percent_complete: 0,
+            weight_lost_so_far: '0 lbs',
+            remaining_weight: '0 lbs',
+            current_rate: '0 lbs/week',
+            weekly_goal: 0,
+            estimated_completion: 'N/A'
+          },
+          achievement_rate: 0,
+          streak_days: 0,
+          consistency_score: 0,
+          ai_insights: {
+            progress_summary: 'Data not available',
+            achievement_insights: 'Data not available',
+            milestone_projections: [],
+            focus_areas: []
+          }
+        });
       } finally {
         setLoading(false);
       }

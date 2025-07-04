@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { ChakraProvider, Box, Spinner, Center } from '@chakra-ui/react'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { AppStateProvider } from './contexts/AppStateContext'
+import { FoodIndexProvider } from './contexts/FoodIndexContext'
 import LoginPage from './components/LoginPage'
 import MainLayout from './components/MainLayout'
 import ErrorBoundary from './components/ErrorBoundary'
@@ -48,9 +49,11 @@ function AppLayout() {
           path="/*"
           element={
             <ProtectedRoute>
-              <AppStateProvider>
-                <MainLayout />
-              </AppStateProvider>
+              <FoodIndexProvider>
+                <AppStateProvider>
+                  <MainLayout />
+                </AppStateProvider>
+              </FoodIndexProvider>
             </ProtectedRoute>
           }
         />
