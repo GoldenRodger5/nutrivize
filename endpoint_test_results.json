@@ -1,0 +1,34 @@
+{
+  "working": [
+    "/ai-health/user-health-score",
+    "/ai-health/progress-analytics",
+    "/ai-health/insights",
+    "/ai-dashboard/health-score",
+    "/ai-dashboard/health-insights",
+    "/meal-planning/plans",
+    "/meal-planning/shopping-lists"
+  ],
+  "not_found": [],
+  "other_error": [
+    {
+      "endpoint": "/ai-health/health-score",
+      "status_code": 405,
+      "message": "{\"detail\":\"Method Not Allowed\"}"
+    },
+    {
+      "endpoint": "/ai-health/health-score-analysis",
+      "status_code": 405,
+      "message": "{\"detail\":\"Method Not Allowed\"}"
+    },
+    {
+      "endpoint": "/analytics/insights",
+      "status_code": 422,
+      "message": "{\"detail\":[{\"type\":\"missing\",\"loc\":[\"query\",\"args\"],\"msg\":\"Field required\",\"input\":null},{\"type\":\"missing\",\"loc\":[\"query\",\"kwargs\"],\"msg\":\"Field required\",\"input\":null}]}"
+    },
+    {
+      "endpoint": "/analytics/nutrition-trends",
+      "status_code": 422,
+      "message": "{\"detail\":[{\"type\":\"missing\",\"loc\":[\"query\",\"args\"],\"msg\":\"Field required\",\"input\":null},{\"type\":\"missing\",\"loc\":[\"query\",\"kwargs\"],\"msg\":\"Field required\",\"input\":null}]}"
+    }
+  ]
+}

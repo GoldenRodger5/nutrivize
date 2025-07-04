@@ -1,7 +1,63 @@
+#!/bin/bash
+
+# Deploy fixed version of the app with correct indentation fix
+# This script replaces the problematic files with hotfixed versions
+
+# Set up colors for output
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+NC='\033[0m' # No Color
+
+echo -e "${YELLOW}Starting hotfix deployment...${NC}"
+
+# Create backup directory
+BACKUP_DIR="/tmp/nutrivize_backup_$(date +%Y%m%d%H%M%S)"
+mkdir -p "$BACKUP_DIR"
+echo -e "${GREEN}Created backup directory: $BACKUP_DIR${NC}"
+
+# Backup and replace analytics.py with analytics_hotfix.py
+if [ -f "app/routes/analytics.py" ] && [ -f "app/routes/analytics_hotfix.py" ]; then
+    echo -e "${YELLOW}Backing up and replacing analytics.py...${NC}"
+    cp "app/routes/analytics.py" "$BACKUP_DIR/analytics.py.bak"
+    cp "app/routes/analytics_hotfix.py" "app/routes/analytics.py"
+    echo -e "${GREEN}Replaced analytics.py with hotfix version${NC}"
+else
+    echo -e "${RED}Analytics files not found${NC}"
+fi
+
+# Fix indentation issues in unified_ai_service.py
+if [ -f "app/services/unified_ai_service.py" ]; then
+    echo -e "${YELLOW}Fixing unified_ai_service.py...${NC}"
+    cp "app/services/unified_ai_service.py" "$BACKUP_DIR/unified_ai_service.py.bak"
+    
+    # Fix the indentation by replacing the problematic lines
+    # Using awk for more reliable text processing
+    awk '{
+        if ($0 ~ /^ +user_context = await self\._get_comprehensive_user_context/) {
+            print "            user_context = await self._get_comprehensive_user_context(user_id)"
+        } else {
+            print $0
+        }
+    }' "app/services/unified_ai_service.py" > "app/services/unified_ai_service.py.new"
+    
+    # Replace the original file with the fixed version
+    mv "app/services/unified_ai_service.py.new" "app/services/unified_ai_service.py"
+    echo -e "${GREEN}Fixed indentation in unified_ai_service.py${NC}"
+else
+    echo -e "${RED}unified_ai_service.py not found${NC}"
+fi
+
+# Update main.py to use try-except when importing routes
+if [ -f "app/main.py" ]; then
+    echo -e "${YELLOW}Updating main.py with safer imports...${NC}"
+    cp "app/main.py" "$BACKUP_DIR/main.py.bak"
+    
+    # Create a new version of main.py with safer imports
+    cat > "app/main.py.new" << 'EOL'
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 import os
 from dotenv import load_dotenv
@@ -65,11 +121,11 @@ async def lifespan(app: FastAPI):
 # Create FastAPI app
 app = FastAPI(lifespan=lifespan)
 
-# Configure CORS - COMPREHENSIVE SETUP
+# Configure CORS
 origins = [
     "http://localhost:3000",
     "http://localhost:5173",
-    "http://localhost:5174", 
+    "http://localhost:5174",
     "http://localhost:5175",
     "http://127.0.0.1:3000",
     "http://127.0.0.1:5173",
@@ -87,47 +143,11 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"],
-    allow_headers=[
-        "Accept",
-        "Accept-Language",
-        "Content-Language", 
-        "Content-Type",
-        "Authorization",
-        "X-Requested-With",
-        "X-CSRFToken",
-        "Access-Control-Allow-Origin",
-        "Access-Control-Allow-Headers",
-        "Access-Control-Allow-Methods",
-        "Origin",
-        "User-Agent",
-        "DNT",
-        "Cache-Control",
-        "X-Mx-ReqToken",
-        "Keep-Alive",
-        "X-Requested-With",
-        "If-Modified-Since",
-    ],
-    expose_headers=["*"],
-    max_age=86400,  # Cache preflight requests for 24 hours
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 print(f"✅ CORS configured with origins: {origins}")
-
-# Add global OPTIONS handler for preflight requests
-@app.options("/{path:path}")
-async def options_handler(path: str):
-    """Handle preflight CORS requests for all endpoints"""
-    return Response(
-        status_code=200,
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD, PATCH",
-            "Access-Control-Allow-Headers": "*",
-            "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Max-Age": "86400",
-        }
-    )
 
 # Add routes
 app.include_router(auth.router)
@@ -162,3 +182,14 @@ else:
 @app.get("/health")
 async def health_check():
     return {"status": "healthy", "version": "2.0.0"}
+EOL
+    
+    # Replace the main.py file with the new version
+    mv "app/main.py.new" "app/main.py"
+    echo -e "${GREEN}Updated main.py with safer imports${NC}"
+else
+    echo -e "${RED}main.py not found${NC}"
+fi
+
+echo -e "${GREEN}Hotfix deployment completed!${NC}"
+echo -e "${YELLOW}Backup files are in: $BACKUP_DIR${NC}"

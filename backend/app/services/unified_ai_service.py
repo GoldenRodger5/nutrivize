@@ -9,8 +9,8 @@ import logging
 import json
 import re
 import uuid
-from datetime import datetime, timedelta, date
-from typing import Dict, List, Any, Optional, Union
+from datetime import datetime, timedelta, date, timezone
+from typing import Dict, List, Any, Optional
 from bson import ObjectId
 import traceback
 
@@ -140,7 +140,7 @@ class UnifiedAIService:
         """
         try:
             user_context = await self._get_comprehensive_user_context(user_id)
-
+            
             prompt = f"""
             Create a comprehensive {plan_request.get('duration', 7)}-day meal plan for this user:
 
@@ -183,53 +183,8 @@ class UnifiedAIService:
             return meal_plan_data
 
         except Exception as e:
-            logger.error(f"Error generating meal plan for user {user_id}: {e}")
-            # Return a basic fallback meal plan instead of error
-            return {
-                "id": str(uuid.uuid4()),
-                "name": plan_request.get('name', 'My Meal Plan'),  # Preserve name in fallback
-                "user_id": user_id,
-                "duration": plan_request.get('duration', 7),
-                "meals_per_day": plan_request.get('meals_per_day', 3),
-                "status": "fallback",
-                "message": "Generated basic meal plan due to service limitations",
-                "daily_plans": [
-                    {
-                        "day": i + 1,
-                        "date": (datetime.now() + timedelta(days=i)).strftime("%Y-%m-%d"),
-                        "meals": [
-                            {
-                                "type": "breakfast",
-                                "name": "Healthy Breakfast",
-                                "ingredients": ["oats", "banana", "almond milk"],
-                                "calories": 350,
-                                "prep_time": "10 minutes"
-                            },
-                            {
-                                "type": "lunch", 
-                                "name": "Balanced Lunch",
-                                "ingredients": ["quinoa", "vegetables", "protein"],
-                                "calories": 450,
-                                "prep_time": "20 minutes"
-                            },
-                            {
-                                "type": "dinner",
-                                "name": "Nutritious Dinner", 
-                                "ingredients": ["lean protein", "vegetables", "whole grains"],
-                                "calories": 500,
-                                "prep_time": "30 minutes"
-                            }
-                        ]
-                    } for i in range(plan_request.get('duration', 7))
-                ],
-                "total_nutrition": {
-                    "daily_avg_calories": 1300,
-                    "daily_avg_protein": 80,
-                    "daily_avg_carbs": 150,
-                    "daily_avg_fat": 45
-                },
-                "created_at": datetime.now().isoformat()
-            }
+            logger.error(f"Error generating meal plan: {e}")
+            raise e
 
     async def get_health_insights(self, user_id: str) -> Dict[str, Any]:
         """
@@ -1759,6 +1714,7 @@ Format as JSON:
 
     async def _analyze_nutrition_patterns(self, user_id: str) -> Dict[str, Any]:
         """Analyze user's nutrition patterns over time"""
+        
         try:
             # Get recent food logs
             food_logs = await self.food_log_service.get_recent_logs(user_id, days=30)

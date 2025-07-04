@@ -8,7 +8,7 @@ from datetime import date, datetime, timedelta
 
 from .auth import get_current_user
 from ..models.user import UserResponse
-from ..services.ai_dashboard_service import ai_dashboard_service
+from ..services.ai_service import AIService
 from ..services.analytics_service import analytics_service
 
 router = APIRouter(prefix="/ai-health", tags=["ai-health"])
@@ -18,8 +18,8 @@ async def _get_health_score(current_user: UserResponse) -> Dict[str, Any]:
     """Internal function to get user health score"""
     try:
         user_id = current_user.uid
-        # Use the unified AI service through the dashboard service to get health score
-        health_score = await ai_dashboard_service.unified_ai.get_dashboard_data(user_id, "health_score")
+        ai_service = AIService()
+        health_score = await ai_service.get_user_health_score(user_id)
         return health_score
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get health score: {str(e)}")
@@ -44,8 +44,8 @@ async def _get_progress_analytics(current_user: UserResponse) -> Dict[str, Any]:
     """Internal function to get progress analytics"""
     try:
         user_id = current_user.uid
-        # Use dashboard service for progress analytics
-        progress = await ai_dashboard_service.unified_ai.get_dashboard_data(user_id, "predictions")
+        ai_service = AIService()
+        progress = await ai_service.get_progress_analytics(user_id)
         return progress
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get progress analytics: {str(e)}")
@@ -60,8 +60,8 @@ async def _get_health_insights(current_user: UserResponse) -> Dict[str, Any]:
     """Internal function to get health insights"""
     try:
         user_id = current_user.uid
-        # Use the unified AI service for health insights
-        insights = await ai_dashboard_service.unified_ai.get_health_insights(user_id)
+        ai_service = AIService()
+        insights = await ai_service.get_health_insights(user_id)
         return insights
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get health insights: {str(e)}")
