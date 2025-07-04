@@ -99,15 +99,37 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   }, [])
   
   useEffect(() => {
-    // On first load, try to restore from storage (don't clear)
+    // On first load, try to restore from storage but validate token
     if (!hasCheckedAuth) {
       // Try to get token from storage
       const storedToken = localStorage.getItem('authToken') || sessionStorage.getItem('authToken')
       const tokenExpiry = localStorage.getItem('authTokenExpiry') || sessionStorage.getItem('authTokenExpiry')
       
-      // If we have a valid non-expired token, use it
+      // If we have a token, validate it with the server before accepting
       if (storedToken && tokenExpiry && parseInt(tokenExpiry) > Date.now()) {
+        // Set the token temporarily
         api.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`
+        
+        // Try to validate with the server
+        api.get('/auth/me')
+          .then(response => {
+            // Token is valid, set user
+            setUser(response.data)
+          })
+          .catch(error => {
+            // Token is invalid, clear all tokens
+            console.log('Stored token is invalid, clearing', error)
+            clearAuthTokens()
+          })
+          .finally(() => {
+            setHasCheckedAuth(true)
+            setLoading(false)
+          })
+      } else {
+        // No token or expired token
+        clearAuthTokens() // Clear any expired tokens
+        setHasCheckedAuth(true)
+        setLoading(false)
       }
       
       // Check if we're in iOS PWA mode
@@ -125,27 +147,30 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         }
       }
       
-      setHasCheckedAuth(true)
-      setLoading(false)
       return
     }
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         try {
+          console.log('Firebase user detected, getting token')
           // Get Firebase token
-          const token = await firebaseUser.getIdToken(false) // First try without refresh
+          const token = await firebaseUser.getIdToken(true) // Always force refresh for reliability
           storeAuthToken(token)
           
           // Get user data from our API
           const response = await api.get('/auth/me')
           setUser(response.data)
+          console.log('User data fetched successfully')
         } catch (error) {
           console.error('❌ Error fetching user data:', error)
           clearAuthTokens()
           setUser(null)
+          // Force logout from Firebase if backend validation fails
+          await auth.signOut().catch(e => console.error('Error signing out:', e))
         }
       } else {
+        console.log('No Firebase user, clearing tokens')
         clearAuthTokens()
         setUser(null)
       }
@@ -197,7 +222,22 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   }
 
   const logout = async () => {
-    await signOut(auth)
+    // Clear all tokens first
+    clearAuthTokens()
+    
+    // Then sign out from Firebase
+    try {
+      await signOut(auth)
+      console.log('Signed out successfully')
+    } catch (error) {
+      console.error('Error during sign out:', error)
+    }
+    
+    // Force clear user data
+    setUser(null)
+    
+    // Redirect to login page
+    window.location.href = '/login'
   }
 
   const value = {

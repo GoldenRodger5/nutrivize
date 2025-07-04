@@ -720,7 +720,6 @@ class ShoppingListUpdateRequest(BaseModel):
     notes: Optional[str] = None
 
 class ShoppingListItemUpdateRequest(BaseModel):
-    item_id: str
     is_checked: Optional[bool] = None
     amount: Optional[float] = None
     notes: Optional[str] = None

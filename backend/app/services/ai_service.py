@@ -235,7 +235,7 @@ Return valid JSON only (no additional text):
             # Get active goal context
             try:
                 goal_preferences = await goals_service.get_active_goal_preferences(user_id)
-                context.update(goal_preferences)
+                context.update(goal_preferences) 
             except Exception as e:
                 print(f"Could not get goal preferences: {e}")
             

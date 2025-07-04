@@ -154,3 +154,29 @@ async def get_food_suggestions_combined(
         return suggestions
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get food suggestions: {str(e)}")
+
+
+@router.get("/", response_model=List[FoodItemResponse])
+async def get_foods(
+    limit: int = Query(20, ge=1, le=100, description="Number of items to return"),
+    skip: int = Query(0, ge=0, description="Number of items to skip"),
+    sort_by: str = Query("name", description="Field to sort by"),
+    sort_order: str = Query("asc", description="Sort order (asc or desc)"),
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Get paginated and sorted list of food items"""
+    try:
+        # Validate sort parameters
+        valid_sort_fields = ["name", "calories", "protein", "carbs", "fat", "date_added"]
+        valid_sort_orders = ["asc", "desc"]
+        
+        if sort_by not in valid_sort_fields:
+            sort_by = "name"  # Default to name if invalid field
+        
+        if sort_order not in valid_sort_orders:
+            sort_order = "asc"  # Default to ascending if invalid order
+            
+        results = await food_service.get_foods(limit, skip, sort_by, sort_order, current_user.uid)
+        return results
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve foods: {str(e)}")

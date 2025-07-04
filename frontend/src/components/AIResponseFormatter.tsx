@@ -32,29 +32,46 @@ const formatAIResponse = (content: string) => {
   
   // Food index responses
   if (content.toLowerCase().includes('food index') || content.toLowerCase().includes('indexed foods')) {
-    // Format responses about food index search
-    cleanedContent = cleanedContent
-      .replace(/Let me search your food index\.?\s*/gi, '🍎 **Your Food Index:**\n\n')
-      .replace(/Based on the context provided,?\s*/gi, '')
-      .replace(/I can see that your food index is currently empty or not available/gi, 'Your food index appears to be empty. You can add foods by logging meals or manually adding them.')
-      .replace(/Let me search your personal food index\./gi, '🔍 **Searching Food Index:**\n\n')
-      
-    // Handle responses about not finding food index or not having access
-    if (cleanedContent.toLowerCase().includes('don\'t have direct access')) {
-      cleanedContent = '🔍 **Food Index Search:**\n\n' + cleanedContent
-        .replace(/Note: I notice/gi, '')
-        .replace(/Would you like me to:/gi, '**I can help you with:**')
-    }
-    
-    // Handle "I see you're asking about your food index" pattern
-    if (cleanedContent.toLowerCase().includes('i see you\'re asking about your food index')) {
+    // First, check if this is a structured index from the backend
+    if (content.includes('**Your Personal Food Index:')) {
+      // This is already a formatted food index from the backend - preserve the markdown
+      cleanedContent = '🍎 ' + cleanedContent
+        // Ensure proper bullet formatting
+        .replace(/•\s+([^\n]+)/g, '* $1')
+        // Make category names more visible
+        .replace(/\*\*([^:]+)\*\*/g, '**$1**')
+    } else {
+      // Format responses about food index search
       cleanedContent = cleanedContent
-        .replace(/I see you're asking about your food index/gi, '🔍 **Food Index Query:**\n\n')
-        .replace(/indexed foods in your records/gi, '**indexed foods** in your records')
+        .replace(/Let me search your food index\.?\s*/gi, '🍎 **Your Food Index:**\n\n')
+        .replace(/Based on the context provided,?\s*/gi, '')
+        .replace(/I can see that your food index is currently empty or not available/gi, 'Your food index appears to be empty. You can add foods by logging meals or manually adding them.')
+        .replace(/Let me search your personal food index\./gi, '🔍 **Searching Food Index:**\n\n')
+        
+      // Handle responses about not finding food index or not having access
+      if (cleanedContent.toLowerCase().includes('don\'t have direct access')) {
+        cleanedContent = '🔍 **Food Index Search:**\n\n' + cleanedContent
+          .replace(/Note: I notice/gi, '')
+          .replace(/Would you like me to:/gi, '**I can help you with:**')
+      }
+      
+      // Handle "I see you're asking about your food index" pattern
+      if (cleanedContent.toLowerCase().includes('i see you\'re asking about your food index')) {
+        cleanedContent = cleanedContent
+          .replace(/I see you're asking about your food index/gi, '🍎 **Food Index Query:**\n\n')
+          .replace(/indexed foods in your records/gi, '**indexed foods** in your records')
+      }
+      
+      // Handle "I'm not able to see" pattern
+      if (cleanedContent.toLowerCase().includes('i\'m not able to see any specifically indexed foods')) {
+        cleanedContent = '🔍 **Food Index Results:**\n\n' + cleanedContent
+          .replace(/I'm not able to see any specifically indexed foods/gi, "I'm not able to see any **specifically indexed foods**")
+          .replace(/What I do know about you is:/g, "**What I know about you:**")
+      }
+      
+      // Convert the numbered list format in food index responses
+      cleanedContent = cleanedContent.replace(/(\d+)\.\s+([^\n]+)/g, '* **$2**')
     }
-    
-    // Convert the numbered list format in food index responses
-    cleanedContent = cleanedContent.replace(/(\d+)\.\s+([^\n]+)/g, '* **$2**')
   }
   
   // Calorie questions

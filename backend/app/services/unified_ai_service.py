@@ -450,8 +450,18 @@ class UnifiedAIService:
             # Get user foods collection
             user_foods_collection = self.db.user_foods
             
-            # Query for user's foods
-            user_foods = list(user_foods_collection.find({"user_id": user_id}).limit(limit))
+            # Query for user's foods - add error handling and logging
+            try:
+                # First check if collection exists
+                if "user_foods" not in self.db.list_collection_names():
+                    logger.warning(f"user_foods collection doesn't exist for user {user_id}")
+                    return "Your food index is empty. To build your personal food index, start logging foods you eat regularly."
+                    
+                user_foods = list(user_foods_collection.find({"user_id": user_id}).limit(limit))
+                logger.info(f"Found {len(user_foods)} foods for user {user_id}")
+            except Exception as e:
+                logger.error(f"Error querying user_foods: {str(e)}")
+                return f"Error accessing food index: {str(e)}"
 
             if not user_foods or len(user_foods) == 0:
                 # Check the main food index if user doesn't have personal foods

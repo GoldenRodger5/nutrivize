@@ -381,19 +381,31 @@ const MealPlans: React.FC = () => {
       }
       
       // Generate new shopping list
-      const response = await api.post(`/meal-planning/plans/${planId}/shopping-list`, {
-        force_regenerate: forceRegenerate
-      })
-      
-      // The backend returns the shopping list directly with an 'items' array
-      const shoppingData = response.data
-      setShoppingListData(shoppingData)
-      setCurrentShoppingPlanId(planId)
-      onShoppingOpen()
+      try {
+        const response = await api.post(`/meal-planning/plans/${planId}/shopping-list`, {
+          force_regenerate: forceRegenerate
+        })
+        
+        // The backend returns the shopping list directly with an 'items' array
+        const shoppingData = response.data
+        setShoppingListData(shoppingData)
+        setCurrentShoppingPlanId(planId)
+        onShoppingOpen()
+      } catch (error: any) {
+        console.error('Error generating shopping list:', error)
+        toast({
+          title: 'Error Generating Shopping List',
+          description: error.response?.data?.detail || 'Failed to generate shopping list. The meal plan may no longer exist.',
+          status: 'error',
+          duration: 5000,
+          isClosable: true
+        })
+        return
+      }
       
       toast({
         title: forceRegenerate ? 'Shopping List Regenerated' : 'Shopping List Generated',
-        description: `Your shopping list has been ${forceRegenerate ? 'regenerated' : 'created'} with ${shoppingData.items?.length || 0} items. Total estimated cost: $${shoppingData.total_estimated_cost || 0}`,
+        description: `Your shopping list has been ${forceRegenerate ? 'regenerated' : 'created'} with ${shoppingListData?.items?.length || 0} items. Total estimated cost: $${shoppingListData?.total_estimated_cost || 0}`,
         status: 'success',
         duration: 3000,
         isClosable: true

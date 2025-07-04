@@ -342,6 +342,46 @@ class FoodService:
         except Exception as e:
             logger.error(f"Error getting user food index: {e}")
             return []
+    
+    async def get_foods(self, limit: int, skip: int, sort_by: str, sort_order: str, user_id: str = None) -> List[FoodItemResponse]:
+        """Get paginated and sorted list of food items"""
+        self._check_database_available()
+        
+        try:
+            # Build query
+            query = {}
+            if user_id:
+                # Include both general foods and user's personal foods
+                query = {"$or": [{"user_id": user_id}, {"user_id": None}]}
+            
+            # Determine sort direction
+            sort_direction = 1 if sort_order == "asc" else -1
+            
+            # Execute query with sorting and pagination
+            cursor = self.food_collection.find(query).sort(sort_by, sort_direction).skip(skip).limit(limit)
+            
+            # Convert to list of food items
+            food_items = []
+            # Check if we're using motor (async) or pymongo (sync)
+            if hasattr(cursor, 'to_list'):
+                # Using motor/async
+                docs = await cursor.to_list(length=limit)
+                for doc in docs:
+                    # Convert MongoDB _id to string
+                    doc["_id"] = str(doc["_id"])
+                    food_items.append(FoodItemResponse(**doc))
+            else:
+                # Using pymongo/sync
+                for doc in cursor:
+                    # Convert MongoDB _id to string
+                    doc["_id"] = str(doc["_id"])
+                    food_items.append(FoodItemResponse(**doc))
+            
+            return food_items
+        
+        except Exception as e:
+            logger.error(f"Error retrieving foods: {str(e)}")
+            return []
 
 # Global food service instance
 food_service = FoodService()
