@@ -80,42 +80,7 @@ async def seed_sample_foods():
     return {"message": "Sample foods seeded successfully"}
 
 
-@router.get("/", response_model=List[FoodItemResponse])
-async def list_foods(
-    limit: int = Query(10, ge=1, le=100),
-    skip: int = Query(0, ge=0),
-    filter_query: str = Query("", description="Optional filter query"),
-    sort_by: str = Query("name", description="Field to sort by: name, calories, protein"),
-    sort_order: str = Query("asc", description="Sort order: asc or desc"),
-    current_user: UserResponse = Depends(get_current_user)
-):
-    """List all food items with pagination, filtering, and sorting"""
-    try:
-        if filter_query.strip():
-            # Use search if filter query is provided
-            search_params = FoodSearch(query=filter_query, limit=limit, skip=skip)
-            results = await food_service.search_food_items(search_params, current_user.uid)
-            # Apply sorting to search results
-            if sort_by in ['name', 'calories', 'protein']:
-                reverse = sort_order.lower() == 'desc'
-                if sort_by == 'name':
-                    results.sort(key=lambda x: x.name.lower(), reverse=reverse)
-                elif sort_by == 'calories':
-                    results.sort(key=lambda x: x.nutrition.calories, reverse=reverse)
-                elif sort_by == 'protein':
-                    results.sort(key=lambda x: x.nutrition.protein, reverse=reverse)
-        else:
-            # List all foods with pagination and sorting
-            results = await food_service.list_food_items(
-                user_id=current_user.uid,
-                limit=limit, 
-                skip=skip, 
-                sort_by=sort_by, 
-                sort_order=sort_order
-            )
-        return results
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+# Removed duplicate endpoint - this functionality is now provided by the get_foods endpoint below
 
 
 @router.get("/recommendations/recent")
@@ -160,12 +125,30 @@ async def get_food_suggestions_combined(
 async def get_foods(
     limit: int = Query(20, ge=1, le=100, description="Number of items to return"),
     skip: int = Query(0, ge=0, description="Number of items to skip"),
+    filter_query: str = Query("", description="Optional filter query"),
     sort_by: str = Query("name", description="Field to sort by"),
     sort_order: str = Query("asc", description="Sort order (asc or desc)"),
     current_user: UserResponse = Depends(get_current_user)
 ):
     """Get paginated and sorted list of food items"""
     try:
+        # If filter query is provided, use search functionality
+        if filter_query.strip():
+            search_params = FoodSearch(query=filter_query, limit=limit, skip=skip)
+            results = await food_service.search_food_items(search_params, current_user.uid)
+            
+            # Apply sorting to search results
+            reverse = sort_order.lower() == 'desc'
+            if sort_by == 'name':
+                results.sort(key=lambda x: x.name.lower(), reverse=reverse)
+            elif sort_by == 'calories':
+                results.sort(key=lambda x: x.nutrition.calories if x.nutrition else 0, reverse=reverse)
+            elif sort_by == 'protein':
+                results.sort(key=lambda x: x.nutrition.protein if x.nutrition else 0, reverse=reverse)
+                
+            return results
+        
+        # Otherwise, use regular food listing with pagination and sorting
         # Validate sort parameters
         valid_sort_fields = ["name", "calories", "protein", "carbs", "fat", "date_added"]
         valid_sort_orders = ["asc", "desc"]
