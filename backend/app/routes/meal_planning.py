@@ -723,6 +723,7 @@ class ShoppingListItemUpdateRequest(BaseModel):
     is_checked: Optional[bool] = None
     amount: Optional[float] = None
     notes: Optional[str] = None
+    # No item_id required as it's provided in the URL path
 
 @router.put("/shopping-lists/{shopping_list_id}")
 async def update_shopping_list(

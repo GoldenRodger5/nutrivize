@@ -101,24 +101,42 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   useEffect(() => {
     // On first load, try to restore from storage but validate token
     if (!hasCheckedAuth) {
+      // Check if we're on Render production deployment
+      const isProduction = window.location.hostname.includes('render.com') || 
+                           window.location.hostname.includes('nutrivize') ||
+                           !window.location.hostname.includes('localhost');
+      
       // Try to get token from storage
       const storedToken = localStorage.getItem('authToken') || sessionStorage.getItem('authToken')
       const tokenExpiry = localStorage.getItem('authTokenExpiry') || sessionStorage.getItem('authTokenExpiry')
       
-      // If we have a token, validate it with the server before accepting
-      if (storedToken && tokenExpiry && parseInt(tokenExpiry) > Date.now()) {
+      // Add extra buffer time to token expiration (10 minutes) for production environments
+      const expiryBuffer = isProduction ? 10 * 60 * 1000 : 0; 
+      const isExpired = !tokenExpiry || parseInt(tokenExpiry) < (Date.now() + expiryBuffer);
+      
+      // If we have a token that's not expired, validate it with the server before accepting
+      if (storedToken && !isExpired) {
+        console.log('Found stored token, validating with server...');
+        
         // Set the token temporarily
         api.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`
         
         // Try to validate with the server
         api.get('/auth/me')
           .then(response => {
-            // Token is valid, set user
-            setUser(response.data)
+            // Only set user if we're not in production or if explicitly allowed
+            if (!isProduction || window.sessionStorage.getItem('allow-auto-login') === 'true') {
+              console.log('Token validated successfully');
+              setUser(response.data)
+            } else {
+              // For production, always require explicit login
+              console.log('Requiring explicit login on production deployment');
+              clearAuthTokens()
+            }
           })
           .catch(error => {
             // Token is invalid, clear all tokens
-            console.log('Stored token is invalid, clearing', error)
+            console.log('Stored token is invalid or server validation failed, clearing', error)
             clearAuthTokens()
           })
           .finally(() => {
@@ -127,6 +145,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           })
       } else {
         // No token or expired token
+        console.log('No valid token found or token expired')
         clearAuthTokens() // Clear any expired tokens
         setHasCheckedAuth(true)
         setLoading(false)
@@ -184,6 +203,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     setLoading(true)
     try {
       await signInWithEmailAndPassword(auth, email, password)
+      
+      // Mark this as an explicit login to allow auto-login on Render
+      // This flag will be cleared on page refresh/browser close
+      window.sessionStorage.setItem('allow-auto-login', 'true')
     } catch (error) {
       setLoading(false)
       throw error
@@ -225,6 +248,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     // Clear all tokens first
     clearAuthTokens()
     
+    // Remove explicit login flag
+    window.sessionStorage.removeItem('allow-auto-login')
+    
     // Then sign out from Firebase
     try {
       await signOut(auth)
@@ -236,8 +262,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     // Force clear user data
     setUser(null)
     
-    // Redirect to login page
-    window.location.href = '/login'
+    // Force clear additional storage items that might persist auth state
+    localStorage.removeItem('firebase:authUser')
+    sessionStorage.removeItem('firebase:authUser')
+    
+    // Force clear auth state in the API
+    delete api.defaults.headers.common['Authorization']
+    
+    // Redirect to login page with a fresh state
+    window.location.replace('/login')
   }
 
   const value = {
