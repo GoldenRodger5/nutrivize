@@ -1,0 +1,221 @@
+{
+  "suggestions": [
+    {
+      "name": "Overnight Protein-Packed Chia Parfait",
+      "description": "A creamy, satisfying breakfast that's ready to grab from the fridge - layers of chia pudding, Greek yogurt, and fresh berries",
+      "ingredients": [
+        {
+          "name": "chia seeds",
+          "amount": 25.0,
+          "unit": "g",
+          "calories": 122.0,
+          "protein": 4.0,
+          "carbs": 10.0,
+          "fat": 8.0
+        },
+        {
+          "name": "unsweetened almond milk",
+          "amount": 150.0,
+          "unit": "ml",
+          "calories": 24.0,
+          "protein": 1.0,
+          "carbs": 1.0,
+          "fat": 2.0
+        },
+        {
+          "name": "Greek yogurt (plain, non-fat)",
+          "amount": 120.0,
+          "unit": "g",
+          "calories": 70.0,
+          "protein": 15.0,
+          "carbs": 6.0,
+          "fat": 0.0
+        },
+        {
+          "name": "fresh blueberries",
+          "amount": 80.0,
+          "unit": "g",
+          "calories": 46.0,
+          "protein": 1.0,
+          "carbs": 12.0,
+          "fat": 0.0
+        },
+        {
+          "name": "honey",
+          "amount": 15.0,
+          "unit": "g",
+          "calories": 46.0,
+          "protein": 0.0,
+          "carbs": 12.0,
+          "fat": 0.0
+        },
+        {
+          "name": "vanilla extract",
+          "amount": 2.0,
+          "unit": "ml",
+          "calories": 2.0,
+          "protein": 0.0,
+          "carbs": 0.0,
+          "fat": 0.0
+        }
+      ],
+      "instructions": [
+        "Night before: Mix chia seeds, almond milk, honey, and vanilla in a jar. Stir well and refrigerate overnight",
+        "Morning: Layer the chia pudding with Greek yogurt and top with fresh blueberries",
+        "Grab and go - eat straight from the jar!"
+      ],
+      "prep_time": 2,
+      "nutrition": {
+        "calories": 310.0,
+        "protein": 21.0,
+        "carbs": 41.0,
+        "fat": 10.0
+      }
+    },
+    {
+      "name": "Microwave Veggie Scramble Muffin Cups",
+      "description": "Pre-made egg muffin cups loaded with vegetables that heat up in 30 seconds - perfect grab-and-go protein",
+      "ingredients": [
+        {
+          "name": "large eggs",
+          "amount": 100.0,
+          "unit": "g",
+          "calories": 155.0,
+          "protein": 13.0,
+          "carbs": 1.0,
+          "fat": 11.0
+        },
+        {
+          "name": "bell peppers (diced)",
+          "amount": 60.0,
+          "unit": "g",
+          "calories": 12.0,
+          "protein": 1.0,
+          "carbs": 3.0,
+          "fat": 0.0
+        },
+        {
+          "name": "spinach (fresh)",
+          "amount": 40.0,
+          "unit": "g",
+          "calories": 9.0,
+          "protein": 3.0,
+          "carbs": 1.0,
+          "fat": 0.0
+        },
+        {
+          "name": "cheddar cheese (shredded)",
+          "amount": 30.0,
+          "unit": "g",
+          "calories": 113.0,
+          "protein": 7.0,
+          "carbs": 1.0,
+          "fat": 9.0
+        },
+        {
+          "name": "whole wheat English muffin",
+          "amount": 57.0,
+          "unit": "g",
+          "calories": 127.0,
+          "protein": 5.0,
+          "carbs": 26.0,
+          "fat": 1.0
+        },
+        {
+          "name": "cooking spray",
+          "amount": 1.0,
+          "unit": "spray",
+          "calories": 2.0,
+          "protein": 0.0,
+          "carbs": 0.0,
+          "fat": 0.0
+        }
+      ],
+      "instructions": [
+        "Prep day: Whisk eggs, add diced peppers, spinach, and cheese. Pour into muffin tins and bake at 350\u00b0F for 18-20 minutes",
+        "Store in fridge for up to 5 days",
+        "Morning: Toast English muffin, microwave 2 egg cups for 30 seconds, and sandwich together"
+      ],
+      "prep_time": 1,
+      "nutrition": {
+        "calories": 418.0,
+        "protein": 29.0,
+        "carbs": 32.0,
+        "fat": 21.0
+      }
+    },
+    {
+      "name": "No-Cook Protein Power Bowl",
+      "description": "A refreshing, no-heat-required breakfast with cottage cheese, fruit, and granola that assembles in minutes",
+      "ingredients": [
+        {
+          "name": "cottage cheese (low-fat)",
+          "amount": 150.0,
+          "unit": "g",
+          "calories": 92.0,
+          "protein": 16.0,
+          "carbs": 5.0,
+          "fat": 1.0
+        },
+        {
+          "name": "banana (sliced)",
+          "amount": 100.0,
+          "unit": "g",
+          "calories": 89.0,
+          "protein": 1.0,
+          "carbs": 23.0,
+          "fat": 0.0
+        },
+        {
+          "name": "granola (low-sugar)",
+          "amount": 30.0,
+          "unit": "g",
+          "calories": 140.0,
+          "protein": 4.0,
+          "carbs": 18.0,
+          "fat": 6.0
+        },
+        {
+          "name": "fresh strawberries (sliced)",
+          "amount": 80.0,
+          "unit": "g",
+          "calories": 26.0,
+          "protein": 1.0,
+          "carbs": 6.0,
+          "fat": 0.0
+        },
+        {
+          "name": "ground cinnamon",
+          "amount": 1.0,
+          "unit": "g",
+          "calories": 3.0,
+          "protein": 0.0,
+          "carbs": 1.0,
+          "fat": 0.0
+        },
+        {
+          "name": "chia seeds",
+          "amount": 10.0,
+          "unit": "g",
+          "calories": 49.0,
+          "protein": 2.0,
+          "carbs": 4.0,
+          "fat": 3.0
+        }
+      ],
+      "instructions": [
+        "Add cottage cheese to a portable bowl or container",
+        "Top with sliced banana and strawberries",
+        "Sprinkle granola, chia seeds, and cinnamon on top",
+        "Eat immediately or pack in a container for easy transport"
+      ],
+      "prep_time": 3,
+      "nutrition": {
+        "calories": 399.0,
+        "protein": 24.0,
+        "carbs": 57.0,
+        "fat": 10.0
+      }
+    }
+  ]
+}

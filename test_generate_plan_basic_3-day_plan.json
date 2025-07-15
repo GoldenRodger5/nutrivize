@@ -1,0 +1,149 @@
+{
+  "user_id": "GME7nGpJQRc2v9T057vJ4oyqAJN2",
+  "plan_id": "30e0b01b-a511-487d-90c5-dfa8d758d312",
+  "version": 1,
+  "name": "Meal Plan - 2025-07-14",
+  "title": "Meal Plan - 2025-07-14",
+  "description": "",
+  "days": [
+    {
+      "day": 1,
+      "date": "2025-07-14",
+      "meals": [
+        {
+          "meal_type": "breakfast",
+          "food_name": "Oatmeal with berries",
+          "portion_size": "1 serving",
+          "calories": 300,
+          "protein": 8,
+          "carbs": 55,
+          "fat": 6,
+          "preparation_notes": "Follow standard recipe"
+        },
+        {
+          "meal_type": "lunch",
+          "food_name": "Quinoa salad with vegetables",
+          "portion_size": "1 serving",
+          "calories": 400,
+          "protein": 12,
+          "carbs": 55,
+          "fat": 14,
+          "preparation_notes": "Follow standard recipe"
+        },
+        {
+          "meal_type": "dinner",
+          "food_name": "Baked salmon with sweet potato",
+          "portion_size": "1 serving",
+          "calories": 520,
+          "protein": 35,
+          "carbs": 40,
+          "fat": 22,
+          "preparation_notes": "Follow standard recipe"
+        }
+      ],
+      "total_nutrition": {
+        "calories": 1220,
+        "protein": 55,
+        "carbs": 150,
+        "fat": 42
+      }
+    },
+    {
+      "day": 2,
+      "date": "2025-07-15",
+      "meals": [
+        {
+          "meal_type": "breakfast",
+          "food_name": "Greek yogurt with granola",
+          "portion_size": "1 serving",
+          "calories": 250,
+          "protein": 15,
+          "carbs": 30,
+          "fat": 8,
+          "preparation_notes": "Follow standard recipe"
+        },
+        {
+          "meal_type": "lunch",
+          "food_name": "Chicken wrap with vegetables",
+          "portion_size": "1 serving",
+          "calories": 450,
+          "protein": 25,
+          "carbs": 45,
+          "fat": 18,
+          "preparation_notes": "Follow standard recipe"
+        },
+        {
+          "meal_type": "dinner",
+          "food_name": "Vegetable stir-fry with tofu",
+          "portion_size": "1 serving",
+          "calories": 450,
+          "protein": 20,
+          "carbs": 35,
+          "fat": 25,
+          "preparation_notes": "Follow standard recipe"
+        }
+      ],
+      "total_nutrition": {
+        "calories": 1150,
+        "protein": 60,
+        "carbs": 110,
+        "fat": 51
+      }
+    },
+    {
+      "day": 3,
+      "date": "2025-07-16",
+      "meals": [
+        {
+          "meal_type": "breakfast",
+          "food_name": "Avocado toast",
+          "portion_size": "1 serving",
+          "calories": 280,
+          "protein": 8,
+          "carbs": 30,
+          "fat": 16,
+          "preparation_notes": "Follow standard recipe"
+        },
+        {
+          "meal_type": "lunch",
+          "food_name": "Lentil soup with bread",
+          "portion_size": "1 serving",
+          "calories": 380,
+          "protein": 18,
+          "carbs": 50,
+          "fat": 12,
+          "preparation_notes": "Follow standard recipe"
+        },
+        {
+          "meal_type": "dinner",
+          "food_name": "Pasta with marinara sauce",
+          "portion_size": "1 serving",
+          "calories": 480,
+          "protein": 15,
+          "carbs": 75,
+          "fat": 12,
+          "preparation_notes": "Follow standard recipe"
+        }
+      ],
+      "total_nutrition": {
+        "calories": 1140,
+        "protein": 41,
+        "carbs": 155,
+        "fat": 40
+      }
+    }
+  ],
+  "total_days": 3,
+  "dietary_restrictions": [],
+  "target_nutrition": {},
+  "created_at": "2025-07-14T13:24:46.902644+00:00",
+  "updated_at": "2025-07-14T13:24:46.902644+00:00",
+  "is_active": false,
+  "is_current_version": true,
+  "parent_version": null,
+  "tags": [],
+  "variety_score": "",
+  "goal_alignment": "",
+  "shopping_tips": "",
+  "_id": "6875051eae8e8d13f7ebc0c8"
+}

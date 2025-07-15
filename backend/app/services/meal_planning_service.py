@@ -110,6 +110,7 @@ class MealPlanningService:
                     "user_id": user_id,
                     "plan_id": plan_id,
                     "version": version,
+                    "type": meal_plan_data.get("type", "ai_generated"),  # Add type field to distinguish manual vs AI plans
                     "name": meal_plan_data.get("name", meal_plan_data.get("title", f"Meal Plan - {current_time.strftime('%Y-%m-%d')}")),
                     "title": meal_plan_data.get("title", meal_plan_data.get("name", f"Meal Plan - {current_time.strftime('%Y-%m-%d')}")),  # Preserve user title
                     "description": meal_plan_data.get("description", ""),
@@ -126,7 +127,11 @@ class MealPlanningService:
                     # Add additional fields from AI response
                     "variety_score": meal_plan_data.get("variety_score", ""),
                     "goal_alignment": meal_plan_data.get("goal_alignment", ""),
-                    "shopping_tips": meal_plan_data.get("shopping_tips", "")
+                    "shopping_tips": meal_plan_data.get("shopping_tips", ""),
+                    # Add manual meal plan specific fields
+                    "duration_days": meal_plan_data.get("duration_days", len(meal_plan_data.get("days", []))),
+                    "start_date": meal_plan_data.get("start_date"),
+                    "notes": meal_plan_data.get("notes", "")
                 }
                 print(f"DEBUG: Prepared meal plan document with {len(meal_plan)} fields")
             except Exception as prep_error:
@@ -206,6 +211,13 @@ class MealPlanningService:
             for plan in cursor:
                 plan["id"] = str(plan["_id"])
                 del plan["_id"]
+                
+                # Convert datetime objects to strings for JSON serialization
+                if "created_at" in plan and hasattr(plan["created_at"], "isoformat"):
+                    plan["created_at"] = plan["created_at"].isoformat()
+                if "updated_at" in plan and hasattr(plan["updated_at"], "isoformat"):
+                    plan["updated_at"] = plan["updated_at"].isoformat()
+                
                 meal_plans.append(plan)
             
             return meal_plans
@@ -243,6 +255,12 @@ class MealPlanningService:
             if plan:
                 plan["id"] = str(plan["_id"])
                 del plan["_id"]
+                
+                # Convert datetime objects to strings for JSON serialization
+                if "created_at" in plan and hasattr(plan["created_at"], "isoformat"):
+                    plan["created_at"] = plan["created_at"].isoformat()
+                if "updated_at" in plan and hasattr(plan["updated_at"], "isoformat"):
+                    plan["updated_at"] = plan["updated_at"].isoformat()
             
             return plan
             
@@ -465,7 +483,7 @@ Return ONLY valid JSON:
 }}"""
 
             response = client.messages.create(
-                model="claude-3-7-sonnet-20250219",
+                model="claude-sonnet-4-20250514",
                 max_tokens=2000,
                 messages=[{"role": "user", "content": prompt}]
             )
@@ -520,7 +538,7 @@ Return only JSON:
 {{"total_estimated_cost": 25.99, "pricing_notes": "Estimated based on typical grocery store prices"}}"""
 
             response = client.messages.create(
-                model="claude-3-7-sonnet-20250219",
+                model="claude-sonnet-4-20250514",
                 max_tokens=500,
                 messages=[{"role": "user", "content": prompt}]
             )

@@ -1,0 +1,197 @@
+{
+  "suggestions": [
+    {
+      "name": "Greek Yogurt Protein Bowl with Berries",
+      "description": "Creamy Greek yogurt topped with cottage cheese, fresh berries, and a drizzle of honey for optimal post-workout recovery",
+      "ingredients": [
+        {
+          "name": "Greek yogurt (plain, 0% fat)",
+          "amount": 150.0,
+          "unit": "g",
+          "calories": 90.0,
+          "protein": 15.0,
+          "carbs": 9.0,
+          "fat": 0.0
+        },
+        {
+          "name": "Cottage cheese (low-fat)",
+          "amount": 100.0,
+          "unit": "g",
+          "calories": 80.0,
+          "protein": 12.0,
+          "carbs": 4.0,
+          "fat": 1.0
+        },
+        {
+          "name": "Mixed berries (strawberries, blueberries)",
+          "amount": 100.0,
+          "unit": "g",
+          "calories": 50.0,
+          "protein": 1.0,
+          "carbs": 12.0,
+          "fat": 0.0
+        },
+        {
+          "name": "Honey",
+          "amount": 20.0,
+          "unit": "g",
+          "calories": 60.0,
+          "protein": 0.0,
+          "carbs": 16.0,
+          "fat": 0.0
+        },
+        {
+          "name": "Chia seeds",
+          "amount": 10.0,
+          "unit": "g",
+          "calories": 49.0,
+          "protein": 2.0,
+          "carbs": 4.0,
+          "fat": 3.0
+        }
+      ],
+      "instructions": [
+        "Layer Greek yogurt and cottage cheese in a bowl",
+        "Top with mixed berries",
+        "Drizzle honey over the top",
+        "Sprinkle chia seeds for extra protein and omega-3s",
+        "Serve immediately"
+      ],
+      "prep_time": 5,
+      "nutrition": {
+        "calories": 329.0,
+        "protein": 30.0,
+        "carbs": 45.0,
+        "fat": 4.0
+      }
+    },
+    {
+      "name": "Turkey and Hummus Wrap Bites",
+      "description": "Lean turkey wrapped in whole wheat tortilla with protein-rich hummus and fresh vegetables",
+      "ingredients": [
+        {
+          "name": "Whole wheat tortilla (small)",
+          "amount": 50.0,
+          "unit": "g",
+          "calories": 140.0,
+          "protein": 4.0,
+          "carbs": 24.0,
+          "fat": 3.0
+        },
+        {
+          "name": "Sliced turkey breast (low-sodium)",
+          "amount": 60.0,
+          "unit": "g",
+          "calories": 90.0,
+          "protein": 18.0,
+          "carbs": 0.0,
+          "fat": 2.0
+        },
+        {
+          "name": "Hummus",
+          "amount": 40.0,
+          "unit": "g",
+          "calories": 100.0,
+          "protein": 4.0,
+          "carbs": 8.0,
+          "fat": 6.0
+        },
+        {
+          "name": "Cucumber slices",
+          "amount": 30.0,
+          "unit": "g",
+          "calories": 5.0,
+          "protein": 0.0,
+          "carbs": 1.0,
+          "fat": 0.0
+        },
+        {
+          "name": "Baby spinach",
+          "amount": 20.0,
+          "unit": "g",
+          "calories": 5.0,
+          "protein": 1.0,
+          "carbs": 1.0,
+          "fat": 0.0
+        }
+      ],
+      "instructions": [
+        "Spread hummus evenly on the tortilla",
+        "Layer turkey slices, cucumber, and spinach",
+        "Roll tightly and slice into 6-8 bite-sized pieces",
+        "Arrange on a plate and serve"
+      ],
+      "prep_time": 8,
+      "nutrition": {
+        "calories": 340.0,
+        "protein": 27.0,
+        "carbs": 34.0,
+        "fat": 11.0
+      }
+    },
+    {
+      "name": "Chocolate Protein Smoothie Bowl",
+      "description": "Rich chocolate protein smoothie bowl with banana and seeds, perfect for satisfying post-workout cravings",
+      "ingredients": [
+        {
+          "name": "Chocolate protein powder (whey or plant-based)",
+          "amount": 30.0,
+          "unit": "g",
+          "calories": 120.0,
+          "protein": 24.0,
+          "carbs": 2.0,
+          "fat": 1.0
+        },
+        {
+          "name": "Banana (frozen)",
+          "amount": 100.0,
+          "unit": "g",
+          "calories": 89.0,
+          "protein": 1.0,
+          "carbs": 23.0,
+          "fat": 0.0
+        },
+        {
+          "name": "Unsweetened almond milk",
+          "amount": 200.0,
+          "unit": "ml",
+          "calories": 16.0,
+          "protein": 1.0,
+          "carbs": 1.0,
+          "fat": 1.0
+        },
+        {
+          "name": "Ground flaxseed",
+          "amount": 10.0,
+          "unit": "g",
+          "calories": 53.0,
+          "protein": 2.0,
+          "carbs": 3.0,
+          "fat": 4.0
+        },
+        {
+          "name": "Unsweetened cocoa powder",
+          "amount": 5.0,
+          "unit": "g",
+          "calories": 12.0,
+          "protein": 1.0,
+          "carbs": 3.0,
+          "fat": 1.0
+        }
+      ],
+      "instructions": [
+        "Blend protein powder, frozen banana, almond milk, and cocoa powder until smooth",
+        "Pour into a bowl with a thick consistency",
+        "Top with ground flaxseed",
+        "Serve immediately with a spoon"
+      ],
+      "prep_time": 5,
+      "nutrition": {
+        "calories": 290.0,
+        "protein": 29.0,
+        "carbs": 32.0,
+        "fat": 7.0
+      }
+    }
+  ]
+}

@@ -80,9 +80,6 @@ async def seed_sample_foods():
     return {"message": "Sample foods seeded successfully"}
 
 
-# Removed duplicate endpoint - this functionality is now provided by the get_foods endpoint below
-
-
 @router.get("/recommendations/recent")
 async def get_recent_foods(
     limit: int = Query(10, ge=1, le=20, description="Number of recent foods to return"),
@@ -165,13 +162,21 @@ async def get_foods(
         raise HTTPException(status_code=500, detail=f"Failed to retrieve foods: {str(e)}")
 
 
-@router.get("/user-index", response_model=List[dict])
-async def get_user_food_index(
+@router.get("/user-index", response_model=List[FoodItemResponse])
+async def get_user_foods_index(
     current_user: UserResponse = Depends(get_current_user)
 ):
-    """Get all foods from the user's personal food index"""
+    """Get all foods specific to a user for the food index"""
     try:
-        foods = await food_service.get_user_food_index(current_user.uid)
-        return foods
+        # Use the existing get_foods method with default pagination and sorting
+        # but ensure it only returns the user's foods (user_id is passed)
+        results = await food_service.get_foods(
+            limit=100, 
+            skip=0, 
+            sort_by="name", 
+            sort_order="asc", 
+            user_id=current_user.uid
+        )
+        return results
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to retrieve user food index: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve user foods: {str(e)}")

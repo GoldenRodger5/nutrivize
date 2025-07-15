@@ -31,8 +31,8 @@ import {
 } from '@chakra-ui/react'
 import api from '../utils/api'
 import { FoodItem } from '../types'
-import { SERVING_UNITS } from '../constants/servingUnits'
-import NumberInputField from './NumberInputField'
+import QuantityUnitInput from './QuantityUnitInput'
+import { calculateNutritionForQuantity } from '../utils/unitConversion'
 
 interface FoodLogModalProps {
   isOpen: boolean
@@ -51,6 +51,7 @@ export default function FoodLogModal({ isOpen, onClose, onSuccess }: FoodLogModa
   const [selectedUnit, setSelectedUnit] = useState('serving')
   const [mealType, setMealType] = useState('breakfast')
   const [loading, setLoading] = useState(false)
+  const [convertedNutrition, setConvertedNutrition] = useState<any>(null)
   const [foodIndexLoading, setFoodIndexLoading] = useState(false)
   const [searchLoading, setSearchLoading] = useState(false)
   const [popularLoading, setPopularLoading] = useState(false)
@@ -120,6 +121,34 @@ export default function FoodLogModal({ isOpen, onClose, onSuccess }: FoodLogModa
     }
   }
 
+  // Handle quantity/unit changes with real-time nutrition updates
+  const handleQuantityUnitChange = (newQuantity: number, newUnit: string) => {
+    setAmount(newQuantity)
+    setSelectedUnit(newUnit)
+    
+    if (selectedFood) {
+      // Calculate nutrition for the new quantity and unit
+      const baseNutrition = {
+        calories: selectedFood.nutrition?.calories || 0,
+        protein: selectedFood.nutrition?.protein || 0,
+        carbs: selectedFood.nutrition?.carbs || 0,
+        fat: selectedFood.nutrition?.fat || 0,
+        fiber: selectedFood.nutrition?.fiber || 0,
+        sugar: selectedFood.nutrition?.sugar || 0,
+        sodium: selectedFood.nutrition?.sodium || 0
+      }
+      
+      const nutrition = calculateNutritionForQuantity(
+        baseNutrition,
+        selectedFood.serving_size || 1,
+        selectedFood.serving_unit || 'serving',
+        newQuantity,
+        newUnit
+      )
+      setConvertedNutrition(nutrition)
+    }
+  }
+
   const searchFoods = async () => {
     setSearchLoading(true)
     try {
@@ -154,6 +183,17 @@ export default function FoodLogModal({ isOpen, onClose, onSuccess }: FoodLogModa
 
     setLoading(true)
     try {
+      // Use converted nutrition if available, otherwise calculate on the fly
+      const nutritionToLog = convertedNutrition || {
+        calories: (selectedFood.nutrition?.calories || 0) * amount,
+        protein: (selectedFood.nutrition?.protein || 0) * amount,
+        carbs: (selectedFood.nutrition?.carbs || 0) * amount,
+        fat: (selectedFood.nutrition?.fat || 0) * amount,
+        fiber: (selectedFood.nutrition?.fiber || 0) * amount,
+        sugar: (selectedFood.nutrition?.sugar || 0) * amount,
+        sodium: (selectedFood.nutrition?.sodium || 0) * amount
+      }
+
       await api.post('/food-logs/', {
         food_id: selectedFood.id,
         food_name: selectedFood.name,
@@ -161,7 +201,7 @@ export default function FoodLogModal({ isOpen, onClose, onSuccess }: FoodLogModa
         amount: amount,
         unit: selectedUnit,
         meal_type: mealType,
-        nutrition: selectedFood.nutrition
+        nutrition: nutritionToLog
       })
       
       toast({
@@ -178,6 +218,7 @@ export default function FoodLogModal({ isOpen, onClose, onSuccess }: FoodLogModa
       setSelectedUnit('serving')
       setSearchQuery('')
       setFoods([])
+      setConvertedNutrition(null)
       
       onSuccess?.()
       onClose()
@@ -199,7 +240,13 @@ export default function FoodLogModal({ isOpen, onClose, onSuccess }: FoodLogModa
     <Card
       variant={selectedFood?.id === food.id ? 'filled' : 'outline'}
       cursor="pointer"
-      onClick={onClick}
+      onClick={() => {
+        onClick()
+        // Reset to base nutrition when selecting a new food
+        setConvertedNutrition(null)
+        setAmount(1)
+        setSelectedUnit('serving')
+      }}
       _hover={{ bg: useColorModeValue('gray.50', 'gray.700'), transform: 'translateY(-1px)' }}
       transition="all 0.2s"
       size="sm"
@@ -406,54 +453,38 @@ export default function FoodLogModal({ isOpen, onClose, onSuccess }: FoodLogModa
                     <SimpleGrid columns={4} spacing={4}>
                       <VStack spacing={1}>
                         <Text fontSize="lg" fontWeight="bold" color="green.500">
-                          {selectedFood.nutrition?.calories || 0}
+                          {Math.round(convertedNutrition?.calories || selectedFood.nutrition?.calories || 0)}
                         </Text>
                         <Text fontSize="xs" color="gray.500">Calories</Text>
                       </VStack>
                       <VStack spacing={1}>
                         <Text fontSize="lg" fontWeight="bold" color="blue.500">
-                          {selectedFood.nutrition?.protein || 0}g
+                          {(convertedNutrition?.protein || selectedFood.nutrition?.protein || 0).toFixed(1)}g
                         </Text>
                         <Text fontSize="xs" color="gray.500">Protein</Text>
                       </VStack>
                       <VStack spacing={1}>
                         <Text fontSize="lg" fontWeight="bold" color="orange.500">
-                          {selectedFood.nutrition?.carbs || 0}g
+                          {(convertedNutrition?.carbs || selectedFood.nutrition?.carbs || 0).toFixed(1)}g
                         </Text>
                         <Text fontSize="xs" color="gray.500">Carbs</Text>
                       </VStack>
                       <VStack spacing={1}>
                         <Text fontSize="lg" fontWeight="bold" color="purple.500">
-                          {selectedFood.nutrition?.fat || 0}g
+                          {(convertedNutrition?.fat || selectedFood.nutrition?.fat || 0).toFixed(1)}g
                         </Text>
                         <Text fontSize="xs" color="gray.500">Fat</Text>
                       </VStack>
                     </SimpleGrid>
 
-                    <SimpleGrid columns={3} spacing={4}>
-                      <FormControl>
-                        <FormLabel fontSize="sm">Amount</FormLabel>
-                        <NumberInputField 
-                          value={amount} 
-                          onChange={(value) => setAmount(value)} 
-                          min={0.1} 
-                          step={0.1}
-                          allowDecimal={true}
-                          precision={2}
-                          placeholder="1.0"
-                        />
-                      </FormControl>
-
-                      <FormControl>
-                        <FormLabel fontSize="sm">Unit</FormLabel>
-                        <Select value={selectedUnit} onChange={(e) => setSelectedUnit(e.target.value)}>
-                          {SERVING_UNITS.map((unit) => (
-                            <option key={unit} value={unit}>
-                              {unit.charAt(0).toUpperCase() + unit.slice(1)}
-                            </option>
-                          ))}
-                        </Select>
-                      </FormControl>
+                    <SimpleGrid columns={2} spacing={4}>
+                      <QuantityUnitInput
+                        quantity={amount}
+                        unit={selectedUnit}
+                        onQuantityChange={(newQuantity) => handleQuantityUnitChange(newQuantity, selectedUnit)}
+                        onUnitChange={(newUnit) => handleQuantityUnitChange(amount, newUnit)}
+                        label="Quantity & Unit"
+                      />
 
                       <FormControl>
                         <FormLabel fontSize="sm">Meal</FormLabel>

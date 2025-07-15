@@ -49,11 +49,11 @@ function AppLayout() {
           path="/*"
           element={
             <ProtectedRoute>
-              <FoodIndexProvider>
-                <AppStateProvider>
+              <AppStateProvider>
+                <FoodIndexProvider>
                   <MainLayout />
-                </AppStateProvider>
-              </FoodIndexProvider>
+                </FoodIndexProvider>
+              </AppStateProvider>
             </ProtectedRoute>
           }
         />

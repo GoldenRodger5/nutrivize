@@ -25,16 +25,6 @@ router = APIRouter(prefix="/ai", tags=["ai"])
 # Custom dependency to ensure CORS headers are added to AI endpoint responses
 
 
-class MealPlanRequest(BaseModel):
-    name: str = "My Meal Plan"  # Add name field with default
-    duration: int = 7
-    meals_per_day: int = 3
-    budget: str = "moderate"
-    prep_time: str = "moderate"
-    variety: str = "high"
-    special_requests: str = ""
-
-
 class HealthInsightRequest(BaseModel):
     analysis_period: int = 30  # days
 
@@ -66,40 +56,6 @@ async def get_meal_suggestions(
         return suggestions
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Meal suggestion service error: {str(e)}")
-
-
-@router.post("/meal-plan")
-async def generate_meal_plan(
-    request: MealPlanRequest,
-    current_user: UserResponse = Depends(get_current_user),
-    _: None = Depends(ensure_cors_headers)
-) -> Dict[str, Any]:
-    """Generate comprehensive AI-powered meal plan"""
-    try:
-        plan_data = {
-            "name": request.name,  # Include the name
-            "duration": request.duration,
-            "meals_per_day": request.meals_per_day,
-            "budget": request.budget,
-            "prep_time": request.prep_time,
-            "variety": request.variety,
-            "special_requests": request.special_requests
-        }
-        
-        meal_plan = await unified_ai_service.generate_intelligent_meal_plan(
-            current_user.uid, 
-            plan_data
-        )
-        
-        # Remove any MongoDB-specific fields that might cause serialization issues
-        if "_id" in meal_plan:
-            del meal_plan["_id"]
-        
-        return meal_plan
-    except Exception as e:
-        print(f"Meal plan generation error for user {current_user.uid}: {str(e)}")
-        print(f"Plan data: {plan_data}")
-        raise HTTPException(status_code=500, detail=f"Meal plan generation error: {str(e)}")
 
 
 @router.post("/health-insights")

@@ -1,0 +1,333 @@
+{
+  "name": "Extended Plan",
+  "duration": "3 days",
+  "meals_per_day": 3,
+  "budget_preference": "high",
+  "prep_time_preference": "complex",
+  "variety_level": "high",
+  "special_focus": "high protein meals",
+  "daily_meals": {
+    "day_1": {
+      "breakfast": {
+        "name": "Sous Vide Egg Bites with Smoked Salmon & Caviar",
+        "ingredients": [
+          "6 large eggs",
+          "1/2 cup heavy cream",
+          "4 oz smoked salmon",
+          "2 tbsp cr\u00e8me fra\u00eeche",
+          "1 tbsp Ossetra caviar",
+          "2 tbsp fresh chives, chopped",
+          "1/4 cup Gruy\u00e8re cheese, grated"
+        ],
+        "portions": "Serves 1",
+        "prep_time": "45 minutes",
+        "cooking_method": "Sous vide at 172\u00b0F for 1 hour",
+        "protein_content": "42g"
+      },
+      "lunch": {
+        "name": "Seared Wagyu Beef Tenderloin with Quinoa Tabbouleh",
+        "ingredients": [
+          "8 oz Wagyu beef tenderloin",
+          "1 cup tri-color quinoa",
+          "1/2 cup fresh parsley, chopped",
+          "1/4 cup fresh mint, chopped",
+          "2 heirloom tomatoes, diced",
+          "1/4 cup extra virgin olive oil",
+          "2 tbsp lemon juice",
+          "1/4 cup pomegranate seeds"
+        ],
+        "portions": "Serves 1",
+        "prep_time": "35 minutes",
+        "cooking_method": "Pan-seared to medium-rare",
+        "protein_content": "55g"
+      },
+      "dinner": {
+        "name": "Miso-Glazed Chilean Sea Bass with Edamame Puree",
+        "ingredients": [
+          "8 oz Chilean sea bass fillet",
+          "3 tbsp white miso paste",
+          "2 tbsp mirin",
+          "1 tbsp sake",
+          "1 cup shelled edamame",
+          "2 tbsp coconut cream",
+          "1 tsp sesame oil",
+          "Microgreens for garnish"
+        ],
+        "portions": "Serves 1",
+        "prep_time": "40 minutes",
+        "cooking_method": "Broiled with miso glaze",
+        "protein_content": "48g"
+      }
+    },
+    "day_2": {
+      "breakfast": {
+        "name": "Protein-Packed Chia Pudding with Greek Yogurt & Berries",
+        "ingredients": [
+          "1/2 cup chia seeds",
+          "1 cup unsweetened almond milk",
+          "1 cup Greek yogurt (0% fat)",
+          "2 scoops vanilla protein powder",
+          "1/2 cup mixed organic berries",
+          "2 tbsp raw honey",
+          "1 tbsp coconut flakes"
+        ],
+        "portions": "Serves 1",
+        "prep_time": "15 minutes + overnight setting",
+        "cooking_method": "No cooking required",
+        "protein_content": "65g"
+      },
+      "lunch": {
+        "name": "Lobster & Prawn Salad with Avocado Mousse",
+        "ingredients": [
+          "6 oz cooked lobster meat",
+          "8 large prawns",
+          "2 ripe avocados",
+          "4 cups mixed baby greens",
+          "1/4 cup lime juice",
+          "2 tbsp olive oil",
+          "1 tbsp fresh dill",
+          "1/4 cup cucumber, diced"
+        ],
+        "portions": "Serves 1",
+        "prep_time": "30 minutes",
+        "cooking_method": "Poached prawns, whipped avocado mousse",
+        "protein_content": "52g"
+      },
+      "dinner": {
+        "name": "Herb-Crusted Rack of Lamb with Protein-Rich Lentil Ragout",
+        "ingredients": [
+          "8 oz rack of lamb (4 ribs)",
+          "1/4 cup fresh herbs (rosemary, thyme, parsley)",
+          "2 tbsp Dijon mustard",
+          "1/2 cup black beluga lentils",
+          "1/4 cup pancetta, diced",
+          "2 cups beef stock",
+          "2 tbsp truffle oil",
+          "1/4 cup red wine"
+        ],
+        "portions": "Serves 1",
+        "prep_time": "50 minutes",
+        "cooking_method": "Roasted lamb, slow-cooked lentils",
+        "protein_content": "58g"
+      }
+    },
+    "day_3": {
+      "breakfast": {
+        "name": "Smoked Trout Benedict with Cauliflower Hash",
+        "ingredients": [
+          "4 oz smoked trout",
+          "2 large eggs",
+          "2 English muffin halves",
+          "1/4 cup hollandaise sauce",
+          "2 cups cauliflower, riced",
+          "2 tbsp butter",
+          "1 tbsp capers",
+          "Fresh dill sprigs"
+        ],
+        "portions": "Serves 1",
+        "prep_time": "35 minutes",
+        "cooking_method": "Poached eggs, saut\u00e9ed cauliflower",
+        "protein_content": "45g"
+      },
+      "lunch": {
+        "name": "Sesame-Crusted Ahi Tuna with Quinoa Power Bowl",
+        "ingredients": [
+          "8 oz sashimi-grade ahi tuna",
+          "3 tbsp black sesame seeds",
+          "3 tbsp white sesame seeds",
+          "1 cup cooked quinoa",
+          "1/2 cup edamame",
+          "1/4 cup hemp hearts",
+          "2 tbsp tahini",
+          "1 tbsp rice vinegar",
+          "Wasabi microgreens"
+        ],
+        "portions": "Serves 1",
+        "prep_time": "25 minutes",
+        "cooking_method": "Seared tuna, assembled bowl",
+        "protein_content": "62g"
+      },
+      "dinner": {
+        "name": "Dry-Aged Ribeye with Bone Marrow & Protein Vegetables",
+        "ingredients": [
+          "10 oz dry-aged ribeye steak",
+          "2 pieces beef bone marrow",
+          "1 cup Brussels sprouts",
+          "1/2 cup green peas",
+          "2 tbsp compound butter",
+          "1 tbsp fresh thyme",
+          "2 tbsp aged balsamic vinegar",
+          "Flaky sea salt"
+        ],
+        "portions": "Serves 1",
+        "prep_time": "45 minutes",
+        "cooking_method": "Grilled steak, roasted marrow",
+        "protein_content": "72g"
+      }
+    }
+  },
+  "shopping_list": {
+    "proteins": [
+      "6 large eggs",
+      "4 oz smoked salmon",
+      "8 oz Wagyu beef tenderloin",
+      "8 oz Chilean sea bass fillet",
+      "6 oz cooked lobster meat",
+      "8 large prawns",
+      "8 oz rack of lamb",
+      "1/4 cup pancetta, diced",
+      "4 oz smoked trout",
+      "8 oz sashimi-grade ahi tuna",
+      "10 oz dry-aged ribeye steak",
+      "2 pieces beef bone marrow",
+      "1 cup Greek yogurt (0% fat)",
+      "2 scoops vanilla protein powder"
+    ],
+    "vegetables_herbs": [
+      "2 tbsp fresh chives",
+      "1/2 cup fresh parsley",
+      "1/4 cup fresh mint",
+      "2 heirloom tomatoes",
+      "1 cup shelled edamame",
+      "4 cups mixed baby greens",
+      "2 ripe avocados",
+      "1/4 cup cucumber",
+      "1/4 cup fresh herbs (rosemary, thyme, parsley)",
+      "2 cups cauliflower",
+      "1 cup Brussels sprouts",
+      "1/2 cup green peas",
+      "Fresh dill sprigs",
+      "Wasabi microgreens",
+      "Microgreens for garnish"
+    ],
+    "grains_seeds": [
+      "1 cup tri-color quinoa",
+      "1/2 cup chia seeds",
+      "1/2 cup black beluga lentils",
+      "1 cup cooked quinoa",
+      "1/4 cup hemp hearts",
+      "3 tbsp black sesame seeds",
+      "3 tbsp white sesame seeds",
+      "2 English muffin halves"
+    ],
+    "dairy_alternatives": [
+      "1/2 cup heavy cream",
+      "2 tbsp cr\u00e8me fra\u00eeche",
+      "1/4 cup Gruy\u00e8re cheese",
+      "1 cup unsweetened almond milk",
+      "2 tbsp coconut cream",
+      "1 tbsp coconut flakes",
+      "2 tbsp butter",
+      "1/4 cup hollandaise sauce",
+      "2 tbsp compound butter"
+    ],
+    "pantry_items": [
+      "1 tbsp Ossetra caviar",
+      "1/4 cup extra virgin olive oil",
+      "2 tbsp lemon juice",
+      "1/4 cup pomegranate seeds",
+      "3 tbsp white miso paste",
+      "2 tbsp mirin",
+      "1 tbsp sake",
+      "1 tsp sesame oil",
+      "2 tbsp raw honey",
+      "1/4 cup lime juice",
+      "2 tbsp olive oil",
+      "2 tbsp Dijon mustard",
+      "2 cups beef stock",
+      "2 tbsp truffle oil",
+      "1/4 cup red wine",
+      "1 tbsp capers",
+      "2 tbsp tahini",
+      "1 tbsp rice vinegar",
+      "2 tbsp aged balsamic vinegar",
+      "Flaky sea salt"
+    ],
+    "beverages": [
+      "1/2 cup mixed organic berries"
+    ]
+  },
+  "prep_instructions": {
+    "day_before": [
+      "Prepare chia pudding for Day 2 breakfast - combine chia seeds with almond milk and refrigerate overnight",
+      "Marinate Chilean sea bass in miso glaze for enhanced flavor",
+      "Prep quinoa tabbouleh vegetables (chop herbs, dice tomatoes)"
+    ],
+    "day_1_morning": [
+      "Start sous vide setup at 172\u00b0F",
+      "Prepare egg bite mixture and cook for 1 hour",
+      "Cook tri-color quinoa for lunch",
+      "Prepare miso glaze for sea bass"
+    ],
+    "day_1_afternoon": [
+      "Bring Wagyu beef to room temperature",
+      "Prepare quinoa tabbouleh salad",
+      "Steam edamame for dinner puree"
+    ],
+    "day_2_morning": [
+      "Finish chia pudding with Greek yogurt and protein powder",
+      "Poach prawns for lunch salad",
+      "Prepare avocado mousse"
+    ],
+    "day_2_afternoon": [
+      "Start lentil ragout (slow cooking required)",
+      "Prepare herb crust for lamb",
+      "Bring lamb to room temperature"
+    ],
+    "day_3_morning": [
+      "Prepare hollandaise sauce",
+      "Rice cauliflower for hash",
+      "Set up poaching water for eggs"
+    ],
+    "day_3_afternoon": [
+      "Prepare sesame seed crust for tuna",
+      "Cook quinoa for power bowl",
+      "Bring ribeye to room temperature"
+    ]
+  },
+  "nutritional_breakdown": {
+    "day_1": {
+      "total_calories": 1850,
+      "protein": "145g (31%)",
+      "carbohydrates": "85g (18%)",
+      "fat": "105g (51%)",
+      "fiber": "25g",
+      "sodium": "1200mg"
+    },
+    "day_2": {
+      "total_calories": 1920,
+      "protein": "175g (36%)",
+      "carbohydrates": "75g (16%)",
+      "fat": "100g (48%)",
+      "fiber": "35g",
+      "sodium": "1100mg"
+    },
+    "day_3": {
+      "total_calories": 2100,
+      "protein": "179g (34%)",
+      "carbohydrates": "95g (18%)",
+      "fat": "112g (48%)",
+      "fiber": "28g",
+      "sodium": "1300mg"
+    }
+  },
+  "goal_alignment_analysis": {
+    "protein_goals": "EXCELLENT - All meals exceed 40g protein, with daily totals ranging from 145-179g, perfect for muscle building and satiety",
+    "variety_achievement": "OUTSTANDING - 9 different protein sources across 3 days, including land, sea, and plant-based options with diverse cooking methods",
+    "complexity_level": "ADVANCED - Features sophisticated techniques like sous vide, miso glazing, herb crusting, and mousse preparations",
+    "budget_utilization": "PREMIUM - Incorporates luxury ingredients like Wagyu beef, caviar, lobster, Chilean sea bass, and dry-aged ribeye",
+    "allergen_compliance": "FULLY COMPLIANT - Zero nuts or nut-derived ingredients in any meal",
+    "nutritional_balance": "OPTIMAL - High protein maintained while ensuring adequate micronutrients from diverse vegetable sources"
+  },
+  "chef_tips": {
+    "protein_optimization": "Each meal strategically combines complete proteins with supporting amino acids from vegetables and grains",
+    "prep_efficiency": "Batch cook quinoa and prep vegetables in advance to reduce daily cooking time",
+    "quality_sourcing": "Invest in high-quality proteins from reputable suppliers for maximum nutritional benefit and flavor",
+    "cooking_techniques": "Master temperature control for proteins - use meat thermometer for consistent results"
+  },
+  "user_id": "GME7nGpJQRc2v9T057vJ4oyqAJN2",
+  "id": "4fa8be76-07c5-4f54-ace0-02b4d60b5fc4",
+  "created_at": "2025-07-14T12:50:54.150488",
+  "updated_at": "2025-07-14T12:50:54.150512",
+  "status": "active"
+}

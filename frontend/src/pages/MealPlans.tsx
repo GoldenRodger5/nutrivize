@@ -21,6 +21,7 @@ import {
   FormControl,
   FormLabel,
   Input,
+  Textarea,
   NumberInput,
   NumberInputField,
   NumberInputStepper,
@@ -129,6 +130,7 @@ interface MealPlanRequest {
   meal_types: string[]
   complexity_level?: string
   use_food_index_only?: boolean
+  special_requests?: string
 }
 
 const MealPlans: React.FC = () => {
@@ -166,7 +168,7 @@ const MealPlans: React.FC = () => {
   // Form state for creating new meal plan
   const [newPlanData, setNewPlanData] = useState<MealPlanRequest & { name: string; protein_percent: number; carbs_percent: number; fat_percent: number }>({
     name: '',
-    days: 7,
+    days: 3,
     dietary_restrictions: [],
     preferred_cuisines: [],
     calories_per_day: 2000,
@@ -179,7 +181,8 @@ const MealPlans: React.FC = () => {
     protein_percent: 30,
     carbs_percent: 40,
     fat_percent: 30,
-    use_food_index_only: false
+    use_food_index_only: false,
+    special_requests: ''
   })
 
   const { isOpen: isCreateOpen, onOpen: onCreateOpen, onClose: onCreateClose } = useDisclosure()
@@ -322,7 +325,7 @@ const MealPlans: React.FC = () => {
       // Reset form
       setNewPlanData({
         name: '',
-        days: 7,
+        days: 3,
         dietary_restrictions: [],
         preferred_cuisines: [],
         calories_per_day: 2000,
@@ -333,7 +336,8 @@ const MealPlans: React.FC = () => {
         meal_types: ['breakfast', 'lunch', 'dinner'],
         protein_percent: 30,
         carbs_percent: 40,
-        fat_percent: 30
+        fat_percent: 30,
+        special_requests: ''
       })
       
       onCreateClose()
@@ -1002,9 +1006,9 @@ const MealPlans: React.FC = () => {
                   <FormLabel>Number of Days</FormLabel>
                   <NumberInput
                     value={newPlanData.days}
-                    onChange={(_, num) => setNewPlanData({ ...newPlanData, days: num || 7 })}
+                    onChange={(_, num) => setNewPlanData({ ...newPlanData, days: num || 3 })}
                     min={1}
-                    max={30}
+                    max={5}
                   >
                     <NumberInputField />
                     <NumberInputStepper>
@@ -1140,6 +1144,20 @@ const MealPlans: React.FC = () => {
                   />
                   <FormHelperText>
                     This provides more realistic nutrition results using foods you've already logged.
+                  </FormHelperText>
+                </FormControl>
+
+                <FormControl>
+                  <FormLabel>Special Requests</FormLabel>
+                  <Textarea
+                    value={newPlanData.special_requests}
+                    onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNewPlanData({ ...newPlanData, special_requests: e.target.value })}
+                    placeholder="Any special dietary needs, cooking preferences, meal timing, or other custom requirements..."
+                    rows={4}
+                    resize="vertical"
+                  />
+                  <FormHelperText>
+                    Provide any custom instructions for your meal plan (e.g., meal prep friendly, specific cooking methods, equipment limitations, etc.)
                   </FormHelperText>
                 </FormControl>
 

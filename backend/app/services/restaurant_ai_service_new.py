@@ -384,7 +384,7 @@ Return ONLY the JSON object, no additional text."""
                 prompt, 
                 max_tokens=5000,  # Increased token limit for comprehensive analysis
                 temperature=0.1,  # Low temperature for consistent analysis
-                model="claude-3-haiku-20240307"  # Use Haiku for efficiency with large menus
+                model="claude-sonnet-4-20250514"  # Use Claude-4 Sonnet for efficiency with large menus
             )
             
             # Clean and parse the JSON response

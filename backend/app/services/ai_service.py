@@ -50,7 +50,7 @@ Guidelines:
             
             # Call Claude API with optimized settings
             response = self.client.messages.create(
-                model="claude-3-5-sonnet-20241022",  # Use faster model
+                model="claude-sonnet-4-20250514",  # Use faster model
                 max_tokens=2000,
                 system=system_prompt,
                 messages=messages,
@@ -177,7 +177,7 @@ Return valid JSON only (no additional text):
 {"suggestions":[{"name":"Creative and specific name","description":"Brief description highlighting unique aspects","ingredients":[{"name":"item","amount":100,"unit":"g","calories":50,"protein":5,"carbs":10,"fat":2}],"instructions":["step1","step2","step3"],"prep_time":15,"nutrition":{"calories":300,"protein":25,"carbs":30,"fat":10},"goal_alignment":"Brief note on goal support"}]}"""
             
             response = self.client.messages.create(
-                model="claude-3-5-sonnet-20241022",  # Use faster model
+                model="claude-sonnet-4-20250514",  # Use faster model
                 max_tokens=6000,  # Reduced for faster processing 
                 messages=[{"role": "user", "content": prompt}],
                 timeout=45.0  # Timeout for meal suggestions
@@ -258,6 +258,7 @@ Return valid JSON only (no additional text):
             complexity_level = meal_plan_data.get("complexity_level", "any")  # Add complexity level
             user_title = meal_plan_data.get("name", "")  # Get the user-provided title
             use_food_index_only = meal_plan_data.get("use_food_index_only", False)
+            special_requests = meal_plan_data.get("special_requests", "")  # Add special requests
             
             # Get enhanced user context
             enhanced_context = await self._get_enhanced_user_context(user_id) if user_id else {}
@@ -323,6 +324,8 @@ Return valid JSON only (no additional text):
             - Dietary restrictions: {', '.join(dietary_restrictions) if dietary_restrictions else 'None'}
             - Preferred cuisines: {', '.join(preferred_cuisines) if preferred_cuisines else 'Varied international'}
             - Foods to AVOID: {', '.join(exclude_foods) if exclude_foods else 'None'}
+            
+            SPECIAL REQUESTS: {special_requests if special_requests else 'None - follow standard meal planning guidelines'}
             
             MEAL COMPLEXITY LEVEL: {complexity_level.upper()}
             """
@@ -459,7 +462,7 @@ Return valid JSON only (no additional text):
             
             # Use AI service to generate meal plan with optimized settings
             response = self.client.messages.create(
-                model="claude-3-5-sonnet-20241022",  # Use faster model for better response times
+                model="claude-sonnet-4-20250514",  # Use faster model for better response times
                 max_tokens=6000,  # Reduced for faster processing
                 messages=[{"role": "user", "content": prompt}],
                 timeout=60.0  # Shorter timeout for individual API calls
@@ -540,7 +543,7 @@ Return valid JSON only (no additional text):
             
             # Generate suggestion
             response = self.client.messages.create(
-                model="claude-opus-4-20250514",
+                model="claude-sonnet-4-20250514",
                 max_tokens=3000,
                 messages=[{"role": "user", "content": prompt}]
             )
@@ -601,7 +604,7 @@ Return valid JSON only (no additional text):
             """
             
             response = self.client.messages.create(
-                model="claude-opus-4-20250514",
+                model="claude-sonnet-4-20250514",
                 max_tokens=4000,
                 messages=[{"role": "user", "content": prompt}]
             )
@@ -626,7 +629,7 @@ Return valid JSON only (no additional text):
         """Generate AI insights from a formatted prompt"""
         try:
             response = self.client.messages.create(
-                model="claude-opus-4-20250514",
+                model="claude-sonnet-4-20250514",
                 max_tokens=4000,
                 messages=[{"role": "user", "content": insights_prompt}]
             )
@@ -741,7 +744,7 @@ Return valid JSON only (no additional text):
             """
             
             response = self.client.messages.create(
-                model="claude-opus-4-20250514",
+                model="claude-sonnet-4-20250514",
                 max_tokens=8000,  # Increased for detailed comprehensive insights
                 messages=[{"role": "user", "content": prompt}]
             )
@@ -1141,7 +1144,7 @@ Return valid JSON only (no additional text):
             """
             
             response = self.client.messages.create(
-                model="claude-opus-4-20250514",
+                model="claude-sonnet-4-20250514",
                 max_tokens=4000,
                 messages=[{"role": "user", "content": prompt}]
             )
@@ -1231,7 +1234,7 @@ Return valid JSON only (no additional text):
                 raise Exception("Anthropic client not initialized - API key missing")
                 
             response = self.client.messages.create(
-                model="claude-opus-4-20250514",
+                model="claude-sonnet-4-20250514",
                 max_tokens=4000,
                 messages=[{"role": "user", "content": prompt}]
             )
@@ -1361,7 +1364,7 @@ Return ONLY the JSON object, no additional text."""
         """Generate food recommendations based on user preferences"""
         try:
             response = self.client.messages.create(
-                model="claude-3-5-sonnet-20241022",
+                model="claude-sonnet-4-20250514",
                 max_tokens=2000,
                 temperature=0.3,
                 messages=[{
@@ -1396,7 +1399,7 @@ Return ONLY the JSON object, no additional text."""
         """Generate suggestions for resolving dietary conflicts"""
         try:
             response = self.client.messages.create(
-                model="claude-3-5-sonnet-20241022",
+                model="claude-sonnet-4-20250514",
                 max_tokens=1000,
                 temperature=0.5,
                 messages=[{
@@ -1449,7 +1452,7 @@ Return ONLY the JSON object, no additional text."""
             """
             
             response = self.client.messages.create(
-                model="claude-3-5-sonnet-20241022",
+                model="claude-sonnet-4-20250514",
                 max_tokens=1500,
                 temperature=0.3,
                 messages=[{

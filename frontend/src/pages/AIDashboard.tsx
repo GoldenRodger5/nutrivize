@@ -111,12 +111,22 @@ const CollapsibleCard = ({
 }
 
 // Compact AI Health Coach Component
-const CompactAIHealthCoach = () => {
-  // ALL HOOKS MUST BE CALLED AT THE TOP
-  const { coaching, loading, error } = useAICoaching()
-  const isMobile = useBreakpointValue({ base: true, lg: false })
-  const bgColor = useColorModeValue('purple.50', 'purple.900')
-  const borderColor = useColorModeValue('purple.200', 'purple.700')
+const CompactAIHealthCoach = ({
+  coaching,
+  loading,
+  error,
+  isMobile,
+  bgColor,
+  borderColor
+}: {
+  coaching: any;
+  loading: boolean;
+  error: any;
+  isMobile: boolean | undefined;
+  bgColor: string;
+  borderColor: string;
+}) => {
+  // Removed hooks - now using props
 
   if (loading) return (
     isMobile ? (
@@ -208,12 +218,22 @@ const CompactAIHealthCoach = () => {
 }
 
 // Compact Nutrition Display
-const CompactNutritionDisplay = ({ onOpenDetailModal }: { 
+const CompactNutritionDisplay = ({ 
+  onOpenDetailModal,
+  nutrition,
+  loading,
+  error,
+  isMobile,
+  trackColor
+}: { 
   onOpenDetailModal: () => void;
+  nutrition: any;
+  loading: boolean;
+  error: any;
+  isMobile: boolean | undefined;
+  trackColor: string;
 }) => {
-  const { nutrition, loading, error } = useSmartNutrition()
-  const isMobile = useBreakpointValue({ base: true, lg: false })
-  const trackColor = useColorModeValue('gray.100', 'gray.700')
+  // Removed hooks - now using props
 
   const getNutritionColor = (percentage: number) => {
     if (percentage >= 80) return 'green'
@@ -363,14 +383,38 @@ const CompactNutritionDisplay = ({ onOpenDetailModal }: {
 }
 
 // Compact Health Score with Enhanced AI Insights
-const CompactHealthScore = () => {
-  // All hooks must be called at the top level
-  const { healthScore, loading: basicLoading, error: basicError } = useHealthScore()
-  const { enhancedHealthScore, loading: enhancedLoading, error: enhancedError } = useEnhancedHealthScore()
-  const isMobile = useBreakpointValue({ base: true, lg: false })
-  const { isOpen: isHealthDetailOpen, onOpen: onHealthDetailOpen, onClose: onHealthDetailClose } = useDisclosure()
-  const trackColor = useColorModeValue('gray.100', 'gray.700')
-  const scoreBreakdownBg = useColorModeValue('gray.50', 'gray.700')
+const CompactHealthScore = ({
+  healthScore,
+  enhancedHealthScore,
+  basicLoading,
+  enhancedLoading,
+  basicError,
+  enhancedError,
+  isMobile,
+  isHealthDetailOpen,
+  onHealthDetailOpen,
+  onHealthDetailClose,
+  trackColor,
+  scoreBreakdownBg,
+  redBg,
+  purpleBg
+}: {
+  healthScore: any;
+  enhancedHealthScore: any;
+  basicLoading: boolean;
+  enhancedLoading: boolean;
+  basicError: any;
+  enhancedError: any;
+  isMobile: boolean | undefined;
+  isHealthDetailOpen: boolean;
+  onHealthDetailOpen: () => void;
+  onHealthDetailClose: () => void;
+  trackColor: string;
+  scoreBreakdownBg: string;
+  redBg: string;
+  purpleBg: string;
+}) => {
+  // Removed hooks - now using props
 
   // Use enhanced data if available, fall back to basic data
   const scoreData = enhancedHealthScore || healthScore
@@ -539,7 +583,7 @@ const CompactHealthScore = () => {
               </Box>
               
               {/* How Score Is Calculated */}
-              <Box w="full" p={4} bg={useColorModeValue('gray.50', 'gray.800')} borderRadius="md">
+              <Box w="full" p={4} bg={scoreBreakdownBg} borderRadius="md">
                 <Heading size="sm" mb={3} color="blue.600">How Your Score Is Calculated</Heading>
                 <Text fontSize="sm">
                   Your Health Score is a comprehensive measurement based on your nutrition, activity, sleep, and other health data. 
@@ -573,7 +617,7 @@ const CompactHealthScore = () => {
               </VStack>
               
               {/* Improvement Areas */}
-              <Box w="full" p={4} bg={useColorModeValue('red.50', 'red.900')} borderRadius="md">
+              <Box w="full" p={4} bg={redBg} borderRadius="md">
                 <Heading size="sm" mb={3} color="red.600">Areas to Improve</Heading>
                 <VStack spacing={2} align="start">
                   {(scoreData as any).overall_score < 90 && (
@@ -599,7 +643,7 @@ const CompactHealthScore = () => {
               </Box>
               
               {/* AI-Powered Insights */}
-              <Box w="full" p={4} bg={useColorModeValue('purple.50', 'purple.900')} borderRadius="md">
+              <Box w="full" p={4} bg={purpleBg} borderRadius="md">
                 <Heading size="sm" mb={3} color="purple.600">AI-Powered Insights</Heading>
                 <Text fontSize="sm">
                   Based on your recent data patterns, our AI has identified that your nutrition balance has improved by 12%
@@ -635,10 +679,22 @@ const QuickActionsCard = ({
   handleScanFood, 
   handleMealPlan, 
   handleHealthReport, 
-  handleAskAI 
-}: any) => {
-  const isMobile = useBreakpointValue({ base: true, lg: false })
-  const { activity, loading: activityLoading, error: activityError } = useTodayActivity()
+  handleAskAI,
+  isMobile,
+  activity,
+  activityLoading,
+  activityError
+}: {
+  handleScanFood: () => void;
+  handleMealPlan: () => void;
+  handleHealthReport: () => void;
+  handleAskAI: () => void;
+  isMobile: boolean | undefined;
+  activity: any;
+  activityLoading: boolean;
+  activityError: any;
+}) => {
+  // Removed hooks - now using props
   
   const actions = [
     {
@@ -759,29 +815,38 @@ const QuickActionsCard = ({
 }
 
 // Progress Goals Component
-const ProgressGoalsCard = () => {
-  const isMobile = useBreakpointValue({ base: true, lg: false })
-  const { isOpen: isProgressDetailOpen, onOpen: onProgressDetailOpen, onClose: onProgressDetailClose } = useDisclosure()
-  
-  // ALL HOOKS MUST BE CALLED AT THE TOP - BEFORE ANY RETURNS
-  const { progressAnalytics, loading: progressLoading, error: progressError } = useProgressAnalytics()
-  const { nutrition } = useSmartNutrition()
-  
-  // Color mode values - defined at the top
-  // const grayBg = useColorModeValue('gray.50', 'gray.800')
-  // const redBg = useColorModeValue('red.50', 'red.900')
-  // const purpleBg = useColorModeValue('purple.50', 'purple.900')
-  // const blueBg = useColorModeValue('blue.50', 'blue.900')
-  // const grayBg2 = useColorModeValue('gray.50', 'gray.700')
-  // const greenBg = useColorModeValue('green.50', 'green.900')
-  // const whiteBg = useColorModeValue('white', 'gray.700')
-  // const cardBg = useColorModeValue('white', 'gray.800')
-  // const greenHeaderBg = useColorModeValue('green.50', 'green.900')
-  // const greenBorderColor = useColorModeValue('green.100', 'green.700')
-  // const greenIconBg = useColorModeValue('green.100', 'green.700')
-  // const purpleHeaderBg = useColorModeValue('purple.50', 'purple.900')
-  // const purpleBorderColor = useColorModeValue('purple.100', 'purple.700')
-  // const purpleIconBg = useColorModeValue('purple.100', 'purple.700')
+const ProgressGoalsCard = ({
+  isMobile,
+  isProgressDetailOpen,
+  onProgressDetailOpen,
+  onProgressDetailClose,
+  progressAnalytics,
+  progressLoading,
+  progressError,
+  nutrition,
+  grayBg,
+  grayBg2,
+  purpleBg,
+  blueBg,
+  greenBg,
+  whiteBg
+}: {
+  isMobile: boolean | undefined;
+  isProgressDetailOpen: boolean;
+  onProgressDetailOpen: () => void;
+  onProgressDetailClose: () => void;
+  progressAnalytics: any;
+  progressLoading: boolean;
+  progressError: any;
+  nutrition: any;
+  grayBg: string;
+  grayBg2: string;
+  purpleBg: string;
+  blueBg: string;
+  greenBg: string;
+  whiteBg: string;
+}) => {
+  // Removed hooks - now using props
 
   // Show loading state
   if (progressLoading) {
@@ -857,7 +922,7 @@ const ProgressGoalsCard = () => {
             </HStack>
           </HStack>
           
-          <Box w="full" bg={useColorModeValue('blue.50', 'blue.900')} p={isMobile ? 3 : 4} borderRadius="lg">
+          <Box w="full" bg={blueBg} p={isMobile ? 3 : 4} borderRadius="lg">
             <HStack justify="space-between" mb={2}>
               <VStack spacing={0} align="start">
                 <Text fontSize={isMobile ? "2xl" : "3xl"} fontWeight="bold" color="blue.600">
@@ -899,7 +964,7 @@ const ProgressGoalsCard = () => {
           </Box>
         </VStack>
       ) : (
-        <VStack spacing={3} align="center" p={4} bg={useColorModeValue('gray.50', 'gray.700')} borderRadius="lg">
+        <VStack spacing={3} align="center" p={4} bg={grayBg2} borderRadius="lg">
           <Text fontSize="sm" color="gray.500" textAlign="center">
             No weight goal data available
           </Text>
@@ -912,7 +977,7 @@ const ProgressGoalsCard = () => {
       {/* Enhanced Progress Metrics - Show if available */}
       {progressAnalytics && (
         <SimpleGrid columns={2} spacing={isMobile ? 2 : 4} w="full">
-          <Box p={3} bg={useColorModeValue('purple.50', 'purple.900')} borderRadius="md" textAlign="center">
+          <Box p={3} bg={purpleBg} borderRadius="md" textAlign="center">
             <Text fontSize="xs" color="purple.600" fontWeight="medium">Achievement Rate</Text>
             <CircularProgress 
               value={progressAnalytics.achievement_rate} 
@@ -925,7 +990,7 @@ const ProgressGoalsCard = () => {
               </CircularProgressLabel>
             </CircularProgress>
           </Box>
-          <Box p={3} bg={useColorModeValue('green.50', 'green.900')} borderRadius="md" textAlign="center">
+          <Box p={3} bg={greenBg} borderRadius="md" textAlign="center">
             <Text fontSize="xs" color="green.600" fontWeight="medium">Consistency Score</Text>
             <CircularProgress 
               value={progressAnalytics.consistency_score} 
@@ -950,7 +1015,7 @@ const ProgressGoalsCard = () => {
           
           <SimpleGrid columns={1} spacing={isMobile ? 2 : 3} w="full">
             {/* Calories */}
-            <HStack justify="space-between" p={3} bg={useColorModeValue('gray.50', 'gray.700')} borderRadius="md">
+            <HStack justify="space-between" p={3} bg={grayBg2} borderRadius="md">
               <HStack>
                 <Text fontSize={isMobile ? "md" : "lg"}>🔥</Text>
                 <VStack align="start" spacing={0}>
@@ -973,7 +1038,7 @@ const ProgressGoalsCard = () => {
             </HStack>
 
             {/* Water */}
-            <HStack justify="space-between" p={3} bg={useColorModeValue('gray.50', 'gray.700')} borderRadius="md">
+            <HStack justify="space-between" p={3} bg={grayBg2} borderRadius="md">
               <HStack>
                 <Text fontSize={isMobile ? "md" : "lg"}>💧</Text>
                 <VStack align="start" spacing={0}>
@@ -996,7 +1061,7 @@ const ProgressGoalsCard = () => {
             </HStack>
 
             {/* Protein Goal */}
-            <HStack justify="space-between" p={3} bg={useColorModeValue('gray.50', 'gray.700')} borderRadius="md">
+            <HStack justify="space-between" p={3} bg={grayBg2} borderRadius="md">
               <HStack>
                 <Text fontSize={isMobile ? "md" : "lg"}>💪</Text>
                 <VStack align="start" spacing={0}>
@@ -1020,7 +1085,7 @@ const ProgressGoalsCard = () => {
           </SimpleGrid>
         </VStack>
       ) : (
-        <VStack spacing={3} align="center" p={4} bg={useColorModeValue('gray.50', 'gray.700')} borderRadius="lg">
+        <VStack spacing={3} align="center" p={4} bg={grayBg2} borderRadius="lg">
           <Text fontSize="sm" color="gray.500" textAlign="center">
             No daily nutrition goals available
           </Text>
@@ -1213,10 +1278,10 @@ const ProgressGoalsCard = () => {
                 {progressAnalytics?.ai_insights?.milestone_projections && (
                   <Box w="full">
                     <Text fontSize="md" fontWeight="bold" mb={3}>Milestone Timeline</Text>
-                    <Box p={4} borderWidth="1px" borderRadius="md" bg={useColorModeValue('gray.50', 'gray.800')}>
+                    <Box p={4} borderWidth="1px" borderRadius="md" bg={grayBg}>
                       <VStack spacing={3} align="stretch">
                         {progressAnalytics.ai_insights.milestone_projections.map((milestone: { milestone: string; estimated_date: string }, index: number) => (
-                          <HStack key={index} justify="space-between" p={2} bg={useColorModeValue('white', 'gray.700')} borderRadius="md" boxShadow="sm">
+                          <HStack key={index} justify="space-between" p={2} bg={whiteBg} borderRadius="md" boxShadow="sm">
                             <Box fontSize="sm" fontWeight="medium" flex="1">
                               <AIResponseFormatter 
                                 content={milestone.milestone}
@@ -1288,13 +1353,30 @@ const ProgressGoalsCard = () => {
 }
 
 // Quick Logging Buttons Component - Outside of Today's Nutrition
-const QuickLoggingButtons = () => {
-  const isMobile = useBreakpointValue({ base: true, lg: false })
-  
-  // Modal states
-  const { isOpen: isWaterModalOpen, onOpen: onWaterModalOpen, onClose: onWaterModalClose } = useDisclosure()
-  const { isOpen: isWeightModalOpen, onOpen: onWeightModalOpen, onClose: onWeightModalClose } = useDisclosure()
-  const { isOpen: isFoodModalOpen, onOpen: onFoodModalOpen, onClose: onFoodModalClose } = useDisclosure()
+const QuickLoggingButtons = ({
+  isMobile,
+  isWaterModalOpen,
+  onWaterModalOpen,
+  onWaterModalClose,
+  isWeightModalOpen,
+  onWeightModalOpen,
+  onWeightModalClose,
+  isFoodModalOpen,
+  onFoodModalOpen,
+  onFoodModalClose
+}: {
+  isMobile: boolean | undefined;
+  isWaterModalOpen: boolean;
+  onWaterModalOpen: () => void;
+  onWaterModalClose: () => void;
+  isWeightModalOpen: boolean;
+  onWeightModalOpen: () => void;
+  onWeightModalClose: () => void;
+  isFoodModalOpen: boolean;
+  onFoodModalOpen: () => void;
+  onFoodModalClose: () => void;
+}) => {
+  // Removed hooks - now using props
 
   const handleLogFood = () => {
     onWaterModalClose()
@@ -1382,10 +1464,69 @@ const QuickLoggingButtons = () => {
 
 // Main AI Dashboard
 export default function AIDashboard() {
+  // ALL HOOKS MUST BE CALLED AT THE TOP LEVEL - BEFORE ANY RETURNS OR CONDITIONAL LOGIC
   const [loading, setLoading] = useState(true)
   const [isNutritionDetailModalOpen, setIsNutritionDetailModalOpen] = useState(false)
   const navigate = useNavigate()
   const isMobile = useBreakpointValue({ base: true, md: false })
+
+  // Move hooks from child components to ensure consistent hook order
+  const { nutrition: nutritionData, loading: nutritionLoading, error: nutritionError } = useSmartNutrition()
+  const nutritionTrackColor = useColorModeValue('gray.100', 'gray.700')
+
+  // Move hooks from CompactHealthScore to parent
+  const { healthScore, loading: basicLoading, error: basicError } = useHealthScore()
+  const { enhancedHealthScore, loading: enhancedLoading, error: enhancedError } = useEnhancedHealthScore()
+  const { isOpen: isHealthDetailOpen, onOpen: onHealthDetailOpen, onClose: onHealthDetailClose } = useDisclosure()
+  const healthTrackColor = useColorModeValue('gray.100', 'gray.700')
+  const scoreBreakdownBg = useColorModeValue('gray.50', 'gray.700')
+  const healthRedBg = useColorModeValue('red.50', 'red.900')
+  const healthPurpleBg = useColorModeValue('purple.50', 'purple.900')
+
+  // Move hooks from CompactAIHealthCoach to parent
+  const { coaching, loading: coachingLoading, error: coachingError } = useAICoaching()
+  const coachingBgColor = useColorModeValue('purple.50', 'purple.900')
+  const coachingBorderColor = useColorModeValue('purple.200', 'purple.700')
+
+  // Move hooks from QuickLoggingButtons to parent
+  const { isOpen: isWaterModalOpen, onOpen: onWaterModalOpen, onClose: onWaterModalClose } = useDisclosure()
+  const { isOpen: isWeightModalOpen, onOpen: onWeightModalOpen, onClose: onWeightModalClose } = useDisclosure()
+  const { isOpen: isFoodModalOpen, onOpen: onFoodModalOpen, onClose: onFoodModalClose } = useDisclosure()
+
+  // Move hooks from QuickActionsCard to parent
+  const { activity, loading: activityLoading, error: activityError } = useTodayActivity()
+
+  // Move hooks from ProgressGoalsCard to parent
+  const { isOpen: isProgressDetailOpen, onOpen: onProgressDetailOpen, onClose: onProgressDetailClose } = useDisclosure()
+  const { progressAnalytics, loading: progressLoading, error: progressError } = useProgressAnalytics()
+
+  // ProgressGoalsCard color mode values - moved to parent
+  const progressGrayBg = useColorModeValue('gray.50', 'gray.800')
+  const progressGrayBg2 = useColorModeValue('gray.50', 'gray.700')
+  const progressPurpleBg = useColorModeValue('purple.50', 'purple.900')
+  const progressBlueBg = useColorModeValue('blue.50', 'blue.900')
+  const progressGreenBg = useColorModeValue('green.50', 'green.900')
+  const progressWhiteBg = useColorModeValue('white', 'gray.700')
+
+  // Predefine all useColorModeValue hooks to avoid hook order issues in conditional rendering
+  const cardBg = useColorModeValue('white', 'gray.800')
+  const cardBorderColor = useColorModeValue('gray.200', 'gray.700')
+  const greenHeaderBg = useColorModeValue('green.50', 'green.900')
+  const greenBorderColor = useColorModeValue('green.100', 'green.700')
+  const greenIconBg = useColorModeValue('green.100', 'green.700')
+  const greenTextColor = useColorModeValue('green.600', 'green.200')
+  const purpleHeaderBg = useColorModeValue('purple.50', 'purple.900')
+  const purpleBorderColor = useColorModeValue('purple.100', 'purple.700')
+  const purpleIconBg = useColorModeValue('purple.100', 'purple.700')
+  const purpleTextColor = useColorModeValue('purple.600', 'purple.200')
+  const blueHeaderBg = useColorModeValue('blue.50', 'blue.900')
+  const blueBorderColor = useColorModeValue('blue.100', 'blue.700')
+  const blueIconBg = useColorModeValue('blue.100', 'blue.700')
+  const blueTextColor = useColorModeValue('blue.600', 'blue.200')
+  const redHeaderBg = useColorModeValue('red.50', 'red.900')
+  const redBorderColor = useColorModeValue('red.100', 'red.700')
+  const redIconBg = useColorModeValue('red.100', 'red.700')
+  const redTextColor = useColorModeValue('red.600', 'red.200')
 
   // Quick action handlers
   const handleScanFood = () => {
@@ -1501,46 +1642,71 @@ export default function AIDashboard() {
                   {/* Today's Nutrition - First thing user sees */}
                   <Box w="full">
                     <Card 
-                      bg={useColorModeValue('white', 'gray.800')}
+                      bg={cardBg}
                       borderWidth={1}
                       borderRadius="xl"
                       boxShadow="md"
                     >
-                      <CardHeader pb={3} bg={useColorModeValue('green.50', 'green.900')} borderBottom="1px" borderColor={useColorModeValue('green.100', 'green.700')}>
+                      <CardHeader pb={3} bg={greenHeaderBg} borderBottom="1px" borderColor={greenBorderColor}>
                         <HStack spacing={3}>
-                          <Box w={8} h={8} borderRadius="full" bg={useColorModeValue('green.100', 'green.700')} display="flex" alignItems="center" justifyContent="center">
-                            <Icon as={FiTarget} color={useColorModeValue('green.600', 'green.200')} w={5} h={5} />
+                          <Box w={8} h={8} borderRadius="full" bg={greenIconBg} display="flex" alignItems="center" justifyContent="center">
+                            <Icon as={FiTarget} color={greenTextColor} w={5} h={5} />
                           </Box>
-                          <Heading size="sm" color={useColorModeValue('green.600', 'green.200')}>Today's Nutrition</Heading>
+                          <Heading size="sm" color={greenTextColor}>Today's Nutrition</Heading>
                         </HStack>
                       </CardHeader>
                       <CardBody>
-                        <CompactNutritionDisplay onOpenDetailModal={() => setIsNutritionDetailModalOpen(true)} />
+                        <CompactNutritionDisplay 
+                          onOpenDetailModal={() => setIsNutritionDetailModalOpen(true)}
+                          nutrition={nutritionData}
+                          loading={nutritionLoading}
+                          error={nutritionError}
+                          isMobile={isMobile}
+                          trackColor={nutritionTrackColor}
+                        />
                       </CardBody>
                     </Card>
                   </Box>
                   
                   {/* Quick Logging Buttons - Outside of nutrition component */}
-                  <QuickLoggingButtons />
+                  <QuickLoggingButtons
+                    isMobile={isMobile}
+                    isWaterModalOpen={isWaterModalOpen}
+                    onWaterModalOpen={onWaterModalOpen}
+                    onWaterModalClose={onWaterModalClose}
+                    isWeightModalOpen={isWeightModalOpen}
+                    onWeightModalOpen={onWeightModalOpen}
+                    onWeightModalClose={onWeightModalClose}
+                    isFoodModalOpen={isFoodModalOpen}
+                    onFoodModalOpen={onFoodModalOpen}
+                    onFoodModalClose={onFoodModalClose}
+                  />
                   
                   {/* AI Health Coach - Full Component */}
                   <Box w="full">
                     <Card 
-                      bg={useColorModeValue('white', 'gray.800')}
+                      bg={cardBg}
                       borderWidth={1}
                       borderRadius="xl"
                       boxShadow="md"
                     >
-                      <CardHeader pb={3} bg={useColorModeValue('purple.50', 'purple.900')} borderBottom="1px" borderColor={useColorModeValue('purple.100', 'purple.700')}>
+                      <CardHeader pb={3} bg={purpleHeaderBg} borderBottom="1px" borderColor={purpleBorderColor}>
                         <HStack spacing={3}>
-                          <Box w={8} h={8} borderRadius="full" bg={useColorModeValue('purple.100', 'purple.700')} display="flex" alignItems="center" justifyContent="center">
-                            <Icon as={FiActivity} color={useColorModeValue('purple.600', 'purple.200')} w={5} h={5} />
+                          <Box w={8} h={8} borderRadius="full" bg={purpleIconBg} display="flex" alignItems="center" justifyContent="center">
+                            <Icon as={FiActivity} color={purpleTextColor} w={5} h={5} />
                           </Box>
-                          <Heading size="sm" color={useColorModeValue('purple.600', 'purple.200')}>AI Health Coach</Heading>
+                          <Heading size="sm" color={purpleTextColor}>AI Health Coach</Heading>
                         </HStack>
                       </CardHeader>
                       <CardBody>
-                        <CompactAIHealthCoach />
+                        <CompactAIHealthCoach 
+                          coaching={coaching}
+                          loading={coachingLoading}
+                          error={coachingError}
+                          isMobile={isMobile}
+                          bgColor={coachingBgColor}
+                          borderColor={coachingBorderColor}
+                        />
                       </CardBody>
                     </Card>
                   </Box>
@@ -1560,20 +1726,38 @@ export default function AIDashboard() {
                     >
                       <CardHeader pb={3} bg={useColorModeValue('green.50', 'green.900')} borderBottom="1px" borderColor={useColorModeValue('green.100', 'green.700')}>
                         <HStack spacing={3}>
-                          <Box w={8} h={8} borderRadius="full" bg={useColorModeValue('green.100', 'green.700')} display="flex" alignItems="center" justifyContent="center">
-                            <Icon as={FiTarget} color={useColorModeValue('green.600', 'green.200')} w={5} h={5} />
+                          <Box w={8} h={8} borderRadius="full" bg={greenIconBg} display="flex" alignItems="center" justifyContent="center">
+                            <Icon as={FiTarget} color={greenTextColor} w={5} h={5} />
                           </Box>
-                          <Heading size="sm" color={useColorModeValue('green.600', 'green.200')}>Today's Nutrition</Heading>
+                          <Heading size="sm" color={greenTextColor}>Today's Nutrition</Heading>
                         </HStack>
                       </CardHeader>
                       <CardBody>
-                        <CompactNutritionDisplay onOpenDetailModal={() => setIsNutritionDetailModalOpen(true)} />
+                        <CompactNutritionDisplay 
+                          onOpenDetailModal={() => setIsNutritionDetailModalOpen(true)}
+                          nutrition={nutritionData}
+                          loading={nutritionLoading}
+                          error={nutritionError}
+                          isMobile={isMobile}
+                          trackColor={nutritionTrackColor}
+                        />
                       </CardBody>
                     </Card>
                   </Box>
                   
                   {/* Quick Logging Buttons */}
-                  <QuickLoggingButtons />
+                  <QuickLoggingButtons
+                    isMobile={isMobile}
+                    isWaterModalOpen={isWaterModalOpen}
+                    onWaterModalOpen={onWaterModalOpen}
+                    onWaterModalClose={onWaterModalClose}
+                    isWeightModalOpen={isWeightModalOpen}
+                    onWeightModalOpen={onWeightModalOpen}
+                    onWeightModalClose={onWeightModalClose}
+                    isFoodModalOpen={isFoodModalOpen}
+                    onFoodModalOpen={onFoodModalOpen}
+                    onFoodModalClose={onFoodModalClose}
+                  />
                   
                   {/* Health Score - Full Component */}
                   <Box w="full">
@@ -1592,7 +1776,22 @@ export default function AIDashboard() {
                         </HStack>
                       </CardHeader>
                       <CardBody>
-                        <CompactHealthScore />
+                        <CompactHealthScore 
+                          healthScore={healthScore}
+                          enhancedHealthScore={enhancedHealthScore}
+                          basicLoading={basicLoading}
+                          enhancedLoading={enhancedLoading}
+                          basicError={basicError}
+                          enhancedError={enhancedError}
+                          isMobile={isMobile}
+                          isHealthDetailOpen={isHealthDetailOpen}
+                          onHealthDetailOpen={onHealthDetailOpen}
+                          onHealthDetailClose={onHealthDetailClose}
+                          trackColor={healthTrackColor}
+                          scoreBreakdownBg={scoreBreakdownBg}
+                          redBg={healthRedBg}
+                          purpleBg={healthPurpleBg}
+                        />
                       </CardBody>
                     </Card>
                   </Box>
@@ -1603,7 +1802,18 @@ export default function AIDashboard() {
               <TabPanel p={2}>
                 <VStack spacing={4}>
                   {/* Quick Logging Buttons */}
-                  <QuickLoggingButtons />
+                  <QuickLoggingButtons
+                    isMobile={isMobile}
+                    isWaterModalOpen={isWaterModalOpen}
+                    onWaterModalOpen={onWaterModalOpen}
+                    onWaterModalClose={onWaterModalClose}
+                    isWeightModalOpen={isWeightModalOpen}
+                    onWeightModalOpen={onWeightModalOpen}
+                    onWeightModalClose={onWeightModalClose}
+                    isFoodModalOpen={isFoodModalOpen}
+                    onFoodModalOpen={onFoodModalOpen}
+                    onFoodModalClose={onFoodModalClose}
+                  />
                   
                   {/* Quick Actions */}
                   <Box w="full">
@@ -1627,6 +1837,10 @@ export default function AIDashboard() {
                           handleMealPlan={handleMealPlan}
                           handleHealthReport={handleHealthReport}
                           handleAskAI={handleAskAI}
+                          isMobile={isMobile}
+                          activity={activity}
+                          activityLoading={activityLoading}
+                          activityError={activityError}
                         />
                       </CardBody>
                     </Card>
@@ -1640,8 +1854,8 @@ export default function AIDashboard() {
           <VStack spacing={6}>
             {/* Today's Nutrition First - Full Width */}
             <MotionCard 
-              bg={useColorModeValue('white', 'gray.800')}
-              borderColor={useColorModeValue('gray.200', 'gray.700')}
+              bg={cardBg}
+              borderColor={cardBorderColor}
               borderWidth={1} 
               borderRadius="xl"
               overflow="hidden"
@@ -1651,13 +1865,13 @@ export default function AIDashboard() {
               w="full"
               onClick={() => setIsNutritionDetailModalOpen(true)}
             >
-              <CardHeader pb={3} bg={useColorModeValue('green.50', 'green.900')} borderBottom="1px" borderColor={useColorModeValue('green.100', 'green.700')}>
+              <CardHeader pb={3} bg={greenHeaderBg} borderBottom="1px" borderColor={greenBorderColor}>
                 <HStack spacing={4} justify="space-between" w="full">
                   <HStack spacing={4}>
-                    <Box w={10} h={10} borderRadius="full" bg={useColorModeValue('green.100', 'green.700')} display="flex" alignItems="center" justifyContent="center">
-                      <Icon as={FiTarget} color={useColorModeValue('green.600', 'green.200')} w={6} h={6} />
+                    <Box w={10} h={10} borderRadius="full" bg={greenIconBg} display="flex" alignItems="center" justifyContent="center">
+                      <Icon as={FiTarget} color={greenTextColor} w={6} h={6} />
                     </Box>
-                    <Heading size={isMobile ? "sm" : "md"} color={useColorModeValue('green.600', 'green.200')}>Today's Nutrition</Heading>
+                    <Heading size={isMobile ? "sm" : "md"} color={greenTextColor}>Today's Nutrition</Heading>
                   </HStack>
                   <Badge colorScheme="green" variant="outline" fontSize="xs">
                     Click for Details
@@ -1665,13 +1879,31 @@ export default function AIDashboard() {
                 </HStack>
               </CardHeader>
               <CardBody pt={0}>
-                <CompactNutritionDisplay onOpenDetailModal={() => setIsNutritionDetailModalOpen(true)} />
+                <CompactNutritionDisplay 
+                  onOpenDetailModal={() => setIsNutritionDetailModalOpen(true)}
+                  nutrition={nutritionData}
+                  loading={nutritionLoading}
+                  error={nutritionError}
+                  isMobile={isMobile}
+                  trackColor={nutritionTrackColor}
+                />
               </CardBody>
             </MotionCard>
 
             {/* Quick Logging Buttons - Below Today's Nutrition */}
             <Box w="full">
-              <QuickLoggingButtons />
+              <QuickLoggingButtons
+                isMobile={isMobile}
+                isWaterModalOpen={isWaterModalOpen}
+                onWaterModalOpen={onWaterModalOpen}
+                onWaterModalClose={onWaterModalClose}
+                isWeightModalOpen={isWeightModalOpen}
+                onWeightModalOpen={onWeightModalOpen}
+                onWeightModalClose={onWeightModalClose}
+                isFoodModalOpen={isFoodModalOpen}
+                onFoodModalOpen={onFoodModalOpen}
+                onFoodModalClose={onFoodModalClose}
+              />
             </Box>
 
             <Grid 
@@ -1686,8 +1918,8 @@ export default function AIDashboard() {
             >
             {/* AI Health Coach - Large Card */}
             <MotionCard 
-              bg={useColorModeValue('white', 'gray.800')}
-              borderColor={useColorModeValue('gray.200', 'gray.700')}
+              bg={cardBg}
+              borderColor={cardBorderColor}
               borderWidth={1} 
               borderRadius="xl"
               overflow="hidden"
@@ -1696,23 +1928,30 @@ export default function AIDashboard() {
               transition="all 0.3s ease"
               height="100%"
             >
-              <CardHeader pb={3} bg={useColorModeValue('purple.50', 'purple.900')} borderBottom="1px" borderColor={useColorModeValue('purple.100', 'purple.700')}>
+              <CardHeader pb={3} bg={purpleHeaderBg} borderBottom="1px" borderColor={purpleBorderColor}>
                 <HStack spacing={4}>
-                  <Box w={10} h={10} borderRadius="full" bg={useColorModeValue('purple.100', 'purple.700')} display="flex" alignItems="center" justifyContent="center">
-                    <Icon as={FiActivity} color={useColorModeValue('purple.600', 'purple.200')} w={6} h={6} />
+                  <Box w={10} h={10} borderRadius="full" bg={purpleIconBg} display="flex" alignItems="center" justifyContent="center">
+                    <Icon as={FiActivity} color={purpleTextColor} w={6} h={6} />
                   </Box>
-                  <Heading size={isMobile ? "sm" : "md"} color={useColorModeValue('purple.600', 'purple.200')}>AI Health Coach</Heading>
+                  <Heading size={isMobile ? "sm" : "md"} color={purpleTextColor}>AI Health Coach</Heading>
                 </HStack>
               </CardHeader>
               <CardBody pt={0}>
-                <CompactAIHealthCoach />
+                <CompactAIHealthCoach 
+                  coaching={coaching}
+                  loading={coachingLoading}
+                  error={coachingError}
+                  isMobile={isMobile}
+                  bgColor={coachingBgColor}
+                  borderColor={coachingBorderColor}
+                />
               </CardBody>
             </MotionCard>
             
             {/* Today's Nutrition - Large Card - Clickable */}
             <MotionCard 
-              bg={useColorModeValue('white', 'gray.800')}
-              borderColor={useColorModeValue('gray.200', 'gray.700')}
+              bg={cardBg}
+              borderColor={cardBorderColor}
               borderWidth={1} 
               borderRadius="xl"
               overflow="hidden"
@@ -1722,13 +1961,13 @@ export default function AIDashboard() {
               height="100%"
               onClick={() => setIsNutritionDetailModalOpen(true)}
             >
-              <CardHeader pb={3} bg={useColorModeValue('green.50', 'green.900')} borderBottom="1px" borderColor={useColorModeValue('green.100', 'green.700')}>
+              <CardHeader pb={3} bg={greenHeaderBg} borderBottom="1px" borderColor={greenBorderColor}>
                 <HStack spacing={4} justify="space-between" w="full">
                   <HStack spacing={4}>
-                    <Box w={10} h={10} borderRadius="full" bg={useColorModeValue('green.100', 'green.700')} display="flex" alignItems="center" justifyContent="center">
-                      <Icon as={FiTarget} color={useColorModeValue('green.600', 'green.200')} w={6} h={6} />
+                    <Box w={10} h={10} borderRadius="full" bg={greenIconBg} display="flex" alignItems="center" justifyContent="center">
+                      <Icon as={FiTarget} color={greenTextColor} w={6} h={6} />
                     </Box>
-                    <Heading size={isMobile ? "sm" : "md"} color={useColorModeValue('green.600', 'green.200')}>Today's Nutrition</Heading>
+                    <Heading size={isMobile ? "sm" : "md"} color={greenTextColor}>Today's Nutrition</Heading>
                   </HStack>
                   <Badge colorScheme="green" variant="outline" fontSize="xs">
                     Click for Details
@@ -1736,14 +1975,21 @@ export default function AIDashboard() {
                 </HStack>
               </CardHeader>
               <CardBody pt={0}>
-                <CompactNutritionDisplay onOpenDetailModal={() => setIsNutritionDetailModalOpen(true)} />
+                <CompactNutritionDisplay 
+                  onOpenDetailModal={() => setIsNutritionDetailModalOpen(true)}
+                  nutrition={nutritionData}
+                  loading={nutritionLoading}
+                  error={nutritionError}
+                  isMobile={isMobile}
+                  trackColor={nutritionTrackColor}
+                />
               </CardBody>
             </MotionCard>
             
             {/* Progress & Goals - New Card */}
             <MotionCard 
-              bg={useColorModeValue('white', 'gray.800')}
-              borderColor={useColorModeValue('gray.200', 'gray.700')}
+              bg={cardBg}
+              borderColor={cardBorderColor}
               borderWidth={1} 
               borderRadius="xl"
               overflow="hidden"
@@ -1752,23 +1998,38 @@ export default function AIDashboard() {
               transition="all 0.3s ease"
               height="100%"
             >
-              <CardHeader pb={3} bg={useColorModeValue('blue.50', 'blue.900')} borderBottom="1px" borderColor={useColorModeValue('blue.100', 'blue.700')}>
+              <CardHeader pb={3} bg={blueHeaderBg} borderBottom="1px" borderColor={blueBorderColor}>
                 <HStack spacing={4}>
-                  <Box w={10} h={10} borderRadius="full" bg={useColorModeValue('blue.100', 'blue.700')} display="flex" alignItems="center" justifyContent="center">
-                    <Icon as={FiTrendingUp} color={useColorModeValue('blue.600', 'blue.200')} w={6} h={6} />
+                  <Box w={10} h={10} borderRadius="full" bg={blueIconBg} display="flex" alignItems="center" justifyContent="center">
+                    <Icon as={FiTrendingUp} color={blueTextColor} w={6} h={6} />
                   </Box>
-                  <Heading size={isMobile ? "sm" : "md"} color={useColorModeValue('blue.600', 'blue.200')}>Progress & Goals</Heading>
+                  <Heading size={isMobile ? "sm" : "md"} color={blueTextColor}>Progress & Goals</Heading>
                 </HStack>
               </CardHeader>
               <CardBody pt={0}>
-                <ProgressGoalsCard />
+                <ProgressGoalsCard 
+                  isMobile={isMobile}
+                  isProgressDetailOpen={isProgressDetailOpen}
+                  onProgressDetailOpen={onProgressDetailOpen}
+                  onProgressDetailClose={onProgressDetailClose}
+                  progressAnalytics={progressAnalytics}
+                  progressLoading={progressLoading}
+                  progressError={progressError}
+                  nutrition={nutritionData}
+                  grayBg={progressGrayBg}
+                  grayBg2={progressGrayBg2}
+                  purpleBg={progressPurpleBg}
+                  blueBg={progressBlueBg}
+                  greenBg={progressGreenBg}
+                  whiteBg={progressWhiteBg}
+                />
               </CardBody>
             </MotionCard>
 
             {/* Health Score - Large Card */}
             <MotionCard 
-              bg={useColorModeValue('white', 'gray.800')}
-              borderColor={useColorModeValue('gray.200', 'gray.700')}
+              bg={cardBg}
+              borderColor={cardBorderColor}
               borderWidth={1} 
               borderRadius="xl"
               overflow="hidden"
@@ -1777,16 +2038,31 @@ export default function AIDashboard() {
               transition="all 0.3s ease"
               height="100%"
             >
-              <CardHeader pb={3} bg={useColorModeValue('red.50', 'red.900')} borderBottom="1px" borderColor={useColorModeValue('red.100', 'red.700')}>
+              <CardHeader pb={3} bg={redHeaderBg} borderBottom="1px" borderColor={redBorderColor}>
                 <HStack spacing={4}>
-                  <Box w={10} h={10} borderRadius="full" bg={useColorModeValue('red.100', 'red.700')} display="flex" alignItems="center" justifyContent="center">
-                    <Icon as={FiHeart} color={useColorModeValue('red.600', 'red.200')} w={6} h={6} />
+                  <Box w={10} h={10} borderRadius="full" bg={redIconBg} display="flex" alignItems="center" justifyContent="center">
+                    <Icon as={FiHeart} color={redTextColor} w={6} h={6} />
                   </Box>
-                  <Heading size={isMobile ? "sm" : "md"} color={useColorModeValue('red.600', 'red.200')}>Health Score</Heading>
+                  <Heading size={isMobile ? "sm" : "md"} color={redTextColor}>Health Score</Heading>
                 </HStack>
               </CardHeader>
               <CardBody pt={0}>
-                <CompactHealthScore />
+                <CompactHealthScore 
+                  healthScore={healthScore}
+                  enhancedHealthScore={enhancedHealthScore}
+                  basicLoading={basicLoading}
+                  enhancedLoading={enhancedLoading}
+                  basicError={basicError}
+                  enhancedError={enhancedError}
+                  isMobile={isMobile}
+                  isHealthDetailOpen={isHealthDetailOpen}
+                  onHealthDetailOpen={onHealthDetailOpen}
+                  onHealthDetailClose={onHealthDetailClose}
+                  trackColor={healthTrackColor}
+                  scoreBreakdownBg={scoreBreakdownBg}
+                  redBg={healthRedBg}
+                  purpleBg={healthPurpleBg}
+                />
               </CardBody>
             </MotionCard>
             
@@ -1816,6 +2092,10 @@ export default function AIDashboard() {
                   handleMealPlan={handleMealPlan}
                   handleHealthReport={handleHealthReport}
                   handleAskAI={handleAskAI}
+                  isMobile={isMobile}
+                  activity={activity}
+                  activityLoading={activityLoading}
+                  activityError={activityError}
                 />
               </CardBody>
             </MotionCard>

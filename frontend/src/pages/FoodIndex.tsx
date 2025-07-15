@@ -1,3 +1,23 @@
+/*
+ * FoodIndex Component - Optimized for User Personalization
+ * 
+ * Endpoint Usage Strategy:
+ * 1. `/foods/search?q=` - Used for browsing user's personal food collection (no filters, empty query)
+ *    - Returns user-specific foods + default foods
+ *    - Best for displaying the user's complete food index
+ *    - Client-side pagination and sorting for better UX
+ * 
+ * 2. `/foods/search` - Used for text-based searches and filtered browsing
+ *    - Supports query parameters for flexible searching
+ *    - Returns personalized results (user foods + default foods)
+ *    - Better for finding specific foods with user context
+ *    - Used when: searching with text or applying filter queries
+ * 
+ * 3. Client-side filtering for dietary preferences to maximize personalization
+ *    - Applies user's dietary restrictions and allergen filters
+ *    - Provides instant feedback without additional API calls
+ */
+
 import { useState, useEffect, useMemo } from 'react'
 import {
   Box,
@@ -52,6 +72,9 @@ import { SERVING_UNITS } from '../constants/servingUnits'
 import NutritionLabelScanner from '../components/NutritionLabelScanner'
 import FoodCompatibilityScore from '../components/FoodCompatibilityScore'
 import DietaryProfileBuilder from '../components/DietaryProfileBuilder'
+import QuantityUnitInput from '../components/QuantityUnitInput'
+import { calculateNutritionForQuantity } from '../utils/unitConversion'
+import { useFoodIndex } from '../contexts/FoodIndexContext'
 
 // Mobile-optimized icons
 const SearchIcon = () => (
@@ -110,6 +133,9 @@ export default function FoodIndex() {
   } = useDisclosure()
   const toast = useToast()
 
+  // Add food index context
+  const { refreshUserFoods } = useFoodIndex()
+
   const ITEMS_PER_PAGE = 20
 
   // State for food logging
@@ -117,8 +143,10 @@ export default function FoodIndex() {
   const [logEntry, setLogEntry] = useState({
     meal_type: 'lunch',
     servings: 1,
+    unit: 'serving',
     notes: ''
   })
+  const [convertedNutrition, setConvertedNutrition] = useState<any>(null)
 
   // State for editing food
   const [editingFood, setEditingFood] = useState<FoodItem | null>(null)
@@ -399,35 +427,92 @@ export default function FoodIndex() {
 
   // Load all foods for the browse tab
   const loadAllFoods = async (page = 1, filter = '', sort = 'name', order = 'asc') => {
+    console.log('🔄 loadAllFoods called with:', { page, filter, sort, order })
     setAllFoodsLoading(true)
     try {
-      const skip = (page - 1) * ITEMS_PER_PAGE
-      const params = new URLSearchParams({
-        limit: (ITEMS_PER_PAGE + 1).toString(), // Request one extra to check if there's a next page
-        skip: skip.toString(),
-        sort_by: sort,
-        sort_order: order,
-      })
-      
+      // If there's a filter query, use the search endpoint for better personalization
       if (filter.trim()) {
-        params.append('filter_query', filter)
+        console.log('📍 Using search endpoint with filter:', filter)
+        const skip = (page - 1) * ITEMS_PER_PAGE
+        const params = new URLSearchParams({
+          q: filter,
+          limit: (ITEMS_PER_PAGE + 1).toString(),
+          skip: skip.toString()
+        })
+        
+        const response = await api.get(`/foods/search?${params}`)
+        const foods = response.data || []
+        console.log('🔍 Search response:', { foodsCount: foods.length, foods })
+        
+        // Sort the foods client-side since search endpoint might not support all sort options
+        const sortedFoods = [...foods].sort((a, b) => {
+          if (sort === 'name') {
+            const nameA = a.name?.toLowerCase() || '';
+            const nameB = b.name?.toLowerCase() || '';
+            return order === 'asc' ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
+          } else if (sort === 'calories') {
+            const caloriesA = a.nutrition?.calories || 0;
+            const caloriesB = b.nutrition?.calories || 0;
+            return order === 'asc' ? caloriesA - caloriesB : caloriesB - caloriesA;
+          } else if (sort === 'protein') {
+            const proteinA = a.nutrition?.protein || 0;
+            const proteinB = b.nutrition?.protein || 0;
+            return order === 'asc' ? proteinA - proteinB : proteinB - proteinA;
+          }
+          return 0;
+        });
+        
+        // Check if there's a next page
+        if (sortedFoods.length > ITEMS_PER_PAGE) {
+          setHasNextPage(true)
+          setAllFoods(sortedFoods.slice(0, ITEMS_PER_PAGE)) // Remove the extra item
+        } else {
+          setHasNextPage(false)
+          setAllFoods(sortedFoods)
+        }
+        
+        // Calculate total items for display (this is an estimate)
+        setTotalItems(skip + sortedFoods.length)
+      } 
+      // If no filter query, use the search endpoint with empty query for user's personalized food collection
+      else {
+        console.log('📍 Using search endpoint with empty query (no filter)')
+        // The search endpoint with empty query provides the user's personalized food collection
+        const response = await api.get('/foods/search?q=&limit=100')
+        const foods = response.data || []
+        console.log('📋 Search response (empty query):', { 
+          status: response.status, 
+          foodsCount: foods.length, 
+          foods: foods.slice(0, 3) // Show first 3 foods for debugging
+        })
+        
+        // Sort the foods client-side
+        const sortedFoods = [...foods].sort((a, b) => {
+          if (sort === 'name') {
+            const nameA = a.name?.toLowerCase() || '';
+            const nameB = b.name?.toLowerCase() || '';
+            return order === 'asc' ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
+          } else if (sort === 'calories') {
+            const caloriesA = a.nutrition?.calories || 0;
+            const caloriesB = b.nutrition?.calories || 0;
+            return order === 'asc' ? caloriesA - caloriesB : caloriesB - caloriesA;
+          } else if (sort === 'protein') {
+            const proteinA = a.nutrition?.protein || 0;
+            const proteinB = b.nutrition?.protein || 0;
+            return order === 'asc' ? proteinA - proteinB : proteinB - proteinA;
+          }
+          return 0;
+        });
+        
+        // Handle pagination client-side
+        const startIndex = (page - 1) * ITEMS_PER_PAGE;
+        const endIndex = startIndex + ITEMS_PER_PAGE;
+        const paginatedFoods = sortedFoods.slice(startIndex, endIndex);
+        
+        setAllFoods(paginatedFoods);
+        setHasNextPage(endIndex < sortedFoods.length);
+        setTotalItems(sortedFoods.length);
       }
-      
-      const response = await api.get(`/foods?${params}`)
-      const foods = response.data || []
-      
-      // Check if there's a next page
-      if (foods.length > ITEMS_PER_PAGE) {
-        setHasNextPage(true)
-        setAllFoods(foods.slice(0, ITEMS_PER_PAGE)) // Remove the extra item
-      } else {
-        setHasNextPage(false)
-        setAllFoods(foods)
-      }
-      
-      // Calculate total items for display (this is an estimate)
-      setTotalItems(skip + foods.length)
-      
     } catch (error) {
       console.error('Error loading foods:', error)
       toast({
@@ -446,7 +531,7 @@ export default function FoodIndex() {
 
   useEffect(() => {
     loadAllFoods(currentPage, filterQuery, sortBy, sortOrder)
-  }, [currentPage, filterQuery, sortBy, sortOrder])
+  }, [currentPage, filterQuery, sortBy, sortOrder, refreshUserFoods])
 
   // Real-time search function
   const searchFoods = async (query: string) => {
@@ -568,9 +653,38 @@ export default function FoodIndex() {
     setLogEntry({
       meal_type: 'lunch',
       servings: 1,
+      unit: 'serving',
       notes: ''
     })
+    setConvertedNutrition(null)
     onLogModalOpen()
+  }
+
+  // Handle quantity/unit changes with real-time nutrition updates
+  const handleQuantityUnitChange = (newQuantity: number, newUnit: string) => {
+    setLogEntry(prev => ({ ...prev, servings: newQuantity, unit: newUnit }))
+    
+    if (selectedFood) {
+      // Calculate nutrition for the new quantity and unit
+      const baseNutrition = {
+        calories: selectedFood.nutrition?.calories || 0,
+        protein: selectedFood.nutrition?.protein || 0,
+        carbs: selectedFood.nutrition?.carbs || 0,
+        fat: selectedFood.nutrition?.fat || 0,
+        fiber: selectedFood.nutrition?.fiber || 0,
+        sugar: selectedFood.nutrition?.sugar || 0,
+        sodium: selectedFood.nutrition?.sodium || 0
+      }
+      
+      const nutrition = calculateNutritionForQuantity(
+        baseNutrition,
+        selectedFood.serving_size || 1,
+        selectedFood.serving_unit || 'serving',
+        newQuantity,
+        newUnit
+      )
+      setConvertedNutrition(nutrition)
+    }
   }
 
   const handleEditFood = (food: FoodItem) => {
@@ -644,8 +758,8 @@ export default function FoodIndex() {
     if (!selectedFood) return
 
     try {
-      // Calculate nutrition based on servings
-      const calculatedNutrition = {
+      // Use converted nutrition if available, otherwise calculate on the fly
+      const nutritionToLog = convertedNutrition || {
         calories: selectedFood.nutrition.calories * logEntry.servings,
         protein: selectedFood.nutrition.protein * logEntry.servings,
         carbs: selectedFood.nutrition.carbs * logEntry.servings,
@@ -660,9 +774,9 @@ export default function FoodIndex() {
         meal_type: logEntry.meal_type,
         food_id: selectedFood.id,
         food_name: selectedFood.name,
-        amount: logEntry.servings * selectedFood.serving_size,
-        unit: selectedFood.serving_unit,
-        nutrition: calculatedNutrition,
+        amount: logEntry.servings * (selectedFood.serving_size || 1),
+        unit: logEntry.unit,
+        nutrition: nutritionToLog,
         notes: logEntry.notes
       }
 
@@ -691,18 +805,30 @@ export default function FoodIndex() {
 
   // Apply dietary filtering to sorted and searched foods
   const displayedFoods = useMemo(() => {
+    console.log('🎯 displayedFoods calculation:', {
+      allFoodsCount: allFoods.length,
+      searchResultsCount: searchResults.length,
+      searchQuery: searchQuery.trim(),
+      applyDietaryFilter,
+      userPreferences: userPreferences ? 'present' : 'null'
+    })
+    
     let result = allFoods
     
     // Apply search filter (integrate search into browse)
     if (searchQuery.trim()) {
       // Use search results if searching
       result = searchResults
+      console.log('🔍 Using search results:', result.length)
+    } else {
+      console.log('📋 Using all foods:', result.length)
     }
     
     // Apply dietary preferences filter
-    result = filterFoodsByDietaryPrefs(result)
+    const filteredResult = filterFoodsByDietaryPrefs(result)
+    console.log('🎯 Final displayed foods count:', filteredResult.length)
     
-    return result
+    return filteredResult
   }, [allFoods, searchResults, searchQuery, userPreferences, applyDietaryFilter])
 
   const renderFoodCard = (food: FoodItem) => {
@@ -1575,17 +1701,13 @@ export default function FoodIndex() {
                             <option value="snack">Snack</option>
                           </Select>
                         </FormControl>
-                        <FormControl>
-                          <FormLabel>Servings</FormLabel>
-                          <NumberInput
-                            value={logEntry.servings}
-                            onChange={(_, value) => setLogEntry({ ...logEntry, servings: value || 1 })}
-                            min={0.1}
-                            step={0.1}
-                          >
-                            <NumberInputField />
-                          </NumberInput>
-                        </FormControl>
+                        <QuantityUnitInput
+                          quantity={logEntry.servings}
+                          unit={logEntry.unit}
+                          onQuantityChange={(newQuantity) => handleQuantityUnitChange(newQuantity, logEntry.unit)}
+                          onUnitChange={(newUnit) => handleQuantityUnitChange(logEntry.servings, newUnit)}
+                          label="Quantity & Unit"
+                        />
                       </HStack>
 
                       {/* Calculated Nutrition Preview */}
@@ -1593,20 +1715,20 @@ export default function FoodIndex() {
                         <CardBody>
                           <VStack spacing={3}>
                             <Heading size="sm" color="green.700">
-                              Total Nutrition ({logEntry.servings} servings)
+                              Total Nutrition ({logEntry.servings} {logEntry.unit})
                             </Heading>
                             <SimpleGrid columns={2} spacing={2} w="full">
                               <Text fontSize="sm" color="green.700">
-                                <strong>Calories:</strong> {Math.round(selectedFood.nutrition.calories * logEntry.servings)}
+                                <strong>Calories:</strong> {Math.round(convertedNutrition?.calories || selectedFood.nutrition.calories * logEntry.servings)}
                               </Text>
                               <Text fontSize="sm" color="green.700">
-                                <strong>Protein:</strong> {(selectedFood.nutrition.protein * logEntry.servings).toFixed(1)}g
+                                <strong>Protein:</strong> {(convertedNutrition?.protein || selectedFood.nutrition.protein * logEntry.servings).toFixed(1)}g
                               </Text>
                               <Text fontSize="sm" color="green.700">
-                                <strong>Carbs:</strong> {(selectedFood.nutrition.carbs * logEntry.servings).toFixed(1)}g
+                                <strong>Carbs:</strong> {(convertedNutrition?.carbs || selectedFood.nutrition.carbs * logEntry.servings).toFixed(1)}g
                               </Text>
                               <Text fontSize="sm" color="green.700">
-                                <strong>Fat:</strong> {(selectedFood.nutrition.fat * logEntry.servings).toFixed(1)}g
+                                <strong>Fat:</strong> {(convertedNutrition?.fat || selectedFood.nutrition.fat * logEntry.servings).toFixed(1)}g
                               </Text>
                             </SimpleGrid>
                           </VStack>

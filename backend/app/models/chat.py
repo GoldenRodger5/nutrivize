@@ -32,6 +32,7 @@ class MealSuggestionRequest(BaseModel):
     prep_time_preference: Optional[str] = None  # "quick" (<=15min), "moderate" (15-45min), "complex" (45min+)
     main_ingredients: Optional[List[str]] = []  # Up to 3 main ingredients to focus on
     use_food_index_only: Optional[bool] = False
+    special_requests: Optional[str] = ""  # Custom user instructions for meal suggestions
 
 
 class Ingredient(BaseModel):

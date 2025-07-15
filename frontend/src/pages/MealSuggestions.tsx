@@ -22,7 +22,6 @@ import {
   FormControl,
   FormLabel,
   Tooltip,
-  Icon,
   Modal,
   ModalOverlay,
   ModalContent,
@@ -65,6 +64,7 @@ export default function MealSuggestions() {
     prep_time_preference: '',
     main_ingredients: '',
     use_food_index_only: false,
+    special_requests: '',
   })
   const [selectedSuggestion, setSelectedSuggestion] = useState<MealSuggestion | null>(null)
   const [editingSuggestion, setEditingSuggestion] = useState<MealSuggestion | null>(null)
@@ -171,6 +171,11 @@ export default function MealSuggestions() {
       // Add food index restriction
       if (filters.use_food_index_only) {
         params.use_food_index_only = true
+      }
+
+      // Add special requests
+      if (filters.special_requests.trim()) {
+        params.special_requests = filters.special_requests.trim()
       }
 
       const response = await api.post('/ai/meal-suggestions', params)
@@ -325,6 +330,23 @@ export default function MealSuggestions() {
                 </Box>
               </SimpleGrid>
 
+              {/* Special Requests */}
+              <Box>
+                <Text fontSize="sm" fontWeight="medium" mb={2}>
+                  Special Requests
+                </Text>
+                <Textarea
+                  placeholder="Any special preferences, cooking methods, dietary needs, or custom instructions..."
+                  value={filters.special_requests}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setFilters({ ...filters, special_requests: e.target.value })}
+                  rows={3}
+                  resize="vertical"
+                />
+                <Text fontSize="xs" color="gray.500" mt={1}>
+                  Provide any custom instructions for your meal suggestions (e.g., "easy to meal prep", "uses minimal ingredients", "no dairy substitutes").
+                </Text>
+              </Box>
+
               {/* Food Index Toggle */}
               <Divider />
               <FormControl display="flex" alignItems="center" justifyContent="space-between">
@@ -337,7 +359,9 @@ export default function MealSuggestions() {
                     fontSize="sm"
                     placement="top"
                   >
-                    <Icon as={FiInfo} color="gray.400" boxSize={4} />
+                    <Box display="inline-flex" alignItems="center">
+                      <FiInfo color="gray.400" size={16} />
+                    </Box>
                   </Tooltip>
                 </HStack>
                 <Switch

@@ -119,7 +119,7 @@ export default function NavBar(props: NavBarProps = {}) {
     { path: '/food-index', label: 'Food Index', icon: IndexIcon },
     { path: '/meal-suggestions', label: 'Meal Ideas', icon: MealIcon },
     { path: '/meal-plans', label: 'Meal Plans', icon: MealIcon },
-    { path: '/smart-meal-planning', label: 'Smart Meal Planning', icon: MealIcon, emoji: '🧠' },
+    { path: '/manual-meal-planning', label: 'Manual Meal Planning', icon: MealIcon, emoji: '📝' },
     { path: '/restaurant-ai', label: 'RestaurantAI', icon: RestaurantIcon, emoji: '🍽️' },
     { path: '/ai', label: 'AI Chat', icon: ChatIcon },
     { path: '/goals', label: 'Goals', icon: GoalsIcon },

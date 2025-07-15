@@ -5,7 +5,7 @@ import MobileBottomNav from './MobileBottomNav'
 import PWAStatus from './PWAStatus'
 import PWAInstall from './PWAInstall'
 import Dashboard from '../pages/Dashboard'
-import AIDashboard from '../pages/AIDashboard'
+import AIDashboardNew from '../pages/AIDashboardNew'
 import FoodLog from '../pages/FoodLogEnhanced'
 import FoodIndex from '../pages/FoodIndex'
 import MealSuggestions from '../pages/MealSuggestions'
@@ -15,7 +15,7 @@ import Goals from '../pages/Goals'
 import Settings from '../pages/Settings'
 import Analytics from '../pages/Analytics'
 import RestaurantAI from '../pages/RestaurantAI'
-import SmartMealPlanning from '../pages/SmartMealPlanning'
+import ManualMealPlanner from '../pages/ManualMealPlanner'
 import { useState, useEffect } from 'react'
 
 export default function MainLayout() {
@@ -48,15 +48,15 @@ export default function MainLayout() {
       <NavBar isDrawerOpen={isOpen} onDrawerOpen={onOpen} onDrawerClose={onClose} />
       <Box pb={isMobile ? "80px" : 0}>
         <Routes>
-          <Route path="/" element={<AIDashboard />} />
+          <Route path="/" element={<AIDashboardNew />} />
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/ai-dashboard" element={<AIDashboard />} />
+          <Route path="/ai-dashboard" element={<AIDashboardNew />} />
           <Route path="/food-log" element={<FoodLog />} />
           <Route path="/food-index" element={<FoodIndex />} />
           <Route path="/meal-suggestions" element={<MealSuggestions />} />
           <Route path="/meal-planning" element={<MealSuggestions />} />
           <Route path="/meal-plans" element={<MealPlans />} />
-          <Route path="/smart-meal-planning" element={<SmartMealPlanning />} />
+          <Route path="/manual-meal-planning" element={<ManualMealPlanner />} />
           <Route path="/restaurant-ai" element={<RestaurantAI />} />
           <Route path="/ai" element={<AIChat />} />
           <Route path="/ai-chat" element={<AIChat />} />

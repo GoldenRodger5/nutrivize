@@ -1,65 +1,77 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import api from '../utils/api';
-
-interface FoodItem {
-  id: string;
-  name: string;
-  serving_size: number;
-  serving_unit: string;
-  nutrition: {
-    calories: number;
-    protein: number;
-    carbs: number;
-    fat: number;
-    [key: string]: number;
-  };
-  source: string;
-}
+import { FoodItem } from '../types';
 
 interface FoodIndexContextType {
-  foods: FoodItem[];
-  loading: boolean;
+  userFoods: FoodItem[];
+  isLoading: boolean;
   error: string | null;
-  refreshFoods: () => Promise<void>;
+  refreshUserFoods: () => Promise<void>;
+  searchUserFoods: (query: string) => Promise<FoodItem[]>;
 }
 
 const FoodIndexContext = createContext<FoodIndexContextType | undefined>(undefined);
 
-export const FoodIndexProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [foods, setFoods] = useState<FoodItem[]>([]);
-  const [loading, setLoading] = useState(true);
+export function useFoodIndex() {
+  const context = useContext(FoodIndexContext);
+  if (!context) {
+    throw new Error('useFoodIndex must be used within a FoodIndexProvider');
+  }
+  return context;
+}
+
+interface FoodIndexProviderProps {
+  children: ReactNode;
+}
+
+export function FoodIndexProvider({ children }: FoodIndexProviderProps) {
+  const [userFoods, setUserFoods] = useState<FoodItem[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const refreshFoods = async () => {
+  const fetchUserFoods = async () => {
+    setIsLoading(true);
+    setError(null);
     try {
-      setLoading(true);
-      const response = await api.get('/foods/user-index');
-      setFoods(response.data || []);
-      setError(null);
+      // Use the search endpoint with empty query to get the user's food index
+      const response = await api.get('/foods/search?q=&limit=100');
+      setUserFoods(response.data || []);
     } catch (err) {
-      console.error('Error fetching food index:', err);
+      console.error('Error fetching user foods:', err);
       setError('Failed to load your food index');
-      setFoods([]);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
+    }
+  };
+
+  const searchUserFoods = async (query: string): Promise<FoodItem[]> => {
+    if (!query.trim()) return [];
+    
+    try {
+      // Use the search endpoint which includes both user and general foods
+      const response = await api.get(`/foods/search?q=${encodeURIComponent(query)}&limit=50`);
+      return response.data || [];
+    } catch (err) {
+      console.error('Error searching foods:', err);
+      return [];
     }
   };
 
   useEffect(() => {
-    refreshFoods();
+    fetchUserFoods();
   }, []);
 
+  const value = {
+    userFoods,
+    isLoading,
+    error,
+    refreshUserFoods: fetchUserFoods,
+    searchUserFoods
+  };
+
   return (
-    <FoodIndexContext.Provider value={{ foods, loading, error, refreshFoods }}>
+    <FoodIndexContext.Provider value={value}>
       {children}
     </FoodIndexContext.Provider>
   );
-};
-
-export const useFoodIndex = (): FoodIndexContextType => {
-  const context = useContext(FoodIndexContext);
-  if (context === undefined) {
-    throw new Error('useFoodIndex must be used within a FoodIndexProvider');
-  }
-  return context;
-};
+}

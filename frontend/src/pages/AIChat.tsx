@@ -28,6 +28,7 @@ import { AddIcon, DeleteIcon, CopyIcon } from '@chakra-ui/icons'
 import { ChatMessage } from '../types'
 import api from '../utils/api'
 import AIResponseFormatter from '../components/AIResponseFormatter'
+import { useFoodIndex } from '../contexts/FoodIndexContext'
 
 // Quick prompt suggestions for mobile
 const quickPrompts = [
@@ -54,6 +55,8 @@ export default function AIChat() {
   const bg = useColorModeValue('white', 'gray.800')
   const messageBg = useColorModeValue('gray.50', 'gray.700')
   const userMessageBg = useColorModeValue('green.500', 'green.600')
+  // Get food index context for food-related queries
+  const { userFoods, searchUserFoods } = useFoodIndex()
 
   useEffect(() => {
     scrollToBottom()
@@ -77,10 +80,33 @@ export default function AIChat() {
     setNewMessage('')
     setLoading(true)
 
+    // Check if this is a food-related query
+    const isFoodQuery = /food|eat|foods|meal|nutrition|diet/i.test(content.toLowerCase())
+    
     try {
+      // If it's a food-related query, fetch the user's food index first
+      let foodContext = {}
+      if (isFoodQuery) {
+        try {
+          // Pre-fetch food data if it's a food-related query
+          const foodData = await searchUserFoods(content)
+          if (foodData.length > 0) {
+            foodContext = {
+              foodSearchResults: foodData.slice(0, 5) // Limit to 5 most relevant results
+            }
+          }
+        } catch (err) {
+          console.error('Error prefetching food data:', err)
+        }
+      }
+
+      // Send the chat message with additional context
       const response = await api.post('/ai/chat', {
         message: userMessage.content,
-        conversation_history: messages.slice(-10) // Send last 10 messages for context
+        conversation_history: messages.slice(-10), // Send last 10 messages for context
+        context: {
+          ...foodContext
+        }
       })
 
       const assistantMessage: ChatMessage = {

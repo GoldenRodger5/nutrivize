@@ -383,7 +383,7 @@ Return ONLY the JSON object, no additional text."""
             response = await self.ai_service.generate_response(
                 prompt, 
                 max_tokens=12000,  # Increased for comprehensive menu analysis
-                model="claude-opus-4-20250514"  # Use Claude-4 Opus for best analysis quality
+                model="claude-sonnet-4-20250514"  # Use Claude-4 Sonnet for best analysis quality
             )
             
             # Clean and parse the JSON response

@@ -1,0 +1,272 @@
+{
+  "user_id": "GME7nGpJQRc2v9T057vJ4oyqAJN2",
+  "plan_id": "budget_vegetarian_weight_loss_001",
+  "version": 1,
+  "name": "Budget-Conscious Shopping",
+  "title": "Budget-Conscious Shopping",
+  "description": "Tailored to your health goals and preferences",
+  "days": [
+    {
+      "day": 1,
+      "date": "2024-01-15",
+      "theme": "Indian Comfort Monday",
+      "meals": [
+        {
+          "meal_type": "breakfast",
+          "food_name": "Spiced Oats Upma with Yogurt",
+          "description": "Savory Indian-style oats with vegetables and protein-rich yogurt",
+          "ingredients": [
+            {
+              "name": "rolled oats",
+              "amount": 60,
+              "unit": "g"
+            },
+            {
+              "name": "greek yogurt",
+              "amount": 150,
+              "unit": "g"
+            },
+            {
+              "name": "onion",
+              "amount": 50,
+              "unit": "g"
+            },
+            {
+              "name": "carrot",
+              "amount": 40,
+              "unit": "g"
+            },
+            {
+              "name": "green peas",
+              "amount": 30,
+              "unit": "g"
+            },
+            {
+              "name": "mustard seeds",
+              "amount": 2,
+              "unit": "g"
+            },
+            {
+              "name": "curry leaves",
+              "amount": 5,
+              "unit": "leaves"
+            },
+            {
+              "name": "turmeric",
+              "amount": 1,
+              "unit": "g"
+            },
+            {
+              "name": "oil",
+              "amount": 8,
+              "unit": "ml"
+            },
+            {
+              "name": "salt",
+              "amount": 2,
+              "unit": "g"
+            }
+          ],
+          "instructions": [
+            "Dry roast oats in a pan for 3-4 minutes until fragrant",
+            "Heat oil in same pan, add mustard seeds and curry leaves",
+            "Add diced onions and cook until translucent",
+            "Add carrots and peas, cook for 3 minutes",
+            "Add turmeric, salt, and 1 cup water",
+            "Add roasted oats, mix well and cook for 5 minutes",
+            "Serve hot with Greek yogurt on the side"
+          ],
+          "prep_time": 20,
+          "cooking_method": "stovetop",
+          "portion_size": "1 serving",
+          "calories": 420,
+          "protein": 22,
+          "carbs": 58,
+          "fat": 12,
+          "fiber": 8,
+          "goal_alignment": "High protein and fiber for satiety, complex carbs for sustained energy"
+        },
+        {
+          "meal_type": "lunch",
+          "food_name": "Dal Tadka with Brown Rice",
+          "description": "Protein-rich lentil curry with aromatic spices served over brown rice",
+          "ingredients": [
+            {
+              "name": "yellow lentils (moong dal)",
+              "amount": 80,
+              "unit": "g"
+            },
+            {
+              "name": "brown rice",
+              "amount": 80,
+              "unit": "g"
+            },
+            {
+              "name": "onion",
+              "amount": 60,
+              "unit": "g"
+            },
+            {
+              "name": "tomato",
+              "amount": 80,
+              "unit": "g"
+            },
+            {
+              "name": "ginger-garlic paste",
+              "amount": 10,
+              "unit": "g"
+            },
+            {
+              "name": "cumin seeds",
+              "amount": 2,
+              "unit": "g"
+            },
+            {
+              "name": "turmeric",
+              "amount": 1,
+              "unit": "g"
+            },
+            {
+              "name": "red chili powder",
+              "amount": 1,
+              "unit": "g"
+            },
+            {
+              "name": "coriander powder",
+              "amount": 2,
+              "unit": "g"
+            },
+            {
+              "name": "oil",
+              "amount": 10,
+              "unit": "ml"
+            },
+            {
+              "name": "cilantro",
+              "amount": 10,
+              "unit": "g"
+            }
+          ],
+          "instructions": [
+            "Cook brown rice in 1.5 cups water for 30 minutes",
+            "Pressure cook lentils with turmeric and salt for 3 whistles",
+            "Heat oil in pan, add cumin seeds",
+            "Add onions, cook until golden",
+            "Add ginger-garlic paste, cook for 1 minute",
+            "Add tomatoes, all spices, cook until soft",
+            "Add cooked lentils, simmer for 10 minutes",
+            "Garnish with cilantro, serve over rice"
+          ],
+          "prep_time": 35,
+          "cooking_method": "pressure cooker and stovetop",
+          "portion_size": "1 serving",
+          "calories": 650,
+          "protein": 28,
+          "carbs": 110,
+          "fat": 12,
+          "fiber": 12,
+          "goal_alignment": "High protein lentils for muscle maintenance, complex carbs for sustained energy"
+        },
+        {
+          "meal_type": "dinner",
+          "food_name": "Palak Paneer with Roti",
+          "description": "Creamy spinach curry with cottage cheese served with whole wheat flatbread",
+          "ingredients": [
+            {
+              "name": "fresh spinach",
+              "amount": 200,
+              "unit": "g"
+            },
+            {
+              "name": "paneer",
+              "amount": 100,
+              "unit": "g"
+            },
+            {
+              "name": "whole wheat flour",
+              "amount": 80,
+              "unit": "g"
+            },
+            {
+              "name": "onion",
+              "amount": 40,
+              "unit": "g"
+            },
+            {
+              "name": "tomato",
+              "amount": 50,
+              "unit": "g"
+            },
+            {
+              "name": "ginger-garlic paste",
+              "amount": 8,
+              "unit": "g"
+            },
+            {
+              "name": "green chilies",
+              "amount": 5,
+              "unit": "g"
+            },
+            {
+              "name": "garam masala",
+              "amount": 2,
+              "unit": "g"
+            },
+            {
+              "name": "oil",
+              "amount": 12,
+              "unit": "ml"
+            },
+            {
+              "name": "cream",
+              "amount": 20,
+              "unit": "ml"
+            }
+          ],
+          "instructions": [
+            "Blanch spinach in boiling water for 2 minutes, blend to paste",
+            "Make dough with flour and water, rest for 15 minutes",
+            "Cut paneer into cubes, lightly pan-fry",
+            "Heat oil, saut\u00e9 onions until golden",
+            "Add ginger-garlic paste and green chilies",
+            "Add tomatoes, cook until soft",
+            "Add spinach paste, garam masala, simmer 5 minutes",
+            "Add paneer and cream, cook 3 minutes",
+            "Roll and cook rotis on dry pan",
+            "Serve hot palak paneer with rotis"
+          ],
+          "prep_time": 40,
+          "cooking_method": "stovetop",
+          "portion_size": "1 serving",
+          "calories": 730,
+          "protein": 50,
+          "carbs": 72,
+          "fat": 36,
+          "fiber": 15,
+          "goal_alignment": "High protein paneer for satiety, iron-rich spinach, controlled portions for weight loss"
+        }
+      ],
+      "total_nutrition": {
+        "calories": 1800,
+        "protein": 100,
+        "carbs": 240,
+        "fat": 60,
+        "fiber": 35
+      },
+      "day_notes": "Focus on protein-rich Indian comfort foods using affordable pantry staples"
+    }
+  ],
+  "total_days": 1,
+  "dietary_restrictions": [],
+  "target_nutrition": {},
+  "created_at": "2025-07-14T13:53:07.324310+00:00",
+  "updated_at": "2025-07-14T13:53:07.324310+00:00",
+  "is_active": false,
+  "is_current_version": true,
+  "parent_version": null,
+  "tags": [],
+  "variety_score": "Excellent variety with different cooking methods (pressure cooking, stovetop, pan-frying) and diverse protein sources (yogurt, lentils, paneer)",
+  "goal_alignment": "This plan supports weight loss through calorie control while ensuring high protein (100g) for satiety and muscle maintenance. Complex carbs provide sustained energy, and high fiber content (35g) promotes fullness and digestive health.",
+  "shopping_tips": "Buy in bulk: lentils (5kg bags), rice (10kg), whole wheat flour (5kg), oats (2kg), and spices. These shelf-stable ingredients form the base of multiple meals. Shop seasonal vegetables weekly - onions, tomatoes, and potatoes can be bought in larger quantities. Purchase paneer fresh or make at home to save costs. Greek yogurt can be bought in larger containers. Frozen vegetables like peas are cost-effective and nutritious. Store spices in airtight containers to maintain freshness. Consider buying whole spices and grinding them for better flavor and longer shelf life.",
+  "_id": "68750bc3b21a11359bb79450"
+}

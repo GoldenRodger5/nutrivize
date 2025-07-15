@@ -5,14 +5,20 @@ from datetime import date, datetime, timedelta
 from pydantic import BaseModel
 import asyncio
 import uuid
+import logging
 
 from .auth import get_current_user
 from ..models.user import UserResponse
 from ..services.ai_service import AIService
 from ..services.food_service import food_service
+from ..models.food_log import FoodLogCreate, NutritionInfo
 from ..services.food_log_service import food_log_service
 from ..services.meal_planning_service import meal_planning_service
 from ..services.goals_service import goals_service
+from ..services.user_service import user_service
+from ..services.unified_ai_service import unified_ai_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/meal-planning", tags=["meal-planning"])
 
@@ -89,7 +95,7 @@ async def options_status():
 # Pydantic models for meal planning
 class MealPlanRequest(BaseModel):
     name: Optional[str] = None
-    days: int = 7
+    days: int = 3
     dietary_restrictions: Optional[List[str]] = []
     preferred_cuisines: Optional[List[str]] = []
     calories_per_day: Optional[int] = None
@@ -100,6 +106,7 @@ class MealPlanRequest(BaseModel):
     meal_types: Optional[List[str]] = ["breakfast", "lunch", "dinner"]
     complexity_level: Optional[str] = "any"  # "simple", "moderate", "complex", or "any"
     use_food_index_only: Optional[bool] = False
+    special_requests: Optional[str] = ""  # Custom user instructions for meal planning
 
 class MealSuggestion(BaseModel):
     meal_type: str
@@ -133,6 +140,61 @@ class QuickMealRequest(BaseModel):
     ingredients_on_hand: Optional[List[str]] = []
     complexity_level: Optional[str] = "any"  # "simple", "moderate", "complex", or "any"
 
+# Manual Meal Planning Models
+class ManualMealFood(BaseModel):
+    food_id: str
+    food_name: str
+    quantity: float
+    unit: str
+    calories: float
+    protein: float
+    carbs: float
+    fat: float
+    fiber: Optional[float] = 0
+    sugar: Optional[float] = 0
+    sodium: Optional[float] = 0
+
+class ManualMealPlan(BaseModel):
+    plan_id: Optional[str] = None
+    name: str
+    duration_days: int
+    is_active: Optional[bool] = False
+    start_date: Optional[str] = None
+    days: List[Dict[str, Any]]  # Will contain structured day data
+    target_nutrition: Optional[Dict[str, float]] = {}
+    notes: Optional[str] = ""
+
+class ManualMealPlanCreate(BaseModel):
+    name: str
+    duration_days: int
+    target_nutrition: Optional[Dict[str, float]] = {}
+    notes: Optional[str] = ""
+
+class ManualMealPlanUpdate(BaseModel):
+    name: Optional[str] = None
+    days: Optional[List[Dict[str, Any]]] = None
+    target_nutrition: Optional[Dict[str, float]] = None
+    notes: Optional[str] = None
+    is_active: Optional[bool] = None
+
+class AddFoodToMealRequest(BaseModel):
+    day_number: int
+    meal_type: str
+    food: ManualMealFood
+
+class LogMealRequest(BaseModel):
+    day_number: int
+    meal_types: List[str]  # Which meals to log (breakfast, lunch, dinner, etc.)
+    log_date: Optional[str] = None  # If not provided, use today
+
+class AIManualSuggestionRequest(BaseModel):
+    plan_id: str
+    day_number: int
+    meal_type: str
+    current_nutrition: Dict[str, float]
+    target_nutrition: Dict[str, float]
+    context: Optional[str] = "suggest foods to complete this meal"
+
 
 @router.post("/generate-plan")
 async def generate_meal_plan(
@@ -145,8 +207,8 @@ async def generate_meal_plan(
         user_id = current_user.uid
         
         # Validate request
-        if request.days < 1 or request.days > 30:
-            raise HTTPException(status_code=400, detail="Days must be between 1 and 30")
+        if request.days < 1 or request.days > 5:
+            raise HTTPException(status_code=400, detail="Days must be between 1 and 5")
         
         # Get nutrition targets from active goal if not provided
         nutrition_targets = {
@@ -187,23 +249,24 @@ async def generate_meal_plan(
             "exclude_foods": exclude_foods,  # Now includes user's disliked foods
             "meal_types": request.meal_types or ["breakfast", "lunch", "dinner"],
             "complexity_level": request.complexity_level or "any",
-            "use_food_index_only": request.use_food_index_only
+            "use_food_index_only": request.use_food_index_only,
+            "special_requests": request.special_requests or ""  # Pass special requests to AI service
         }
         
         ai_service = AIService()
         
         # Add timeout handling for AI request
         try:
-            # Set timeout to 60 seconds for faster response
+            # Set timeout to 180 seconds (3 minutes) for meal plan generation
             meal_plan = await asyncio.wait_for(
                 ai_service.generate_meal_plan(meal_plan_data),
-                timeout=60.0
+                timeout=180.0
             )
         except asyncio.TimeoutError:
             # If timeout, suggest using async endpoint
             raise HTTPException(
                 status_code=408, 
-                detail="Meal plan generation timed out. For complex plans, use /meal-planning/generate-plan-async endpoint for background processing."
+                detail="Meal plan generation timed out after 3 minutes. For complex plans, use /meal-planning/generate-plan-async endpoint for background processing."
             )
         
         # Automatically save the generated meal plan to the database
@@ -929,5 +992,1108 @@ async def get_meal_plan_status(
             "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
             "Access-Control-Allow-Headers": "*",
             "Access-Control-Allow-Credentials": "true",
+        }
+    )
+
+# =============================================================================
+# MANUAL MEAL PLANNING ENDPOINTS
+# =============================================================================
+
+@router.post("/manual/create")
+async def create_manual_meal_plan(
+    request: ManualMealPlanCreate,
+    current_user: UserResponse = Depends(get_current_user),
+    response: Response = None
+):
+    """Create a new manual meal plan"""
+    try:
+        user_id = current_user.uid
+        
+        # Validate duration
+        if request.duration_days < 1 or request.duration_days > 30:
+            raise HTTPException(status_code=400, detail="Duration must be between 1 and 30 days")
+        
+        # Create empty plan structure
+        plan_id = str(uuid.uuid4())
+        days = []
+        
+        for day_num in range(1, request.duration_days + 1):
+            day_data = {
+                "day_number": day_num,
+                "date": None,  # Will be set when plan is activated
+                "meals": {
+                    "breakfast": [],
+                    "lunch": [],
+                    "dinner": [],
+                    "snacks": []
+                },
+                "daily_totals": {
+                    "calories": 0,
+                    "protein": 0,
+                    "carbs": 0,
+                    "fat": 0,
+                    "fiber": 0,
+                    "sugar": 0,
+                    "sodium": 0
+                }
+            }
+            days.append(day_data)
+        
+        # Create meal plan document
+        meal_plan_data = {
+            "plan_id": plan_id,
+            "user_id": user_id,
+            "type": "manual",
+            "name": request.name,
+            "duration_days": request.duration_days,
+            "is_active": False,
+            "start_date": None,
+            "days": days,
+            "target_nutrition": request.target_nutrition or {},
+            "notes": request.notes or "",
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow(),
+            "is_current_version": True
+        }
+        
+        # Save to database
+        saved_plan = await meal_planning_service.save_meal_plan(user_id, meal_plan_data)
+        
+        if response:
+            add_cors_headers(response)
+        
+        return JSONResponse(
+            content={
+                "success": True,
+                "message": "Manual meal plan created successfully",
+                "plan": saved_plan
+            },
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                "Access-Control-Allow-Headers": "*",
+                "Access-Control-Allow-Credentials": "true",
+            }
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create manual meal plan: {str(e)}")
+
+@router.get("/manual/plans")
+async def get_manual_meal_plans(
+    limit: int = Query(10, description="Number of plans to return"),
+    skip: int = Query(0, description="Number of plans to skip"),
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Get user's manual meal plans"""
+    try:
+        user_id = current_user.uid
+        
+        # Get manual plans from database
+        plans = await meal_planning_service.get_user_meal_plans(user_id, limit, skip)
+        
+        # Filter for manual plans only
+        manual_plans = [plan for plan in plans if plan.get("type") == "manual"]
+        
+        return JSONResponse(
+            content={
+                "success": True,
+                "plans": manual_plans,
+                "total": len(manual_plans)
+            },
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                "Access-Control-Allow-Headers": "*",
+                "Access-Control-Allow-Credentials": "true",
+            }
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get manual meal plans: {str(e)}")
+
+@router.get("/manual/plans/{plan_id}")
+async def get_manual_meal_plan(
+    plan_id: str,
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Get a specific manual meal plan"""
+    try:
+        user_id = current_user.uid
+        
+        # Get plan from database
+        plan = await meal_planning_service.get_meal_plan_by_id(user_id, plan_id)
+        
+        if not plan:
+            raise HTTPException(status_code=404, detail="Meal plan not found")
+        
+        if plan.get("type") != "manual":
+            raise HTTPException(status_code=400, detail="Not a manual meal plan")
+        
+        return JSONResponse(
+            content={
+                "success": True,
+                "plan": plan
+            },
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                "Access-Control-Allow-Headers": "*",
+                "Access-Control-Allow-Credentials": "true",
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get manual meal plan: {str(e)}")
+
+@router.put("/manual/plans/{plan_id}")
+async def update_manual_meal_plan(
+    plan_id: str,
+    request: ManualMealPlanUpdate,
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Update a manual meal plan"""
+    try:
+        user_id = current_user.uid
+        
+        # Get existing plan
+        existing_plan = await meal_planning_service.get_meal_plan_by_id(user_id, plan_id)
+        
+        if not existing_plan:
+            raise HTTPException(status_code=404, detail="Meal plan not found")
+        
+        if existing_plan.get("type") != "manual":
+            raise HTTPException(status_code=400, detail="Not a manual meal plan")
+        
+        # Prepare update data
+        update_data = {"updated_at": datetime.utcnow()}
+        
+        if request.name is not None:
+            update_data["name"] = request.name
+        if request.days is not None:
+            update_data["days"] = request.days
+        if request.target_nutrition is not None:
+            update_data["target_nutrition"] = request.target_nutrition
+        if request.notes is not None:
+            update_data["notes"] = request.notes
+        if request.is_active is not None:
+            update_data["is_active"] = request.is_active
+        
+        # Update plan
+        updated_plan = await meal_planning_service.update_meal_plan(user_id, plan_id, update_data)
+        
+        if not updated_plan:
+            raise HTTPException(status_code=404, detail="Failed to update meal plan")
+        
+        return JSONResponse(
+            content={
+                "success": True,
+                "message": "Manual meal plan updated successfully",
+                "plan": updated_plan
+            },
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                "Access-Control-Allow-Headers": "*",
+                "Access-Control-Allow-Credentials": "true",
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update manual meal plan: {str(e)}")
+
+@router.post("/manual/plans/{plan_id}/add-food")
+async def add_food_to_manual_plan(
+    plan_id: str,
+    request: AddFoodToMealRequest,
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Add a food item to a specific meal in a manual plan"""
+    try:
+        user_id = current_user.uid
+        
+        # Get existing plan
+        plan = await meal_planning_service.get_meal_plan_by_id(user_id, plan_id)
+        
+        if not plan:
+            raise HTTPException(status_code=404, detail="Meal plan not found")
+        
+        if plan.get("type") != "manual":
+            raise HTTPException(status_code=400, detail="Not a manual meal plan")
+        
+        # Validate day number
+        if request.day_number < 1 or request.day_number > len(plan["days"]):
+            raise HTTPException(status_code=400, detail="Invalid day number")
+        
+        # Get the day data
+        day_index = request.day_number - 1
+        day_data = plan["days"][day_index]
+        
+        # Validate meal type
+        if request.meal_type not in day_data["meals"]:
+            raise HTTPException(status_code=400, detail="Invalid meal type")
+        
+        # Add food to meal
+        food_data = request.food.dict()
+        day_data["meals"][request.meal_type].append(food_data)
+        
+        # Recalculate daily totals
+        daily_totals = {
+            "calories": 0,
+            "protein": 0,
+            "carbs": 0,
+            "fat": 0,
+            "fiber": 0,
+            "sugar": 0,
+            "sodium": 0
+        }
+        
+        for meal_type, foods in day_data["meals"].items():
+            for food in foods:
+                daily_totals["calories"] += food.get("calories", 0)
+                daily_totals["protein"] += food.get("protein", 0)
+                daily_totals["carbs"] += food.get("carbs", 0)
+                daily_totals["fat"] += food.get("fat", 0)
+                daily_totals["fiber"] += food.get("fiber", 0)
+                daily_totals["sugar"] += food.get("sugar", 0)
+                daily_totals["sodium"] += food.get("sodium", 0)
+        
+        day_data["daily_totals"] = daily_totals
+        
+        # Update plan in database
+        updated_plan = await meal_planning_service.update_meal_plan(
+            user_id, 
+            plan_id, 
+            {"days": plan["days"], "updated_at": datetime.utcnow()}
+        )
+        
+        return JSONResponse(
+            content={
+                "success": True,
+                "message": "Food added to meal plan successfully",
+                "plan": updated_plan
+            },
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                "Access-Control-Allow-Headers": "*",
+                "Access-Control-Allow-Credentials": "true",
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to add food to meal plan: {str(e)}")
+
+@router.delete("/manual/plans/{plan_id}/remove-food")
+async def remove_food_from_manual_plan(
+    plan_id: str,
+    day_number: int = Query(..., description="Day number"),
+    meal_type: str = Query(..., description="Meal type"),
+    food_index: int = Query(..., description="Index of food to remove"),
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Remove a food item from a specific meal in a manual plan"""
+    try:
+        user_id = current_user.uid
+        
+        # Get existing plan
+        plan = await meal_planning_service.get_meal_plan_by_id(user_id, plan_id)
+        
+        if not plan:
+            raise HTTPException(status_code=404, detail="Meal plan not found")
+        
+        if plan.get("type") != "manual":
+            raise HTTPException(status_code=400, detail="Not a manual meal plan")
+        
+        # Validate day number
+        if day_number < 1 or day_number > len(plan["days"]):
+            raise HTTPException(status_code=400, detail="Invalid day number")
+        
+        # Get the day data
+        day_index = day_number - 1
+        day_data = plan["days"][day_index]
+        
+        # Validate meal type
+        if meal_type not in day_data["meals"]:
+            raise HTTPException(status_code=400, detail="Invalid meal type")
+        
+        # Validate food index
+        if food_index < 0 or food_index >= len(day_data["meals"][meal_type]):
+            raise HTTPException(status_code=400, detail="Invalid food index")
+        
+        # Remove food from meal
+        day_data["meals"][meal_type].pop(food_index)
+        
+        # Recalculate daily totals
+        daily_totals = {
+            "calories": 0,
+            "protein": 0,
+            "carbs": 0,
+            "fat": 0,
+            "fiber": 0,
+            "sugar": 0,
+            "sodium": 0
+        }
+        
+        for meal_type_key, foods in day_data["meals"].items():
+            for food in foods:
+                daily_totals["calories"] += food.get("calories", 0)
+                daily_totals["protein"] += food.get("protein", 0)
+                daily_totals["carbs"] += food.get("carbs", 0)
+                daily_totals["fat"] += food.get("fat", 0)
+                daily_totals["fiber"] += food.get("fiber", 0)
+                daily_totals["sugar"] += food.get("sugar", 0)
+                daily_totals["sodium"] += food.get("sodium", 0)
+        
+        day_data["daily_totals"] = daily_totals
+        
+        # Update plan in database
+        updated_plan = await meal_planning_service.update_meal_plan(
+            user_id, 
+            plan_id, 
+            {"days": plan["days"], "updated_at": datetime.utcnow()}
+        )
+        
+        return JSONResponse(
+            content={
+                "success": True,
+                "message": "Food removed from meal plan successfully",
+                "plan": updated_plan
+            },
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                "Access-Control-Allow-Headers": "*",
+                "Access-Control-Allow-Credentials": "true",
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to remove food from meal plan: {str(e)}")
+
+@router.post("/manual/plans/{plan_id}/activate")
+async def activate_manual_meal_plan(
+    plan_id: str,
+    start_date: Optional[str] = Query(None, description="Start date (YYYY-MM-DD), defaults to today"),
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Activate a manual meal plan"""
+    try:
+        user_id = current_user.uid
+        
+        # Get existing plan
+        plan = await meal_planning_service.get_meal_plan_by_id(user_id, plan_id)
+        
+        if not plan:
+            raise HTTPException(status_code=404, detail="Meal plan not found")
+        
+        if plan.get("type") != "manual":
+            raise HTTPException(status_code=400, detail="Not a manual meal plan")
+        
+        # Set start date
+        if start_date:
+            try:
+                start_date_obj = datetime.strptime(start_date, "%Y-%m-%d")
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+        else:
+            start_date_obj = datetime.utcnow()
+        
+        # Deactivate other manual plans
+        all_plans = await meal_planning_service.get_user_meal_plans(user_id, limit=100)
+        for other_plan in all_plans:
+            if other_plan.get("type") == "manual" and other_plan.get("is_active"):
+                await meal_planning_service.update_meal_plan(
+                    user_id, 
+                    other_plan["plan_id"], 
+                    {"is_active": False}
+                )
+        
+        # Update plan dates and activate
+        plan_days = plan["days"]
+        for i, day in enumerate(plan_days):
+            day_date = start_date_obj + timedelta(days=i)
+            day["date"] = day_date.strftime("%Y-%m-%d")
+        
+        # Update plan
+        updated_plan = await meal_planning_service.update_meal_plan(
+            user_id, 
+            plan_id, 
+            {
+                "is_active": True,
+                "start_date": start_date_obj.strftime("%Y-%m-%d"),
+                "days": plan_days,
+                "updated_at": datetime.utcnow()
+            }
+        )
+        
+        return JSONResponse(
+            content={
+                "success": True,
+                "message": "Manual meal plan activated successfully",
+                "plan": updated_plan
+            },
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                "Access-Control-Allow-Headers": "*",
+                "Access-Control-Allow-Credentials": "true",
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to activate manual meal plan: {str(e)}")
+
+# Add OPTIONS handlers for manual endpoints
+@router.options("/manual/create")
+async def options_manual_create():
+    return JSONResponse(
+        content={"detail": "OK"},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Max-Age": "86400",
+        }
+    )
+
+@router.options("/manual/plans")
+async def options_manual_plans():
+    return JSONResponse(
+        content={"detail": "OK"},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Max-Age": "86400",
+        }
+    )
+
+@router.options("/manual/plans/{plan_id}")
+async def options_manual_plan_by_id():
+    return JSONResponse(
+        content={"detail": "OK"},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Max-Age": "86400",
+        }
+    )
+
+@router.options("/manual/plans/{plan_id}/add-food")
+async def options_manual_add_food():
+    return JSONResponse(
+        content={"detail": "OK"},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Max-Age": "86400",
+        }
+    )
+
+@router.options("/manual/plans/{plan_id}/activate")
+async def options_manual_activate():
+    return JSONResponse(
+        content={"detail": "OK"},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Max-Age": "86400",
+        }
+    )
+
+@router.delete("/manual/plans/{plan_id}")
+async def delete_manual_meal_plan(
+    plan_id: str,
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Delete a manual meal plan"""
+    try:
+        user_id = current_user.uid
+        
+        # Get existing plan to verify ownership and type
+        plan = await meal_planning_service.get_meal_plan_by_id(user_id, plan_id)
+        
+        if not plan:
+            raise HTTPException(status_code=404, detail="Meal plan not found")
+        
+        if plan.get("type") != "manual":
+            raise HTTPException(status_code=400, detail="Not a manual meal plan")
+        
+        # Delete the plan
+        success = await meal_planning_service.delete_meal_plan(user_id, plan_id)
+        
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to delete meal plan")
+        
+        return JSONResponse(
+            content={
+                "success": True,
+                "message": "Manual meal plan deleted successfully"
+            },
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                "Access-Control-Allow-Headers": "*",
+                "Access-Control-Allow-Credentials": "true",
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete manual meal plan: {str(e)}")
+
+@router.options("/manual/plans/{plan_id}")
+async def options_manual_plan_delete():
+    return JSONResponse(
+        content={"detail": "OK"},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Max-Age": "86400",
+        }
+    )
+
+# Phase 2 & 3 Manual Meal Planning Endpoints
+
+@router.get("/manual/suggestions")
+async def get_manual_suggestions(
+    plan_id: str,
+    day_number: int,
+    meal_type: str,
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Get AI suggestions for manual meal planning"""
+    try:
+        # Get the plan
+        plan = await meal_planning_service.get_meal_plan_by_id(current_user.uid, plan_id)
+        if not plan:
+            raise HTTPException(status_code=404, detail="Plan not found")
+        
+        # Get user's nutritional preferences
+        user_preferences = await user_service.get_user_preferences(current_user.uid)
+        target_nutrition = user_preferences.get("nutrition", {})
+        
+        # Get current day's nutrition
+        day_data = next((d for d in plan.get("days", []) if d.get("day_number") == day_number), None)
+        if not day_data:
+            raise HTTPException(status_code=404, detail="Day not found")
+        
+        current_nutrition = day_data.get("daily_totals", {})
+        
+        # Calculate gaps in nutrition
+        nutrition_gaps = {}
+        for nutrient in ["calories", "protein", "carbs", "fat"]:
+            target = target_nutrition.get(f"{nutrient}_goal", 0)
+            current = current_nutrition.get(nutrient, 0)
+            gap = max(0, target - current)
+            nutrition_gaps[nutrient] = gap
+        
+        # Generate AI suggestions based on gaps
+        suggestions = []
+        
+        # Protein suggestions
+        if nutrition_gaps.get("protein", 0) > 10:
+            suggestions.append({
+                "type": "protein_boost",
+                "message": f"Add {nutrition_gaps['protein']:.0f}g protein to reach your target",
+                "foods": [
+                    {"name": "Chicken Breast (100g)", "protein": 31, "calories": 165},
+                    {"name": "Greek Yogurt (170g)", "protein": 15, "calories": 100},
+                    {"name": "Eggs (2 large)", "protein": 12, "calories": 140}
+                ]
+            })
+        
+        # Fiber suggestions
+        if nutrition_gaps.get("fiber", 0) > 5:
+            suggestions.append({
+                "type": "fiber_boost",
+                "message": "Add more fiber-rich foods",
+                "foods": [
+                    {"name": "Oats (40g)", "fiber": 4, "calories": 150},
+                    {"name": "Broccoli (100g)", "fiber": 3, "calories": 34},
+                    {"name": "Apple (1 medium)", "fiber": 4, "calories": 95}
+                ]
+            })
+        
+        # Meal completion suggestions
+        meal_foods = day_data.get("meals", {}).get(meal_type, [])
+        if len(meal_foods) == 0:
+            suggestions.append({
+                "type": "meal_starter",
+                "message": f"Quick {meal_type} ideas to get started",
+                "foods": get_meal_starter_foods(meal_type)
+            })
+        elif len(meal_foods) < 3:
+            suggestions.append({
+                "type": "meal_completion",
+                "message": f"Complete your {meal_type} with these additions",
+                "foods": get_meal_completion_foods(meal_type, meal_foods)
+            })
+        
+        return {"suggestions": suggestions}
+        
+    except Exception as e:
+        logger.error(f"Error getting manual suggestions: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to get suggestions")
+
+def get_meal_starter_foods(meal_type: str):
+    """Get starter food suggestions for a meal type"""
+    starters = {
+        "breakfast": [
+            {"name": "Oatmeal (40g)", "calories": 150, "protein": 5, "carbs": 27, "fat": 3},
+            {"name": "Greek Yogurt (170g)", "calories": 100, "protein": 15, "carbs": 6, "fat": 0},
+            {"name": "Banana (1 medium)", "calories": 105, "protein": 1, "carbs": 27, "fat": 0}
+        ],
+        "lunch": [
+            {"name": "Chicken Breast (100g)", "calories": 165, "protein": 31, "carbs": 0, "fat": 4},
+            {"name": "Brown Rice (100g)", "calories": 111, "protein": 3, "carbs": 23, "fat": 1},
+            {"name": "Mixed Vegetables (100g)", "calories": 65, "protein": 3, "carbs": 13, "fat": 0}
+        ],
+        "dinner": [
+            {"name": "Salmon (100g)", "calories": 208, "protein": 22, "carbs": 0, "fat": 12},
+            {"name": "Sweet Potato (100g)", "calories": 86, "protein": 2, "carbs": 20, "fat": 0},
+            {"name": "Broccoli (100g)", "calories": 34, "protein": 3, "carbs": 7, "fat": 0}
+        ],
+        "snacks": [
+            {"name": "Apple (1 medium)", "calories": 95, "protein": 0, "carbs": 25, "fat": 0},
+            {"name": "Almonds (28g)", "calories": 164, "protein": 6, "carbs": 6, "fat": 14},
+            {"name": "Cottage Cheese (100g)", "calories": 98, "protein": 11, "carbs": 3, "fat": 4}
+        ]
+    }
+    return starters.get(meal_type, [])
+
+def get_meal_completion_foods(meal_type: str, existing_foods: list):
+    """Get completion food suggestions based on existing foods"""
+    # Simple logic - suggest complementary foods
+    completion_foods = {
+        "breakfast": [
+            {"name": "Berries (100g)", "calories": 57, "protein": 1, "carbs": 14, "fat": 0},
+            {"name": "Nuts (28g)", "calories": 170, "protein": 6, "carbs": 6, "fat": 15}
+        ],
+        "lunch": [
+            {"name": "Quinoa (100g)", "calories": 120, "protein": 4, "carbs": 22, "fat": 2},
+            {"name": "Avocado (100g)", "calories": 160, "protein": 2, "carbs": 9, "fat": 15}
+        ],
+        "dinner": [
+            {"name": "Leafy Greens (100g)", "calories": 23, "protein": 2, "carbs": 4, "fat": 0},
+            {"name": "Olive Oil (1 tbsp)", "calories": 120, "protein": 0, "carbs": 0, "fat": 14}
+        ],
+        "snacks": [
+            {"name": "Yogurt (100g)", "calories": 59, "protein": 10, "carbs": 4, "fat": 0},
+            {"name": "Crackers (30g)", "calories": 130, "protein": 3, "carbs": 20, "fat": 4}
+        ]
+    }
+    return completion_foods.get(meal_type, [])
+
+@router.post("/manual/plans/{plan_id}/log-day")
+async def log_day_to_food_diary(
+    plan_id: str,
+    request: LogMealRequest,
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Log a day's meals from manual plan to food diary"""
+    try:
+        # Get the plan
+        plan = await meal_planning_service.get_meal_plan_by_id(current_user.uid, plan_id)
+        if not plan:
+            raise HTTPException(status_code=404, detail="Plan not found")
+        
+        # Get the day data
+        day_data = next((d for d in plan.get("days", []) if d.get("day_number") == request.day_number), None)
+        if not day_data:
+            raise HTTPException(status_code=404, detail="Day not found")
+        
+        # Log each requested meal type
+        logged_meals = []
+        log_date = request.log_date or datetime.now().strftime("%Y-%m-%d")
+        
+        for meal_type in request.meal_types:
+            meal_foods = day_data.get("meals", {}).get(meal_type, [])
+            
+            for food in meal_foods:
+                # Create food log entry
+                nutrition_info = NutritionInfo(
+                    calories=food.get("calories", 0),
+                    protein=food.get("protein", 0),
+                    fat=food.get("fat", 0),
+                    carbs=food.get("carbs", 0),
+                    fiber=food.get("fiber", 0),
+                    sugar=food.get("sugar", 0),
+                    sodium=food.get("sodium", 0)
+                )
+                
+                food_log_data = FoodLogCreate(
+                    date=datetime.strptime(log_date, "%Y-%m-%d").date(),
+                    meal_type=meal_type,
+                    food_id=food.get("food_id"),
+                    food_name=food.get("food_name"),
+                    amount=food.get("quantity", 0),
+                    unit=food.get("unit", ""),
+                    nutrition=nutrition_info,
+                    notes=f"Logged from manual meal plan"
+                )
+                
+                # Add to food diary
+                result = await food_log_service.log_food(food_log_data, current_user.uid)
+                logged_meals.append(result.dict())
+        
+        return {
+            "success": True,
+            "message": f"Logged {len(logged_meals)} meals from day {request.day_number}",
+            "logged_meals": logged_meals
+        }
+        
+    except Exception as e:
+        logger.error(f"Error logging day to food diary: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to log meals")
+
+@router.post("/manual/plans/{plan_id}/copy-day")
+async def copy_day_in_plan(
+    plan_id: str,
+    source_day: int = Query(..., description="Source day number"),
+    target_day: int = Query(..., description="Target day number"),
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Copy meals from one day to another in a manual plan"""
+    try:
+        # Get the plan
+        plan = await meal_planning_service.get_meal_plan_by_id(current_user.uid, plan_id)
+        if not plan:
+            raise HTTPException(status_code=404, detail="Plan not found")
+        
+        # Find source and target days
+        source_day_data = next((d for d in plan.get("days", []) if d.get("day_number") == source_day), None)
+        target_day_data = next((d for d in plan.get("days", []) if d.get("day_number") == target_day), None)
+        
+        if not source_day_data or not target_day_data:
+            raise HTTPException(status_code=404, detail="Source or target day not found")
+        
+        # Copy meals
+        target_day_data["meals"] = source_day_data["meals"].copy()
+        target_day_data["daily_totals"] = source_day_data["daily_totals"].copy();
+        
+        # Update the plan
+        await meal_planning_service.update_meal_plan(current_user.uid, plan_id, {"days": plan["days"]})
+        
+        return {
+            "success": True,
+            "message": f"Copied day {source_day} to day {target_day}",
+            "updated_plan": await meal_planning_service.get_meal_plan_by_id(current_user.uid, plan_id)
+        }
+        
+    except Exception as e:
+        logger.error(f"Error copying day: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to copy day")
+
+@router.post("/manual/plans/{plan_id}/save-template")
+async def save_plan_as_template(
+    plan_id: str,
+    template_name: str = Query(..., description="Template name"),
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Save a manual plan as a reusable template"""
+    try:
+        # Get the plan
+        plan = await meal_planning_service.get_meal_plan_by_id(current_user.uid, plan_id)
+        if not plan:
+            raise HTTPException(status_code=404, detail="Plan not found")
+        
+        # Create template
+        template_id = str(uuid.uuid4())
+        
+        # For now, we'll save it as a special meal plan with type="template"
+        template_plan = {
+            "plan_id": template_id,
+            "user_id": current_user.uid,
+            "type": "template",
+            "name": template_name,
+            "title": template_name,
+            "description": f"Template created from {plan.get('name', 'Unnamed Plan')}",
+            "duration_days": plan.get("duration_days"),
+            "days": plan.get("days"),
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow(),
+            "is_active": False,
+            "created_from_plan": plan_id,
+            "target_nutrition": plan.get("target_nutrition", {}),
+            "dietary_restrictions": plan.get("dietary_restrictions", []),
+            "notes": f"Template created from plan: {plan.get('name', 'Unnamed Plan')}",
+            "version": 1,
+            "is_current_version": True,
+            "parent_version": None,
+            "tags": [],
+            "variety_score": "",
+            "goal_alignment": "",
+            "shopping_tips": "",
+            "start_date": None,
+            "total_days": plan.get("duration_days")
+        }
+        
+        # Save as new plan document
+        result = await meal_planning_service.save_meal_plan(current_user.uid, {
+            "name": template_name,
+            "description": f"Template created from {plan.get('name', 'Unnamed Plan')}",
+            "duration_days": plan.get("duration_days"),
+            "target_nutrition": plan.get("target_nutrition", {}),
+            "dietary_restrictions": plan.get("dietary_restrictions", []),
+            "notes": f"Template created from plan: {plan.get('name', 'Unnamed Plan')}",
+            "type": "template",
+            "days": plan.get("days"),
+            "created_from_plan": plan_id
+        })
+        
+        return {
+            "success": True,
+            "message": f"Template '{template_name}' saved successfully",
+            "template_id": result.get("plan_id", template_id)
+        }
+        
+    except Exception as e:
+        logger.error(f"Error saving template: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to save template")
+
+@router.get("/manual/templates")
+async def get_meal_plan_templates(
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Get user's meal plan templates"""
+    try:
+        # Get all plans with type="template" for the user
+        all_plans = await meal_planning_service.get_user_meal_plans(current_user.uid, limit=100)
+        templates = [plan for plan in all_plans if plan.get("type") == "template"]
+        
+        return {"templates": templates}
+        
+    except Exception as e:
+        logger.error(f"Error getting templates: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to get templates")
+
+@router.post("/manual/create-from-template")
+async def create_plan_from_template(
+    template_id: str = Query(..., description="Template ID"),
+    plan_name: str = Query(..., description="New plan name"),
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Create a new plan from a template"""
+    try:
+        # Get template (it's stored as a plan with type="template")
+        template = await meal_planning_service.get_meal_plan_by_id(current_user.uid, template_id)
+        if not template or template.get("type") != "template":
+            raise HTTPException(status_code=404, detail="Template not found")
+        
+        # Create new plan from template
+        new_plan = {
+            "plan_id": str(uuid.uuid4()),
+            "user_id": current_user.uid,
+            "name": plan_name,
+            "description": f"Created from template: {template.get('name', 'Unnamed Template')}",
+            "duration_days": template.get("duration_days"),
+            "days": template.get("days"),
+            "type": "manual",
+            "created_from_template": template_id,
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow(),
+            "is_active": False,
+            "target_nutrition": template.get("target_nutrition", {}),
+            "dietary_restrictions": template.get("dietary_restrictions", []),
+            "notes": ""
+        }
+        
+        # Save new plan
+        result = await meal_planning_service.save_meal_plan(current_user.uid, new_plan)
+        
+        return {
+            "success": True,
+            "message": f"Plan '{plan_name}' created from template",
+            "plan_id": new_plan["plan_id"]
+        }
+        
+    except Exception as e:
+        logger.error(f"Error creating plan from template: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to create plan from template")
+
+@router.get("/manual/plans/{plan_id}/export/pdf")
+async def export_manual_plan_pdf(
+    plan_id: str,
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Export manual meal plan as PDF"""
+    try:
+        user_id = current_user.uid
+        
+        # Get plan
+        plan = await meal_planning_service.get_meal_plan_by_id(user_id, plan_id)
+        
+        if not plan:
+            raise HTTPException(status_code=404, detail="Meal plan not found")
+        
+        if plan.get("type") != "manual":
+            raise HTTPException(status_code=400, detail="Not a manual meal plan")
+        
+        # For now, return a simple text response - would need proper PDF generation
+        from fastapi.responses import StreamingResponse
+        import io
+        
+        # Create simple text content (in real implementation, would use PDF library)
+        content = f"""
+MEAL PLAN: {plan.get('name', 'Unnamed Plan')}
+{'='*50}
+
+Description: {plan.get('description', 'No description')}
+Duration: {plan.get('duration_days', 0)} days
+Created: {plan.get('created_at', 'Unknown')}
+
+"""
+        
+        for day in plan.get('days', []):
+            content += f"\nDAY {day.get('day_number', 0)}"
+            if day.get('date'):
+                content += f" ({day.get('date')})"
+            content += "\n" + "-" * 30 + "\n"
+            
+            for meal_type, foods in day.get('meals', {}).items():
+                content += f"\n{meal_type.upper()}:\n"
+                for food in foods:
+                    content += f"  - {food.get('food_name', 'Unknown')} ({food.get('quantity', 0)} {food.get('unit', '')})\n"
+                    content += f"    Calories: {food.get('calories', 0):.0f}, Protein: {food.get('protein', 0):.1f}g\n"
+            
+            totals = day.get('daily_totals', {})
+            content += f"\nDaily Totals:\n"
+            content += f"  Calories: {totals.get('calories', 0):.0f}\n"
+            content += f"  Protein: {totals.get('protein', 0):.1f}g\n"
+            content += f"  Carbs: {totals.get('carbs', 0):.1f}g\n"
+            content += f"  Fat: {totals.get('fat', 0):.1f}g\n"
+            content += "\n"
+        
+        # Create a bytes buffer
+        buffer = io.BytesIO()
+        buffer.write(content.encode('utf-8'))
+        buffer.seek(0)
+        
+        return StreamingResponse(
+            io.BytesIO(content.encode('utf-8')),
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename=meal-plan-{plan.get('name', 'plan').replace(' ', '-')}.pdf",
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                "Access-Control-Allow-Headers": "*",
+                "Access-Control-Allow-Credentials": "true",
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to export PDF: {str(e)}")
+
+@router.get("/manual/plans/{plan_id}/export/grocery-list")
+async def export_manual_plan_grocery_list(
+    plan_id: str,
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Export manual meal plan grocery list"""
+    try:
+        user_id = current_user.uid
+        
+        # Get plan
+        plan = await meal_planning_service.get_meal_plan_by_id(user_id, plan_id)
+        
+        if not plan:
+            raise HTTPException(status_code=404, detail="Meal plan not found")
+        
+        if plan.get("type") != "manual":
+            raise HTTPException(status_code=400, detail="Not a manual meal plan")
+        
+        # Aggregate ingredients
+        grocery_items = {}
+        
+        for day in plan.get('days', []):
+            for meal_type, foods in day.get('meals', {}).items():
+                for food in foods:
+                    food_name = food.get('food_name', 'Unknown')
+                    quantity = food.get('quantity', 0)
+                    unit = food.get('unit', '')
+                    
+                    # Create key for grouping
+                    key = f"{food_name}_{unit}"
+                    
+                    if key in grocery_items:
+                        grocery_items[key]['quantity'] += quantity
+                    else:
+                        grocery_items[key] = {
+                            'name': food_name,
+                            'quantity': quantity,
+                            'unit': unit
+                        }
+        
+        # Convert to list format
+        grocery_list = list(grocery_items.values())
+        
+        return JSONResponse(
+            content={
+                "success": True,
+                "grocery_list": grocery_list,
+                "total_items": len(grocery_list),
+                "plan_name": plan.get('name', 'Unnamed Plan')
+            },
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                "Access-Control-Allow-Headers": "*",
+                "Access-Control-Allow-Credentials": "true",
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate grocery list: {str(e)}")
+
+@router.options("/manual/plans/{plan_id}/export/pdf")
+async def options_manual_export_pdf():
+    return JSONResponse(
+        content={"detail": "OK"},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Max-Age": "86400",
+        }
+    )
+
+@router.options("/manual/plans/{plan_id}/export/grocery-list")
+async def options_manual_export_grocery():
+    return JSONResponse(
+        content={"detail": "OK"},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Max-Age": "86400",
         }
     )
