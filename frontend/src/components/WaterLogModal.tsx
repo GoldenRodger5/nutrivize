@@ -52,10 +52,12 @@ const WaterLogModal: React.FC<WaterLogModalProps> = ({ isOpen, onClose, onSucces
 
     try {
       setLoading(true);
-      const today = new Date().toISOString().split('T')[0];
+      // Use local date to ensure consistency with user's timezone
+      const today = new Date();
+      const localDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
       
       await api.post('/water-logs/', {
-        date: today,
+        date: localDate,
         amount: amount,
         notes: ""
       });

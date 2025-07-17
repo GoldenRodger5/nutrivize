@@ -5,7 +5,7 @@ import MobileBottomNav from './MobileBottomNav'
 import PWAStatus from './PWAStatus'
 import PWAInstall from './PWAInstall'
 import Dashboard from '../pages/Dashboard'
-import AIDashboardNew from '../pages/AIDashboardNew'
+import AIDashboard from '../pages/AIDashboard'
 import FoodLog from '../pages/FoodLogEnhanced'
 import FoodIndex from '../pages/FoodIndex'
 import MealSuggestions from '../pages/MealSuggestions'
@@ -48,9 +48,9 @@ export default function MainLayout() {
       <NavBar isDrawerOpen={isOpen} onDrawerOpen={onOpen} onDrawerClose={onClose} />
       <Box pb={isMobile ? "80px" : 0}>
         <Routes>
-          <Route path="/" element={<AIDashboardNew />} />
+          <Route path="/" element={<AIDashboard />} />
           <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/ai-dashboard" element={<AIDashboardNew />} />
+          <Route path="/ai-dashboard" element={<AIDashboard />} />
           <Route path="/food-log" element={<FoodLog />} />
           <Route path="/food-index" element={<FoodIndex />} />
           <Route path="/meal-suggestions" element={<MealSuggestions />} />

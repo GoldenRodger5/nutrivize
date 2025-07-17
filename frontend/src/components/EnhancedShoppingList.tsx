@@ -40,7 +40,9 @@ import {
   MdInfo, 
   MdRestaurant, 
   MdRefresh,
-  MdCheckCircle
+  MdCheckCircle,
+  MdDownload,
+  MdFileDownload
 } from 'react-icons/md'
 import { ShoppingList } from '../types'
 import api from '../utils/api'
@@ -449,6 +451,89 @@ export default function EnhancedShoppingList({
     }
   }
 
+  // Export Functions
+  const exportAsText = () => {
+    const date = new Date().toLocaleDateString()
+    const header = `Shopping List - ${date}\n${'='.repeat(30)}\n`
+    const items = shoppingList.items?.map(item => 
+      `${item.is_checked ? '✓' : '○'} ${item.name} - ${item.amount} ${item.unit}`
+    ).join('\n') || ''
+    const footer = `\nTotal Estimated Cost: $${shoppingList.total_estimated_cost?.toFixed(2) || '0.00'}`
+    
+    const content = header + items + footer
+    const blob = new Blob([content], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `shopping-list-${date}.txt`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const exportAsCSV = () => {
+    const date = new Date().toLocaleDateString()
+    const header = 'Item,Amount,Unit,Category,Checked,Price\n'
+    const rows = shoppingList.items?.map(item => 
+      `"${item.name}","${item.amount}","${item.unit}","${item.category || 'Other'}","${item.is_checked ? 'Yes' : 'No'}","${item.estimated_price || 0}"`
+    ).join('\n') || ''
+    
+    const content = header + rows
+    const blob = new Blob([content], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `shopping-list-${date}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const printList = () => {
+    const date = new Date().toLocaleDateString()
+    const printContent = `
+      <html>
+        <head>
+          <title>Shopping List - ${date}</title>
+          <style>
+            body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .item { display: flex; align-items: center; margin-bottom: 10px; padding: 8px; border-bottom: 1px solid #eee; }
+            .checkbox { margin-right: 10px; }
+            .name { flex: 1; font-weight: bold; }
+            .amount { margin-left: 10px; color: #666; }
+            .total { margin-top: 20px; text-align: right; font-size: 18px; font-weight: bold; }
+            .category { font-weight: bold; margin-top: 20px; margin-bottom: 10px; color: #333; border-bottom: 2px solid #333; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>Shopping List</h1>
+            <p>${date}</p>
+          </div>
+          ${Object.entries(groupedItems).map(([category, items]) => `
+            <div class="category">${category}</div>
+            ${items.map(item => `
+              <div class="item">
+                <input type="checkbox" class="checkbox" ${item.is_checked ? 'checked' : ''} />
+                <span class="name">${item.name}</span>
+                <span class="amount">${item.amount} ${item.unit}</span>
+              </div>
+            `).join('')}
+          `).join('')}
+          <div class="total">
+            Total Estimated Cost: $${shoppingList.total_estimated_cost?.toFixed(2) || '0.00'}
+          </div>
+        </body>
+      </html>
+    `
+    
+    const printWindow = window.open('', '_blank')
+    if (printWindow) {
+      printWindow.document.write(printContent)
+      printWindow.document.close()
+      printWindow.print()
+    }
+  }
+
   // Group items by category
   const groupedItems = shoppingList.items?.reduce((groups, item) => {
     const category = item.category || 'Other'
@@ -490,7 +575,7 @@ export default function EnhancedShoppingList({
                 borderRadius="md"
               />
               
-              <HStack spacing={2}>
+              <HStack spacing={2} wrap="wrap">
                 <Button
                   leftIcon={<MdRefresh />}
                   size="sm"
@@ -522,6 +607,32 @@ export default function EnhancedShoppingList({
                     Cancel
                   </Button>
                 )}
+                
+                {/* Export buttons */}
+                <Button
+                  leftIcon={<MdFileDownload />}
+                  size="sm"
+                  variant="outline"
+                  onClick={exportAsText}
+                >
+                  Export Text
+                </Button>
+                <Button
+                  leftIcon={<MdDownload />}
+                  size="sm"
+                  variant="outline"
+                  onClick={exportAsCSV}
+                >
+                  Export CSV
+                </Button>
+                <Button
+                  leftIcon={<MdFileDownload />}
+                  size="sm"
+                  variant="outline"
+                  onClick={printList}
+                >
+                  Print
+                </Button>
               </HStack>
             </VStack>
           </CardHeader>

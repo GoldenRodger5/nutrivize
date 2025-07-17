@@ -56,7 +56,7 @@ export default function AIChat() {
   const messageBg = useColorModeValue('gray.50', 'gray.700')
   const userMessageBg = useColorModeValue('green.500', 'green.600')
   // Get food index context for food-related queries
-  const { userFoods, searchUserFoods } = useFoodIndex()
+  const { searchUserFoods } = useFoodIndex()
 
   useEffect(() => {
     scrollToBottom()

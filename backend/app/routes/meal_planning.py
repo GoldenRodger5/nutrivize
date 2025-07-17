@@ -1241,6 +1241,30 @@ async def add_food_to_manual_plan(
         food_data = request.food.dict()
         day_data["meals"][request.meal_type].append(food_data)
         
+        # Automatically add to recent foods
+        try:
+            nutrition_dict = {
+                "calories": food_data.get("calories", 0),
+                "protein": food_data.get("protein", 0),
+                "carbs": food_data.get("carbs", 0),
+                "fat": food_data.get("fat", 0),
+                "fiber": food_data.get("fiber", 0),
+                "sugar": food_data.get("sugar", 0),
+                "sodium": food_data.get("sodium", 0),
+            }
+            await user_service.add_to_recent_foods_from_log(
+                user_id,
+                food_data.get("food_id", ""),
+                food_data.get("food_name", ""),
+                food_data.get("quantity", 0),
+                food_data.get("unit", "g"),
+                nutrition_dict
+            )
+            logger.info(f"Added food {food_data.get('food_name')} to recent foods for user {user_id}")
+        except Exception as recent_error:
+            logger.warning(f"Failed to add to recent foods from meal plan: {recent_error}")
+            # Don't fail the request if adding to recent foods fails
+        
         # Recalculate daily totals
         daily_totals = {
             "calories": 0,
@@ -1453,6 +1477,53 @@ async def activate_manual_meal_plan(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to activate manual meal plan: {str(e)}")
+
+@router.post("/manual/plans/{plan_id}/deactivate")
+async def deactivate_manual_meal_plan(
+    plan_id: str,
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Deactivate a manual meal plan"""
+    try:
+        user_id = current_user.uid
+        
+        # Get existing plan to verify ownership and type
+        plan = await meal_planning_service.get_meal_plan_by_id(user_id, plan_id)
+        
+        if not plan:
+            raise HTTPException(status_code=404, detail="Meal plan not found")
+        
+        if plan.get("type") != "manual":
+            raise HTTPException(status_code=400, detail="Not a manual meal plan")
+        
+        # Deactivate the plan
+        updated_plan = await meal_planning_service.update_meal_plan(
+            user_id, 
+            plan_id, 
+            {
+                "is_active": False,
+                "updated_at": datetime.utcnow()
+            }
+        )
+        
+        return JSONResponse(
+            content={
+                "success": True,
+                "message": "Manual meal plan deactivated successfully",
+                "plan": updated_plan
+            },
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                "Access-Control-Allow-Headers": "*",
+                "Access-Control-Allow-Credentials": "true",
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to deactivate manual meal plan: {str(e)}")
 
 # Add OPTIONS handlers for manual endpoints
 @router.options("/manual/create")
@@ -2087,6 +2158,184 @@ async def options_manual_export_pdf():
 
 @router.options("/manual/plans/{plan_id}/export/grocery-list")
 async def options_manual_export_grocery():
+    return JSONResponse(
+        content={"detail": "OK"},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Max-Age": "86400",
+        }
+    )
+
+@router.options("/manual/plans/{plan_id}/deactivate")
+async def options_manual_deactivate():
+    return JSONResponse(
+        content={"detail": "OK"},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Max-Age": "86400",
+        }
+    )
+
+@router.post("/manual/plans/{plan_id}/insights")
+async def get_meal_plan_insights(
+    plan_id: str,
+    day_number: Optional[int] = Query(None, description="Specific day to analyze, or None for entire plan"),
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Generate AI insights for a meal plan based on nutrition and user goals"""
+    try:
+        user_id = current_user.uid
+        
+        # Get the plan
+        plan = await meal_planning_service.get_meal_plan_by_id(user_id, plan_id)
+        if not plan:
+            raise HTTPException(status_code=404, detail="Plan not found")
+        
+        if plan.get("type") != "manual":
+            raise HTTPException(status_code=400, detail="Not a manual meal plan")
+        
+        # Get user's goals and preferences
+        user_preferences = await user_service.get_user_preferences(user_id)
+        nutrition_goals = user_preferences.get("nutrition", {})
+        dietary_preferences = user_preferences.get("dietary", {})
+        
+        # Prepare data for AI analysis
+        plan_data = {
+            "plan_name": plan.get("name", "Unnamed Plan"),
+            "target_nutrition": plan.get("target_nutrition", {}),
+            "user_goals": nutrition_goals,
+            "dietary_preferences": dietary_preferences,
+            "days": plan.get("days", [])
+        }
+        
+        if day_number is not None:
+            # Analyze specific day
+            day_data = next((d for d in plan.get("days", []) if d.get("day_number") == day_number), None)
+            if not day_data:
+                raise HTTPException(status_code=404, detail="Day not found")
+            plan_data["days"] = [day_data]
+            plan_data["analysis_scope"] = f"Day {day_number}"
+        else:
+            plan_data["analysis_scope"] = "Entire Plan"
+        
+        # Use AI service to generate insights
+        ai_service = AIService()
+        
+        # Create prompt for meal plan analysis
+        analysis_prompt = f"""
+        Analyze this meal plan and provide detailed health insights and recommendations.
+        
+        Plan: {plan_data['plan_name']}
+        Analysis Scope: {plan_data['analysis_scope']}
+        
+        User's Nutrition Goals:
+        - Calories: {nutrition_goals.get('calorie_goal', 'Not set')}
+        - Protein: {nutrition_goals.get('protein_goal', 'Not set')}g
+        - Carbs: {nutrition_goals.get('carb_goal', 'Not set')}g
+        - Fat: {nutrition_goals.get('fat_goal', 'Not set')}g
+        - Fiber: {nutrition_goals.get('fiber_goal', 'Not set')}g
+        
+        Dietary Preferences:
+        - Restrictions: {dietary_preferences.get('dietary_restrictions', [])}
+        - Allergens: {dietary_preferences.get('allergens', [])}
+        - Cooking Skill: {dietary_preferences.get('cooking_skill_level', 'Not set')}
+        - Budget: {dietary_preferences.get('budget_preference', 'Not set')}
+        
+        Plan Data: {plan_data['days']}
+        
+        Please provide:
+        1. Overall nutrition analysis vs goals
+        2. Specific recommendations to improve the meal plan
+        3. Potential health benefits
+        4. Areas for improvement
+        5. Practical tips for better nutrition
+        
+        Format as JSON with sections: analysis, recommendations, health_benefits, improvements, tips
+        """
+        
+        try:
+            insights = await ai_service.generate_completion(analysis_prompt)
+            
+            # Try to parse as JSON, fallback to plain text
+            try:
+                import json
+                parsed_insights = json.loads(insights)
+            except:
+                parsed_insights = {
+                    "analysis": insights,
+                    "recommendations": [],
+                    "health_benefits": [],
+                    "improvements": [],
+                    "tips": []
+                }
+            
+            return JSONResponse(
+                content={
+                    "success": True,
+                    "insights": parsed_insights,
+                    "plan_name": plan.get("name", "Unnamed Plan"),
+                    "analysis_scope": plan_data["analysis_scope"],
+                    "generated_at": datetime.utcnow().isoformat()
+                },
+                headers={
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                    "Access-Control-Allow-Headers": "*",
+                    "Access-Control-Allow-Credentials": "true",
+                }
+            )
+            
+        except Exception as ai_error:
+            # Fallback to basic analysis if AI fails
+            return JSONResponse(
+                content={
+                    "success": True,
+                    "insights": {
+                        "analysis": "AI analysis temporarily unavailable. Your meal plan looks good overall.",
+                        "recommendations": [
+                            "Ensure you're drinking plenty of water",
+                            "Include a variety of colorful vegetables",
+                            "Monitor portion sizes based on your goals"
+                        ],
+                        "health_benefits": [
+                            "Balanced nutrition supports overall health",
+                            "Regular meal planning helps maintain consistency"
+                        ],
+                        "improvements": [
+                            "Consider adding more fiber-rich foods",
+                            "Check if micronutrient needs are met"
+                        ],
+                        "tips": [
+                            "Prep ingredients in advance to save time",
+                            "Listen to your body's hunger and fullness cues"
+                        ]
+                    },
+                    "plan_name": plan.get("name", "Unnamed Plan"),
+                    "analysis_scope": plan_data["analysis_scope"],
+                    "generated_at": datetime.utcnow().isoformat(),
+                    "note": "Using fallback analysis due to AI service limitation"
+                },
+                headers={
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                    "Access-Control-Allow-Headers": "*",
+                    "Access-Control-Allow-Credentials": "true",
+                }
+            )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate insights: {str(e)}")
+
+@router.options("/manual/plans/{plan_id}/insights")
+async def options_manual_insights():
     return JSONResponse(
         content={"detail": "OK"},
         headers={

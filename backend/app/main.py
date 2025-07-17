@@ -11,7 +11,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("nutrivize")
 
 # Import routes safely
-from .routes import auth, foods, food_logs, ai, meal_planning, preferences, goals, weight_logs, water_logs, nutrition_labels, dietary, ai_dashboard, restaurant_ai, ai_health, food_stats
+from .routes import auth, foods, food_logs, ai, meal_planning, preferences, goals, weight_logs, water_logs, nutrition_labels, dietary, ai_dashboard, restaurant_ai, ai_health, food_stats, user_foods, user, user_favorites
 
 # Try to import analytics routes, but use the hotfix if there's an error
 try:
@@ -105,6 +105,9 @@ print(f"✅ CORS configured with origins: {origins}")
 # Add routes
 app.include_router(auth.router)
 app.include_router(foods.router)
+app.include_router(user_foods.router)
+app.include_router(user.router)
+app.include_router(user_favorites.router)
 app.include_router(food_logs.router)
 app.include_router(ai.router)
 app.include_router(analytics.router)

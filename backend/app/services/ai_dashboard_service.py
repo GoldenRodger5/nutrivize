@@ -59,7 +59,7 @@ class AIDashboardService:
                 "carbs": {"current": 180, "target": 250, "percentage": 72},
                 "fat": {"current": 50, "target": 65, "percentage": 77},
                 "fiber": {"current": 20, "target": 25, "percentage": 80},
-                "water": {"current": 6, "target": 8, "percentage": 75}
+                "water": {"current": 32, "target": 64, "percentage": 50}
             }
     
     async def get_predictive_analytics(self, user_id: str) -> Dict[str, Any]:

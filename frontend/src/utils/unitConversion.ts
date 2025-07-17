@@ -8,6 +8,19 @@ export interface ConversionResult {
   error?: string;
 }
 
+export interface UnitSuggestion {
+  unit: string;
+  category: 'weight' | 'volume' | 'piece';
+  isRecommended: boolean;
+  description: string;
+}
+
+export interface FoodTypeUnitPreference {
+  foodType: string;
+  preferredUnits: string[];
+  keywords: string[];
+}
+
 // Weight conversions (based on 1 gram)
 const WEIGHT_CONVERSIONS: Record<string, number> = {
   'g': 1,
@@ -61,6 +74,39 @@ const PIECE_UNITS = [
   'bottle', 'bottles', 'package', 'packages', 'pack', 'packs'
 ]
 
+// Food type to unit preferences mapping
+const FOOD_TYPE_PREFERENCES: FoodTypeUnitPreference[] = [
+  // Liquids
+  { foodType: 'Beverages', preferredUnits: ['ml', 'fl oz', 'cup'], keywords: ['drink', 'juice', 'water', 'soda', 'beer', 'wine', 'coffee', 'tea', 'milk'] },
+  { foodType: 'Soups & Sauces', preferredUnits: ['ml', 'cup', 'tbsp'], keywords: ['soup', 'sauce', 'broth', 'dressing', 'syrup'] },
+  
+  // Cooking ingredients
+  { foodType: 'Cooking Oils', preferredUnits: ['tbsp', 'tsp', 'ml'], keywords: ['oil', 'butter', 'margarine', 'lard'] },
+  { foodType: 'Spices & Seasonings', preferredUnits: ['tsp', 'tbsp', 'g'], keywords: ['salt', 'pepper', 'spice', 'herb', 'seasoning', 'garlic powder', 'onion powder'] },
+  { foodType: 'Baking Ingredients', preferredUnits: ['cup', 'tbsp', 'tsp'], keywords: ['flour', 'sugar', 'baking powder', 'vanilla', 'cocoa'] },
+  
+  // Proteins
+  { foodType: 'Meat & Poultry', preferredUnits: ['oz', 'g', 'lb'], keywords: ['chicken', 'beef', 'pork', 'turkey', 'lamb', 'meat', 'steak', 'breast'] },
+  { foodType: 'Fish & Seafood', preferredUnits: ['oz', 'g', 'piece'], keywords: ['fish', 'salmon', 'tuna', 'shrimp', 'crab', 'lobster', 'seafood'] },
+  { foodType: 'Eggs & Dairy', preferredUnits: ['piece', 'cup', 'oz'], keywords: ['egg', 'cheese', 'yogurt', 'cream', 'sour cream'] },
+  
+  // Fruits & Vegetables
+  { foodType: 'Fresh Fruits', preferredUnits: ['piece', 'cup', 'g'], keywords: ['apple', 'banana', 'orange', 'berry', 'grape', 'fruit'] },
+  { foodType: 'Fresh Vegetables', preferredUnits: ['cup', 'piece', 'g'], keywords: ['carrot', 'broccoli', 'spinach', 'lettuce', 'tomato', 'onion', 'vegetable'] },
+  
+  // Grains & Starches
+  { foodType: 'Rice & Grains', preferredUnits: ['cup', 'g', 'oz'], keywords: ['rice', 'quinoa', 'oats', 'cereal', 'grain'] },
+  { foodType: 'Bread & Baked', preferredUnits: ['slice', 'piece', 'oz'], keywords: ['bread', 'bagel', 'muffin', 'roll', 'biscuit'] },
+  { foodType: 'Pasta & Noodles', preferredUnits: ['cup', 'oz', 'g'], keywords: ['pasta', 'noodles', 'spaghetti', 'macaroni'] },
+  
+  // Nuts & Seeds
+  { foodType: 'Nuts & Seeds', preferredUnits: ['oz', 'cup', 'tbsp'], keywords: ['nuts', 'almonds', 'peanuts', 'seeds', 'cashews', 'walnuts'] },
+  
+  // Processed Foods
+  { foodType: 'Packaged Foods', preferredUnits: ['serving', 'package', 'piece'], keywords: ['packaged', 'frozen', 'canned', 'boxed'] },
+  { foodType: 'Snacks', preferredUnits: ['serving', 'piece', 'oz'], keywords: ['chips', 'crackers', 'cookies', 'snack'] }
+]
+
 // All available units organized by category
 export const UNIT_CATEGORIES = {
   weight: Object.keys(WEIGHT_CONVERSIONS),
@@ -84,6 +130,64 @@ export function getUnitCategory(unit: string): 'weight' | 'volume' | 'pieces' | 
   if (PIECE_UNITS.includes(normalizedUnit)) return 'pieces'
   
   return 'unknown'
+}
+
+// Get smart unit suggestions based on food name
+export function getSmartUnitSuggestions(foodName: string, servingUnit?: string): UnitSuggestion[] {
+  const suggestions: UnitSuggestion[] = []
+  const normalizedFoodName = foodName.toLowerCase()
+  
+  // If we have a serving unit from nutrition label, prioritize it
+  if (servingUnit) {
+    const normalizedServingUnit = servingUnit.toLowerCase().trim()
+    const category = getUnitCategory(normalizedServingUnit)
+    if (category !== 'unknown') {
+      suggestions.push({
+        unit: normalizedServingUnit,
+        category: category as 'weight' | 'volume' | 'piece',
+        isRecommended: true,
+        description: 'From nutrition label'
+      })
+    }
+  }
+  
+  // Find matching food types
+  const matchingPreferences = FOOD_TYPE_PREFERENCES.filter(pref => 
+    pref.keywords.some(keyword => normalizedFoodName.includes(keyword))
+  )
+  
+  // Add preferred units from matching food types
+  matchingPreferences.forEach(pref => {
+    pref.preferredUnits.forEach((unit, index) => {
+      if (!suggestions.some(s => s.unit === unit)) {
+        const category = getUnitCategory(unit)
+        if (category !== 'unknown') {
+          suggestions.push({
+            unit,
+            category: category as 'weight' | 'volume' | 'piece',
+            isRecommended: index === 0 && !servingUnit, // First unit is most recommended if no serving unit
+            description: `Recommended for ${pref.foodType.toLowerCase()}`
+          })
+        }
+      }
+    })
+  })
+  
+  // Add common general units if no specific matches
+  if (suggestions.length === 0) {
+    const commonUnits = ['g', 'oz', 'cup', 'piece', 'serving']
+    commonUnits.forEach(unit => {
+      const category = getUnitCategory(unit)
+      suggestions.push({
+        unit,
+        category: category as 'weight' | 'volume' | 'piece',
+        isRecommended: unit === 'g',
+        description: 'Common unit'
+      })
+    })
+  }
+  
+  return suggestions
 }
 
 // Check if two units are compatible for conversion
@@ -278,4 +382,96 @@ export function getUnitDisplayName(unit: string): string {
   }
   
   return displayMap[normalizedUnit] || unit
+}
+
+// Unit memory system for storing user preferences
+interface UnitMemory {
+  [foodName: string]: {
+    unit: string;
+    frequency: number;
+    lastUsed: number;
+  }
+}
+
+const UNIT_MEMORY_KEY = 'nutrivize_unit_memory'
+
+// Save user's unit preference for a food
+export function saveUnitPreference(foodName: string, unit: string): void {
+  try {
+    const memory: UnitMemory = JSON.parse(localStorage.getItem(UNIT_MEMORY_KEY) || '{}')
+    const normalizedFoodName = foodName.toLowerCase().trim()
+    
+    if (memory[normalizedFoodName]) {
+      memory[normalizedFoodName].unit = unit
+      memory[normalizedFoodName].frequency += 1
+      memory[normalizedFoodName].lastUsed = Date.now()
+    } else {
+      memory[normalizedFoodName] = {
+        unit,
+        frequency: 1,
+        lastUsed: Date.now()
+      }
+    }
+    
+    localStorage.setItem(UNIT_MEMORY_KEY, JSON.stringify(memory))
+  } catch (error) {
+    console.warn('Failed to save unit preference:', error)
+  }
+}
+
+// Get user's preferred unit for a food
+export function getPreferredUnit(foodName: string): string | null {
+  try {
+    const memory: UnitMemory = JSON.parse(localStorage.getItem(UNIT_MEMORY_KEY) || '{}')
+    const normalizedFoodName = foodName.toLowerCase().trim()
+    
+    const preference = memory[normalizedFoodName]
+    return preference ? preference.unit : null
+  } catch (error) {
+    console.warn('Failed to get unit preference:', error)
+    return null
+  }
+}
+
+// Get the best default unit for a food (combines smart suggestions with user memory)
+export function getBestDefaultUnit(foodName: string, servingUnit?: string): string {
+  // 1. Try user's preferred unit first
+  const userPreference = getPreferredUnit(foodName)
+  if (userPreference) {
+    return userPreference
+  }
+  
+  // 2. Use serving unit from nutrition label if available
+  if (servingUnit) {
+    const normalizedServingUnit = servingUnit.toLowerCase().trim()
+    if (getUnitCategory(normalizedServingUnit) !== 'unknown') {
+      return normalizedServingUnit
+    }
+  }
+  
+  // 3. Use smart suggestions
+  const suggestions = getSmartUnitSuggestions(foodName, servingUnit)
+  const recommended = suggestions.find(s => s.isRecommended)
+  if (recommended) {
+    return recommended.unit
+  }
+  
+  // 4. Fall back to gram as default
+  return 'g'
+}
+
+// Get unit conversion help text
+export function getUnitConversionHelp(unit: string): string {
+  const category = getUnitCategory(unit)
+  
+  switch (category) {
+    case 'weight':
+      return 'Weight units (g, kg, oz, lb) - good for solid foods'
+    case 'volume':
+      return 'Volume units (ml, cup, tbsp, tsp) - good for liquids'
+    case 'pieces':
+      return 'Count units (piece, serving, slice) - good for individual items'
+    default:
+      return 'Unit measurement'
+  }
 }

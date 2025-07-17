@@ -54,8 +54,12 @@ export default function QuickLogging({ size = 'md', showTitle = true }: QuickLog
 
     setLoadingWater(true)
     try {
+      // Use local date to ensure consistency with user's timezone
+      const today = new Date();
+      const localDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      
       await api.post('/water-logs/', {
-        date: new Date().toISOString().split('T')[0],
+        date: localDate,
         amount: parseFloat(waterAmount),
         notes: notes || ''
       })
@@ -97,8 +101,12 @@ export default function QuickLogging({ size = 'md', showTitle = true }: QuickLog
 
     setLoadingWeight(true)
     try {
+      // Use local date to ensure consistency with user's timezone
+      const today = new Date();
+      const localDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      
       await api.post('/weight-logs/', {
-        date: new Date().toISOString().split('T')[0],
+        date: localDate,
         weight: parseFloat(weight),
         notes: notes || ''
       })

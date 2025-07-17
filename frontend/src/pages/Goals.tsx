@@ -48,8 +48,9 @@ import {
   AlertDialogHeader,
   AlertDialogContent,
   AlertDialogOverlay,
+  Progress,
 } from '@chakra-ui/react'
-import { EditIcon, DeleteIcon, SettingsIcon } from '@chakra-ui/icons'
+import { EditIcon, DeleteIcon, SettingsIcon, RepeatIcon } from '@chakra-ui/icons'
 import { useAppState } from '../contexts/AppStateContext'
 import api from '../utils/api'
 
@@ -72,6 +73,7 @@ const NUTRITION_BOUNDS = {
   fiber: { min: 10, max: 80 },
   sugar: { min: 0, max: 200 },
   sodium: { min: 500, max: 4000 },
+  water_target: { min: 32, max: 200 }, // fl oz per day
 }
 
 // Calculate expected completion date
@@ -138,8 +140,9 @@ export default function Goals() {
   const [editing, setEditing] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [selectedGoal, setSelectedGoal] = useState<any>(null)
-  const [autoCalculateNutrition, setAutoCalculateNutrition] = useState(true)
+  const [autoCalculateNutrition, setAutoCalculateNutrition] = useState(false)
   const [usePercentageMacros, setUsePercentageMacros] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const [macroPercentages, setMacroPercentages] = useState({
     protein: 30, // 30% of calories
     carbs: 40,   // 40% of calories  
@@ -150,6 +153,47 @@ export default function Goals() {
   const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onClose: onDeleteClose } = useDisclosure()
   const { isOpen: isWeightLogOpen, onOpen: onWeightLogOpen, onClose: onWeightLogClose } = useDisclosure()
   const toast = useToast()
+
+  // Real-time update interval
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      if (!refreshing) {
+        await refreshGoals()
+        await refreshWeightLogs()
+      }
+    }, 30000) // Refresh every 30 seconds
+
+    return () => clearInterval(interval)
+  }, [refreshGoals, refreshWeightLogs, refreshing])
+
+  // Manual refresh function
+  const handleManualRefresh = async () => {
+    setRefreshing(true)
+    try {
+      await Promise.all([
+        refreshGoals(),
+        refreshWeightLogs()
+      ])
+      toast({
+        title: 'Data Refreshed',
+        description: 'Goals and weight logs have been updated.',
+        status: 'success',
+        duration: 2000,
+        isClosable: true,
+      })
+    } catch (error) {
+      console.error('Error refreshing data:', error)
+      toast({
+        title: 'Refresh Error',
+        description: 'Failed to refresh data. Please try again.',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      })
+    } finally {
+      setRefreshing(false)
+    }
+  }
 
   const [newGoal, setNewGoal] = useState({
     title: '',
@@ -169,6 +213,7 @@ export default function Goals() {
       fiber: 30,
       sugar: 50,
       sodium: 2300,
+      water_target: 64,
     },
   })
 
@@ -225,6 +270,7 @@ export default function Goals() {
           fiber: 30,
           sugar: 50,
           sodium: 2300,
+          water_target: 64,
         },
       })
     } catch (error) {
@@ -299,6 +345,7 @@ export default function Goals() {
         fiber: goal.nutrition_targets?.fiber || 30,
         sugar: goal.nutrition_targets?.sugar || 50,
         sodium: goal.nutrition_targets?.sodium || 2300,
+        water_target: goal.nutrition_targets?.water_target || 64,
       },
     })
     onEditOpen()
@@ -462,9 +509,20 @@ export default function Goals() {
       <VStack spacing={isMobile ? 4 : 8} align="stretch">
         {/* Header */}
         <Box textAlign={isMobile ? "center" : "left"}>
-          <Heading size={isMobile ? "md" : "lg"} mb={2}>
-            Goals & Targets 🎯
-          </Heading>
+          <HStack justify="space-between" align="center" mb={2}>
+            <Heading size={isMobile ? "md" : "lg"}>
+              Goals & Targets 🎯
+            </Heading>
+            <IconButton
+              aria-label="Refresh data"
+              icon={<RepeatIcon />}
+              size="sm"
+              variant="ghost"
+              onClick={handleManualRefresh}
+              isLoading={refreshing}
+              colorScheme="blue"
+            />
+          </HStack>
           <Text color="gray.600" fontSize={isMobile ? "sm" : "md"}>
             Set and track your nutrition and fitness goals
           </Text>
@@ -546,7 +604,7 @@ export default function Goals() {
           </CardBody>
         </Card>
 
-        {/* Active Goal Card - Removed Alert */}
+        {/* Active Goal Card - Enhanced with Progress */}
         {activeGoal && (
           <Card bg="green.50" borderColor="green.200" borderWidth={2}>
             <CardBody>
@@ -573,12 +631,60 @@ export default function Goals() {
                   </Box>
                 </HStack>
 
-                {/* Weight Progress */}
+                {/* Weight Progress with Visual Progress Bar */}
                 {activeGoal.weight_target && (
                   <Box>
-                    <Text fontSize="sm" fontWeight="medium" mb={2}>
+                    <Text fontSize="sm" fontWeight="medium" mb={3}>
                       Weight Progress
                     </Text>
+                    
+                    {/* Progress Bar */}
+                    <Box mb={3}>
+                      {(() => {
+                        const startWeight = kgToLbs(activeGoal.weight_target.current_weight)
+                        const targetWeight = kgToLbs(activeGoal.weight_target.target_weight)
+                        const currentWeightLbs = currentWeight
+                        
+                        let progressPercentage = 0
+                        if (startWeight !== targetWeight) {
+                          if (targetWeight < startWeight) {
+                            // Weight loss
+                            progressPercentage = Math.max(0, Math.min(100, 
+                              ((startWeight - currentWeightLbs) / (startWeight - targetWeight)) * 100
+                            ))
+                          } else {
+                            // Weight gain
+                            progressPercentage = Math.max(0, Math.min(100, 
+                              ((currentWeightLbs - startWeight) / (targetWeight - startWeight)) * 100
+                            ))
+                          }
+                        }
+                        
+                        return (
+                          <VStack spacing={2} align="stretch">
+                            <HStack justify="space-between" fontSize="sm">
+                              <Text color="gray.600">
+                                {startWeight.toFixed(1)} lbs (start)
+                              </Text>
+                              <Text color="gray.600">
+                                {targetWeight.toFixed(1)} lbs (target)
+                              </Text>
+                            </HStack>
+                            <Progress 
+                              value={progressPercentage} 
+                              colorScheme={progressPercentage >= 100 ? "green" : "blue"}
+                              size="lg"
+                              hasStripe
+                              isAnimated
+                            />
+                            <Text fontSize="sm" color="gray.600" textAlign="center">
+                              {progressPercentage.toFixed(1)}% complete
+                            </Text>
+                          </VStack>
+                        )
+                      })()}
+                    </Box>
+                    
                     <HStack spacing={4}>
                       <Stat size="sm">
                         <StatLabel>Current</StatLabel>
@@ -890,7 +996,7 @@ export default function Goals() {
                   </FormControl>
                   <FormControl display="flex" alignItems="center">
                     <FormLabel htmlFor="auto-calculate" mb="0" fontSize="sm">
-                      Auto-calculate
+                      Auto-calculate nutrition targets
                     </FormLabel>
                     <Switch
                       id="auto-calculate"
@@ -899,6 +1005,16 @@ export default function Goals() {
                       colorScheme="green"
                     />
                   </FormControl>
+                  {!autoCalculateNutrition && (
+                    <FormHelperText fontSize="xs" color="blue.600">
+                      Manual mode: You can edit nutrition targets directly
+                    </FormHelperText>
+                  )}
+                  {autoCalculateNutrition && (
+                    <FormHelperText fontSize="xs" color="green.600">
+                      Auto mode: Nutrition targets calculated based on your weight goals
+                    </FormHelperText>
+                  )}
                   <Button 
                     size="sm" 
                     variant="outline" 
@@ -1054,7 +1170,7 @@ export default function Goals() {
               )}
 
               <SimpleGrid columns={2} spacing={4} w="full">
-                <FormControl>
+                <FormControl isInvalid={!autoCalculateNutrition && !isValidNutrition('calories', newGoal.nutrition_targets.calories)}>
                   <FormLabel>Calories</FormLabel>
                   <NumberInput
                     value={newGoal.nutrition_targets.calories}
@@ -1223,6 +1339,32 @@ export default function Goals() {
                     </NumberInputStepper>
                   </NumberInput>
                   <FormHelperText>Range: {NUTRITION_BOUNDS.sodium.min}-{NUTRITION_BOUNDS.sodium.max} mg</FormHelperText>
+                </FormControl>
+                
+                <FormControl>
+                  <FormLabel>Water Target (fl oz)</FormLabel>
+                  <NumberInput
+                    value={newGoal.nutrition_targets.water_target || 64}
+                    onChange={(_, value) => {
+                      if (value && isValidNutrition('water_target', value)) {
+                        setNewGoal({
+                          ...newGoal,
+                          nutrition_targets: { ...newGoal.nutrition_targets, water_target: value }
+                        })
+                      }
+                    }}
+                    min={NUTRITION_BOUNDS.water_target.min}
+                    max={NUTRITION_BOUNDS.water_target.max}
+                    step={1}
+                    isDisabled={autoCalculateNutrition}
+                  >
+                    <NumberInputField />
+                    <NumberInputStepper>
+                      <NumberIncrementStepper />
+                      <NumberDecrementStepper />
+                    </NumberInputStepper>
+                  </NumberInput>
+                  <FormHelperText>Range: {NUTRITION_BOUNDS.water_target.min}-{NUTRITION_BOUNDS.water_target.max} fl oz per day</FormHelperText>
                 </FormControl>
               </SimpleGrid>
 

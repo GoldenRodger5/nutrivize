@@ -4,6 +4,38 @@ from datetime import datetime
 from enum import Enum
 
 
+class RecentFood(BaseModel):
+    """Recent food entry"""
+    food_id: str
+    food_name: str
+    quantity: float
+    unit: str
+    calories: float
+    protein: float
+    carbs: float
+    fat: float
+    fiber: float
+    sugar: float
+    sodium: float
+    last_used: datetime = Field(default_factory=datetime.utcnow)
+
+
+class FavoriteFood(BaseModel):
+    """Favorite food entry"""
+    food_id: str
+    food_name: str
+    default_quantity: float = 100
+    default_unit: str = "g"
+    calories: float
+    protein: float
+    carbs: float
+    fat: float
+    fiber: float
+    sugar: float
+    sodium: float
+    added_date: datetime = Field(default_factory=datetime.utcnow)
+
+
 class UserPreferences(BaseModel):
     """User preferences"""
     units: str = "metric"  # metric or imperial
@@ -17,6 +49,8 @@ class User(BaseModel):
     email: str
     name: str
     preferences: Dict[str, Any] = {}
+    recent_foods: List[RecentFood] = []
+    favorite_foods: List[FavoriteFood] = []
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -47,6 +81,8 @@ class UserResponse(BaseModel):
     email: str
     name: str
     preferences: Dict[str, Any] = {}
+    recent_foods: List[RecentFood] = []
+    favorite_foods: List[FavoriteFood] = []
 
 
 class AuthResponse(BaseModel):
@@ -54,3 +90,33 @@ class AuthResponse(BaseModel):
     user: UserResponse
     token: str
     message: str
+
+
+class AddToRecentsRequest(BaseModel):
+    """Add food to recent foods"""
+    food_id: str
+    food_name: str
+    quantity: float
+    unit: str
+    calories: float
+    protein: float
+    carbs: float
+    fat: float
+    fiber: float
+    sugar: float
+    sodium: float
+
+
+class AddToFavoritesRequest(BaseModel):
+    """Add food to favorite foods"""
+    food_id: str
+    food_name: str
+    default_quantity: float = 100
+    default_unit: str = "g"
+    calories: float
+    protein: float
+    carbs: float
+    fat: float
+    fiber: float
+    sugar: float
+    sodium: float

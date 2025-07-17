@@ -105,6 +105,110 @@ class UserService:
             name=user_doc["name"],
             preferences=user_doc.get("preferences", {})
         )
+    
+    async def get_user_document_by_uid(self, uid: str) -> Optional[Dict[str, Any]]:
+        """Get raw user document by Firebase UID"""
+        try:
+            if self.users_collection is None:
+                print("⚠️  Users collection is None")
+                return None
+            
+            user_doc = self.users_collection.find_one({"uid": uid})
+            return user_doc
+        except Exception as e:
+            print(f"❌ Error getting user document: {str(e)}")
+            return None
+    
+    async def update_user_data(self, uid: str, data_update: Dict[str, Any]) -> bool:
+        """Update user data directly in the document"""
+        try:
+            from datetime import datetime
+            
+            # Add timestamp
+            data_update["updated_at"] = datetime.utcnow()
+            
+            # Update in database
+            result = self.users_collection.update_one(
+                {"uid": uid},
+                {"$set": data_update}
+            )
+            
+            return result.modified_count > 0
+            
+        except Exception as e:
+            raise ValueError(f"Failed to update user data: {str(e)}")
+    
+    async def add_to_recent_foods_from_log(self, uid: str, food_id: str, food_name: str, 
+                                         amount: float, unit: str, nutrition: Dict[str, Any]) -> None:
+        """Add food to recent foods when it's logged"""
+        try:
+            from datetime import datetime, timedelta
+            
+            # Get current user data
+            user_data = self.users_collection.find_one({"uid": uid})
+            if not user_data:
+                return
+            
+            # Get existing recent foods
+            recent_foods = user_data.get("recent_foods", [])
+            
+            # Create new recent food entry
+            new_recent_food = {
+                "food_id": food_id,
+                "food_name": food_name,
+                "quantity": amount,
+                "unit": unit,
+                "calories": nutrition.get("calories", 0),
+                "protein": nutrition.get("protein", 0),
+                "carbs": nutrition.get("carbs", 0),
+                "fat": nutrition.get("fat", 0),
+                "fiber": nutrition.get("fiber", 0),
+                "sugar": nutrition.get("sugar", 0),
+                "sodium": nutrition.get("sodium", 0),
+                "last_used": datetime.utcnow()
+            }
+            
+            # Remove if already exists (to update timestamp)
+            recent_foods = [f for f in recent_foods if f["food_id"] != food_id]
+            
+            # Add to beginning of list
+            recent_foods.insert(0, new_recent_food)
+            
+            # Keep only last 20 items
+            recent_foods = recent_foods[:20]
+            
+            # Clean up old entries (older than 5 days)
+            five_days_ago = datetime.utcnow() - timedelta(days=5)
+            cleaned_foods = []
+            for food in recent_foods:
+                try:
+                    last_used = food.get("last_used")
+                    if isinstance(last_used, datetime):
+                        # Already a datetime object
+                        last_used_dt = last_used
+                    elif isinstance(last_used, str):
+                        # Parse string datetime
+                        last_used_dt = datetime.fromisoformat(last_used.replace("Z", "+00:00"))
+                    else:
+                        # Skip invalid entries
+                        continue
+                    
+                    if last_used_dt > five_days_ago:
+                        cleaned_foods.append(food)
+                except Exception:
+                    # Skip invalid entries
+                    continue
+            
+            # Update user document
+            self.users_collection.update_one(
+                {"uid": uid},
+                {"$set": {"recent_foods": cleaned_foods, "updated_at": datetime.utcnow()}}
+            )
+            
+        except Exception as e:
+            # Log error but don't fail the food logging
+            print(f"Error adding to recent foods: {str(e)}")
+            pass
         
     async def get_user_by_id(self, user_id: str) -> Optional[UserResponse]:
         """Get user by MongoDB ObjectId"""

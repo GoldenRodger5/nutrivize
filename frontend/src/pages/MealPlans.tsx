@@ -51,7 +51,9 @@ import {
   Switch,
   Tooltip,
   Icon,
-  Select
+  Select,
+  useBreakpointValue,
+  Container
 } from '@chakra-ui/react'
 import { AddIcon, ViewIcon, DeleteIcon, EditIcon } from '@chakra-ui/icons'
 import { MdCheckCircle, MdSchedule, MdShoppingCart } from 'react-icons/md'
@@ -134,6 +136,10 @@ interface MealPlanRequest {
 }
 
 const MealPlans: React.FC = () => {
+  // Mobile responsive breakpoints
+  const isMobile = useBreakpointValue({ base: true, md: false })
+  const cardColumns = useBreakpointValue({ base: 1, md: 2, lg: 3 })
+  const modalSize = useBreakpointValue({ base: 'full', md: 'xl', lg: '6xl' })
   // Initialize with empty array to prevent map errors
   const [mealPlans, setMealPlans] = useState<MealPlan[]>([])
   const [selectedPlan, setSelectedPlan] = useState<MealPlan | null>(null)
@@ -267,9 +273,23 @@ const MealPlans: React.FC = () => {
       console.log('Processed meal plans:', plans)
       setMealPlans(plans)
       
+      // Auto-select first plan if none selected
+      if (plans.length > 0 && !selectedPlan) {
+        setSelectedPlan(plans[0])
+      }
+      
     } catch (err: any) {
       console.error('Error fetching meal plans:', err)
       setError(err.response?.data?.detail || 'Failed to load meal plans')
+      
+      // Show toast notification for errors
+      toast({
+        title: 'Error Loading Meal Plans',
+        description: err.response?.data?.detail || 'Failed to load meal plans',
+        status: 'error',
+        duration: 5000,
+        isClosable: true
+      })
     } finally {
       setIsLoading(false)
     }
@@ -277,6 +297,13 @@ const MealPlans: React.FC = () => {
 
   useEffect(() => {
     fetchMealPlans()
+    
+    // Set up auto-refresh every 5 minutes
+    const interval = setInterval(() => {
+      fetchMealPlans()
+    }, 5 * 60 * 1000) // 5 minutes
+    
+    return () => clearInterval(interval)
   }, [])
 
   // Create new meal plan
@@ -431,11 +458,70 @@ const MealPlans: React.FC = () => {
   // Log individual food item to food log
   const logSingleFoodItem = async (foodData: any) => {
     try {
+      // Optimistic update - mark as logged immediately
+      if (selectedPlan) {
+        const updatedPlan = { ...selectedPlan }
+        updatedPlan.days = updatedPlan.days.map(day => ({
+          ...day,
+          meals: day.meals.map(meal => 
+            meal.meal_type === foodData.meal_type && meal.food_name === foodData.food_name
+              ? { ...meal, is_logged: true }
+              : meal
+          )
+        }))
+        setSelectedPlan(updatedPlan)
+        
+        // Update in meal plans array
+        setMealPlans(prevPlans => 
+          prevPlans.map(plan => 
+            plan.plan_id === selectedPlan.plan_id ? updatedPlan : plan
+          )
+        )
+      }
+      
       const response = await api.post('/food-logs/', foodData)
       console.log('Food log response:', response.data)
+      
+      toast({
+        title: 'Food Logged Successfully',
+        description: `${foodData.food_name} has been logged to your food diary.`,
+        status: 'success',
+        duration: 3000,
+        isClosable: true
+      })
+      
       return response.data
     } catch (err: any) {
       console.error('Error logging food item:', err)
+      
+      // Rollback optimistic update on error
+      if (selectedPlan) {
+        const revertedPlan = { ...selectedPlan }
+        revertedPlan.days = revertedPlan.days.map(day => ({
+          ...day,
+          meals: day.meals.map(meal => 
+            meal.meal_type === foodData.meal_type && meal.food_name === foodData.food_name
+              ? { ...meal, is_logged: false }
+              : meal
+          )
+        }))
+        setSelectedPlan(revertedPlan)
+        
+        setMealPlans(prevPlans => 
+          prevPlans.map(plan => 
+            plan.plan_id === selectedPlan.plan_id ? revertedPlan : plan
+          )
+        )
+      }
+      
+      toast({
+        title: 'Error Logging Food',
+        description: err.response?.data?.detail || 'Failed to log food item',
+        status: 'error',
+        duration: 5000,
+        isClosable: true
+      })
+      
       throw err
     }
   }
@@ -943,11 +1029,37 @@ const MealPlans: React.FC = () => {
   }
 
   return (
-    <Box p={6}>
+    <Container maxW="8xl" p={isMobile ? 4 : 6}>
       <VStack spacing={6} align="stretch">
         {/* Header */}
         <HStack justify="space-between">
-          <Text fontSize="2xl" fontWeight="bold">Meal Plans</Text>
+          <VStack align="start" spacing={2}>
+            <Text fontSize="2xl" fontWeight="bold">Meal Plans</Text>
+            {mealPlans.length > 0 && (
+              <HStack spacing={4}>
+                <Text fontSize="sm" color="gray.600">Active Plan:</Text>
+                <Select 
+                  value={selectedPlan?.plan_id || ''} 
+                  onChange={(e) => {
+                    const plan = mealPlans.find(p => p.plan_id === e.target.value)
+                    if (plan) {
+                      setSelectedPlan(plan)
+                      onDetailsOpen()
+                    }
+                  }}
+                  size="sm"
+                  maxW="300px"
+                >
+                  <option value="">Select a meal plan...</option>
+                  {mealPlans.map(plan => (
+                    <option key={plan.plan_id} value={plan.plan_id}>
+                      {plan.name || plan.title || `Plan ${plan.plan_id.slice(-6)}`} ({plan.total_days} days)
+                    </option>
+                  ))}
+                </Select>
+              </HStack>
+            )}
+          </VStack>
           <Button leftIcon={<AddIcon />} colorScheme="blue" onClick={onCreateOpen}>
             Create New Plan
           </Button>
@@ -960,10 +1072,86 @@ const MealPlans: React.FC = () => {
           </Alert>
         )}
 
+        {/* Featured Meal Plan Daily View */}
+        {selectedPlan && (
+          <Card bg="gradient.linear(to-r, blue.50, purple.50)" borderColor="blue.200" borderWidth={2}>
+            <CardBody>
+              <VStack spacing={4} align="stretch">
+                <HStack justify="space-between">
+                  <VStack align="start" spacing={1}>
+                    <Text fontSize="xl" fontWeight="bold" color="blue.800">
+                      {selectedPlan.name || selectedPlan.title || 'Active Meal Plan'}
+                    </Text>
+                    <Text fontSize="sm" color="blue.600">
+                      {selectedPlan.total_days} days • Created {new Date(selectedPlan.created_at).toLocaleDateString()}
+                    </Text>
+                  </VStack>
+                  <HStack spacing={2}>
+                    <Button 
+                      size="sm" 
+                      colorScheme="green" 
+                      leftIcon={<MdShoppingCart />}
+                      onClick={() => generateShoppingList(selectedPlan.plan_id)}
+                    >
+                      Shopping List
+                    </Button>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      onClick={() => onDetailsOpen()}
+                    >
+                      View Details
+                    </Button>
+                  </HStack>
+                </HStack>
+
+                {/* Today's Meals Preview */}
+                {selectedPlan.days && selectedPlan.days.length > 0 && (
+                  <Box>
+                    <Text fontSize="md" fontWeight="semibold" color="blue.700" mb={3}>
+                      Today's Meals Preview
+                    </Text>
+                    <SimpleGrid columns={{ base: 1, md: selectedPlan.days[0].meals?.length || 1 }} spacing={3}>
+                      {Array.isArray(selectedPlan.days[0].meals) && selectedPlan.days[0].meals.map((meal, idx) => (
+                        <Card key={idx} size="sm" variant="outline">
+                          <CardBody>
+                            <VStack spacing={2}>
+                              <Badge colorScheme="purple" textTransform="capitalize">
+                                {meal.meal_type}
+                              </Badge>
+                              <Text fontSize="sm" fontWeight="bold" textAlign="center">
+                                {meal.food_name}
+                              </Text>
+                              <Text fontSize="xs" color="gray.600">
+                                {Math.round(meal.calories)} cal
+                              </Text>
+                              <Button 
+                                size="xs" 
+                                colorScheme={meal.is_logged ? "gray" : "green"}
+                                onClick={() => openSingleMealLog(meal, meal.meal_type)}
+                                isDisabled={meal.is_logged}
+                              >
+                                {meal.is_logged ? "Logged" : "Log"}
+                              </Button>
+                            </VStack>
+                          </CardBody>
+                        </Card>
+                      ))}
+                    </SimpleGrid>
+                  </Box>
+                )}
+              </VStack>
+            </CardBody>
+          </Card>
+        )}
+
         {/* Meal Plans Grid */}
         {isLoading ? (
           <Flex justify="center" p={8}>
-            <Spinner size="lg" />
+            <VStack spacing={4}>
+              <Spinner size="xl" color="blue.500" />
+              <Text color="gray.600">Loading meal plans...</Text>
+            </VStack>
           </Flex>
         ) : mealPlans.length === 0 ? (
           <Card>
@@ -974,13 +1162,13 @@ const MealPlans: React.FC = () => {
               <Text color="gray.600" mb={4}>
                 Create your first meal plan to get started with personalized nutrition planning.
               </Text>
-              <Button colorScheme="blue" onClick={onCreateOpen}>
+              <Button colorScheme="blue" onClick={onCreateOpen} size={isMobile ? "md" : "lg"}>
                 Create Your First Meal Plan
               </Button>
             </CardBody>
           </Card>
         ) : (
-          <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
+          <SimpleGrid columns={cardColumns} spacing={6}>
             {mealPlans.map(renderMealPlanCard)}
           </SimpleGrid>
         )}
@@ -1190,7 +1378,7 @@ const MealPlans: React.FC = () => {
         </Modal>
 
         {/* Meal Plan Details Modal */}
-        <Modal isOpen={isDetailsOpen} onClose={onDetailsClose} size="6xl">
+        <Modal isOpen={isDetailsOpen} onClose={onDetailsClose} size={modalSize}>
           <ModalOverlay />
           <ModalContent>
             <ModalHeader>
@@ -1290,31 +1478,32 @@ const MealPlans: React.FC = () => {
 
                             {/* Meals for this day */}
                             <VStack spacing={3} align="stretch">
-                              {day.meals?.map((meal, mealIndex) => (
-                                <Card key={mealIndex} variant="outline">
-                                  <CardBody>
-                                    <VStack align="stretch" spacing={3}>
-                                      <HStack justify="space-between">
-                                        <VStack align="start" spacing={1}>
-                                          <Badge colorScheme="purple" textTransform="capitalize">
-                                            {meal.meal_type}
-                                          </Badge>
-                                          <Text fontWeight="bold">{meal.food_name}</Text>
-                                          <Text fontSize="sm" color="gray.600">
-                                            Portion: {meal.portion_size}
-                                          </Text>
-                                        </VStack>
-                                        <VStack align="end" spacing={1}>
-                                          <Text fontSize="lg" fontWeight="bold">
-                                            {Math.round(meal.calories)} cal
-                                          </Text>
-                                          <Text fontSize="sm">
-                                            P: {Math.round(meal.protein)}g | 
-                                            C: {Math.round(meal.carbs)}g | 
-                                            F: {Math.round(meal.fat)}g
-                                          </Text>
-                                        </VStack>
-                                      </HStack>
+                              {Array.isArray(day.meals) && day.meals.length > 0 ? (
+                                day.meals.map((meal, mealIndex) => (
+                                  <Card key={mealIndex} variant="outline">
+                                    <CardBody>
+                                      <VStack align="stretch" spacing={3}>
+                                        <HStack justify="space-between">
+                                          <VStack align="start" spacing={1}>
+                                            <Badge colorScheme="purple" textTransform="capitalize">
+                                              {meal.meal_type}
+                                            </Badge>
+                                            <Text fontWeight="bold">{meal.food_name}</Text>
+                                            <Text fontSize="sm" color="gray.600">
+                                              Portion: {meal.portion_size}
+                                            </Text>
+                                          </VStack>
+                                          <VStack align="end" spacing={1}>
+                                            <Text fontSize="lg" fontWeight="bold">
+                                              {Math.round(meal.calories)} cal
+                                            </Text>
+                                            <Text fontSize="sm">
+                                              P: {Math.round(meal.protein)}g | 
+                                              C: {Math.round(meal.carbs)}g | 
+                                              F: {Math.round(meal.fat)}g
+                                            </Text>
+                                          </VStack>
+                                        </HStack>
 
                                       {meal.preparation_notes && (
                                         <Text fontSize="sm" color="gray.600">
@@ -1386,7 +1575,12 @@ const MealPlans: React.FC = () => {
                                     </VStack>
                                   </CardBody>
                                 </Card>
-                              ))}
+                              ))
+                              ) : (
+                                <Text fontSize="sm" color="gray.500" textAlign="center">
+                                  No meals planned for this day
+                                </Text>
+                              )}
                             </VStack>
                           </VStack>
                         </AccordionPanel>
@@ -1938,7 +2132,7 @@ const MealPlans: React.FC = () => {
           />
         )}
       </VStack>
-    </Box>
+    </Container>
   )
 }
 

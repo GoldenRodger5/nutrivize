@@ -73,6 +73,7 @@ import NutritionLabelScanner from '../components/NutritionLabelScanner'
 import FoodCompatibilityScore from '../components/FoodCompatibilityScore'
 import DietaryProfileBuilder from '../components/DietaryProfileBuilder'
 import QuantityUnitInput from '../components/QuantityUnitInput'
+import FoodDetailModal from '../components/FoodDetailModal'
 import { calculateNutritionForQuantity } from '../utils/unitConversion'
 import { useFoodIndex } from '../contexts/FoodIndexContext'
 
@@ -131,6 +132,11 @@ export default function FoodIndex() {
     onOpen: onEditModalOpen, 
     onClose: onEditModalClose 
   } = useDisclosure()
+  const { 
+    isOpen: isDetailModalOpen, 
+    onOpen: onDetailModalOpen, 
+    onClose: onDetailModalClose 
+  } = useDisclosure()
   const toast = useToast()
 
   // Add food index context
@@ -177,6 +183,22 @@ export default function FoodIndex() {
   // User dietary preferences state
   const [userPreferences, setUserPreferences] = useState<any>(null)
   const [applyDietaryFilter, setApplyDietaryFilter] = useState(false) // Default to showing ALL foods
+  
+  // Advanced filter states
+  const [advancedFilters, setAdvancedFilters] = useState({
+    nutrition: {
+      calories: { min: 0, max: 1000 },
+      protein: { min: 0, max: 100 },
+      carbs: { min: 0, max: 100 },
+      fat: { min: 0, max: 100 },
+    },
+    category: '',
+    source: 'all', // 'all', 'personal', 'database'
+    compatibilityScore: 0, // minimum compatibility score
+    favoritesOnly: false,
+    recentlyAdded: false,
+  })
+  
   const { 
     isOpen: isDietaryBuilderOpen, 
     onOpen: onDietaryBuilderOpen,
@@ -189,6 +211,41 @@ export default function FoodIndex() {
     onOpen: onFilterDrawerOpen, 
     onClose: onFilterDrawerClose 
   } = useDisclosure()
+
+  // Reset advanced filters
+  const resetAdvancedFilters = () => {
+    setAdvancedFilters({
+      nutrition: {
+        calories: { min: 0, max: 1000 },
+        protein: { min: 0, max: 100 },
+        carbs: { min: 0, max: 100 },
+        fat: { min: 0, max: 100 },
+      },
+      category: '',
+      source: 'all',
+      compatibilityScore: 0,
+      favoritesOnly: false,
+      recentlyAdded: false,
+    })
+  }
+
+  // Check if advanced filters are active
+  const hasActiveAdvancedFilters = () => {
+    return (
+      advancedFilters.source !== 'all' ||
+      advancedFilters.category !== '' ||
+      advancedFilters.favoritesOnly ||
+      advancedFilters.recentlyAdded ||
+      advancedFilters.nutrition.calories.min > 0 ||
+      advancedFilters.nutrition.calories.max < 1000 ||
+      advancedFilters.nutrition.protein.min > 0 ||
+      advancedFilters.nutrition.protein.max < 100 ||
+      advancedFilters.nutrition.carbs.min > 0 ||
+      advancedFilters.nutrition.carbs.max < 100 ||
+      advancedFilters.nutrition.fat.min > 0 ||
+      advancedFilters.nutrition.fat.max < 100
+    )
+  }
 
   // Fetch user dietary preferences
   useEffect(() => {
@@ -210,218 +267,259 @@ export default function FoodIndex() {
     fetchUserPreferences()
   }, [])
 
-  // Filter foods based on dietary preferences
+  // Filter foods based on dietary preferences AND advanced filters
   const filterFoodsByDietaryPrefs = (foods: FoodItem[]) => {
     console.log('🔍 FILTER DEBUG - User Preferences:', JSON.stringify(userPreferences, null, 2))
     console.log('🔍 FILTER DEBUG - Apply Filter:', applyDietaryFilter)
+    console.log('🔍 FILTER DEBUG - Advanced Filters:', advancedFilters)
     console.log('🔍 FILTER DEBUG - Foods to filter:', foods.length)
     
-    if (!userPreferences || !applyDietaryFilter) {
-      console.log('🔄 No dietary filtering applied - showing all foods')
-      return foods
-    }
+    let filteredFoods = foods
 
-    console.log('🔍 Applying dietary filters:', {
-      userPreferences,
-      applyDietaryFilter,
-      totalFoods: foods.length
-    })
-    
-    const filteredFoods = foods.filter(food => {
-      // Handle foods without dietary attributes gracefully
-      const foodRestrictions = food.dietary_attributes?.dietary_restrictions || []
-      const foodCategories = food.dietary_attributes?.food_categories || []
-      const foodAllergens = food.dietary_attributes?.allergens || []
+    // Apply dietary preference filters first
+    if (userPreferences && applyDietaryFilter) {
+      console.log('🔍 Applying dietary filters:', {
+        userPreferences,
+        applyDietaryFilter,
+        totalFoods: filteredFoods.length
+      })
+      
+      filteredFoods = filteredFoods.filter(food => {
+        // Handle foods without dietary attributes gracefully
+        const foodRestrictions = food.dietary_attributes?.dietary_restrictions || []
+        const foodCategories = food.dietary_attributes?.food_categories || []
+        const foodAllergens = food.dietary_attributes?.allergens || []
 
-      // CRITICAL FIX: Check allergens first - this is a hard requirement
-      if (userPreferences.allergens?.length > 0) {
-        for (const userAllergen of userPreferences.allergens) {
-          const allergenLower = userAllergen.toLowerCase()
-          
-          // Check if food contains this allergen or related allergens
-          const hasAllergen = foodAllergens.some(foodAllergen => {
-            const foodAllergenLower = foodAllergen.toLowerCase()
+        // CRITICAL FIX: Check allergens first - this is a hard requirement
+        if (userPreferences.allergens?.length > 0) {
+          for (const userAllergen of userPreferences.allergens) {
+            const allergenLower = userAllergen.toLowerCase()
             
-            // Exact match
-            if (foodAllergenLower === allergenLower) {
-              console.log(`🔍 Exact allergen match: ${foodAllergenLower} === ${allergenLower}`)
-              return true
-            }
-            
-            // Special allergen mappings
-            if (allergenLower === 'nuts' || allergenLower === 'tree nuts') {
-              const nutTypes = ['nuts', 'tree nuts', 'almonds', 'walnuts', 'cashews', 'pistachios', 'pecans', 'hazelnuts', 'brazil nuts', 'macadamia', 'pine nuts']
-              const isNut = nutTypes.includes(foodAllergenLower)
-              if (isNut) {
-                console.log(`🔍 Nut allergen match: ${foodAllergenLower} found in nut types`)
+            // Check if food contains this allergen or related allergens
+            const hasAllergen = foodAllergens.some(foodAllergen => {
+              const foodAllergenLower = foodAllergen.toLowerCase()
+              
+              // Exact match
+              if (foodAllergenLower === allergenLower) {
+                console.log(`🔍 Exact allergen match: ${foodAllergenLower} === ${allergenLower}`)
+                return true
               }
-              return isNut
-            }
-            
-            if (allergenLower === 'dairy') {
-              const dairyTypes = ['dairy', 'milk', 'lactose', 'cheese', 'yogurt', 'butter', 'cream', 'whey', 'casein']
-              return dairyTypes.includes(foodAllergenLower)
-            }
-            
-            if (allergenLower === 'gluten') {
-              const glutenTypes = ['gluten', 'wheat', 'barley', 'rye', 'oats']
-              return glutenTypes.includes(foodAllergenLower)
-            }
-            
-            // Check if food allergen contains user allergen as substring
-            return foodAllergenLower.includes(allergenLower) || allergenLower.includes(foodAllergenLower)
-          })
-          
-          // Also check food categories for allergens (like nuts category)
-          const hasAllergenInCategories = foodCategories.some(category => {
-            const categoryLower = category.toLowerCase()
-            
-            // Exact match
-            if (categoryLower === allergenLower) {
-              console.log(`🔍 Exact category allergen match: ${categoryLower} === ${allergenLower}`)
-              return true
-            }
-            
-            // Special allergen mappings for categories
-            if (allergenLower === 'nuts' || allergenLower === 'tree nuts') {
-              const nutTypes = ['nuts', 'tree nuts', 'almonds', 'walnuts', 'cashews', 'pistachios', 'pecans', 'hazelnuts', 'brazil nuts', 'macadamia', 'pine nuts']
-              const isNut = nutTypes.includes(categoryLower)
-              if (isNut) {
-                console.log(`🔍 Nut category allergen match: ${categoryLower} found in nut types`)
+              
+              // Special allergen mappings
+              if (allergenLower === 'nuts' || allergenLower === 'tree nuts') {
+                const nutTypes = ['nuts', 'tree nuts', 'almonds', 'walnuts', 'cashews', 'pistachios', 'pecans', 'hazelnuts', 'brazil nuts', 'macadamia', 'pine nuts']
+                const isNut = nutTypes.includes(foodAllergenLower)
+                if (isNut) {
+                  console.log(`🔍 Nut allergen match: ${foodAllergenLower} found in nut types`)
+                }
+                return isNut
               }
-              return isNut
-            }
+              
+              if (allergenLower === 'dairy') {
+                const dairyTypes = ['dairy', 'milk', 'lactose', 'cheese', 'yogurt', 'butter', 'cream', 'whey', 'casein']
+                return dairyTypes.includes(foodAllergenLower)
+              }
+              
+              if (allergenLower === 'gluten') {
+                const glutenTypes = ['gluten', 'wheat', 'barley', 'rye', 'oats']
+                return glutenTypes.includes(foodAllergenLower)
+              }
+              
+              // Check if food allergen contains user allergen as substring
+              return foodAllergenLower.includes(allergenLower) || allergenLower.includes(foodAllergenLower)
+            })
             
-            if (allergenLower === 'dairy') {
-              const dairyTypes = ['dairy', 'milk', 'lactose', 'cheese', 'yogurt', 'butter', 'cream', 'whey', 'casein']
-              return dairyTypes.includes(categoryLower)
-            }
+            // Also check food categories for allergens (like nuts category)
+            const hasAllergenInCategories = foodCategories.some(category => {
+              const categoryLower = category.toLowerCase()
+              
+              // Exact match
+              if (categoryLower === allergenLower) {
+                console.log(`🔍 Exact category allergen match: ${categoryLower} === ${allergenLower}`)
+                return true
+              }
+              
+              // Special allergen mappings for categories
+              if (allergenLower === 'nuts' || allergenLower === 'tree nuts') {
+                const nutTypes = ['nuts', 'tree nuts', 'almonds', 'walnuts', 'cashews', 'pistachios', 'pecans', 'hazelnuts', 'brazil nuts', 'macadamia', 'pine nuts']
+                const isNut = nutTypes.includes(categoryLower)
+                if (isNut) {
+                  console.log(`🔍 Nut category allergen match: ${categoryLower} found in nut types`)
+                }
+                return isNut
+              }
+              
+              if (allergenLower === 'dairy') {
+                const dairyTypes = ['dairy', 'milk', 'lactose', 'cheese', 'yogurt', 'butter', 'cream', 'whey', 'casein']
+                return dairyTypes.includes(categoryLower)
+              }
+              
+              return categoryLower.includes(allergenLower) || allergenLower.includes(categoryLower)
+            })
             
-            return categoryLower.includes(allergenLower) || allergenLower.includes(categoryLower)
-          })
-          
-          if (hasAllergen || hasAllergenInCategories) {
-            console.log(`❌ ${food.name} contains allergen: ${userAllergen} (found in allergens: [${foodAllergens.join(', ')}] or categories: [${foodCategories.join(', ')}])`)
-            return false // Food contains allergen user wants to avoid
+            if (hasAllergen || hasAllergenInCategories) {
+              console.log(`❌ ${food.name} contains allergen: ${userAllergen} (found in allergens: [${foodAllergens.join(', ')}] or categories: [${foodCategories.join(', ')}])`)
+              return false // Food contains allergen user wants to avoid
+            }
           }
         }
-      }
 
-      // IMPROVED LOGIC: For dietary restrictions, be more lenient
-      if (userPreferences.dietary_restrictions?.length > 0) {
-        let hasCompatibleRestriction = false
-        let hasIncompatibleElements = false
+        // IMPROVED LOGIC: For dietary restrictions, be more lenient
+        if (userPreferences.dietary_restrictions?.length > 0) {
+          let hasCompatibleRestriction = false
+          let hasIncompatibleElements = false
 
-        for (const userRestriction of userPreferences.dietary_restrictions) {
-          const restriction = userRestriction.toLowerCase()
-          
-          // Check if food explicitly supports this dietary restriction
-          if (foodRestrictions.some(fr => fr.toLowerCase() === restriction)) {
-            hasCompatibleRestriction = true
-            continue
-          }
+          for (const userRestriction of userPreferences.dietary_restrictions) {
+            const restriction = userRestriction.toLowerCase()
+            
+            // Check if food explicitly supports this dietary restriction
+            if (foodRestrictions.some(fr => fr.toLowerCase() === restriction)) {
+              hasCompatibleRestriction = true
+              continue
+            }
 
-          // Special handling for different dietary restrictions
-          switch (restriction) {
-            case 'vegetarian':
-              // If no dietary info available, allow it unless it's explicitly meat
-              if (foodCategories.length === 0 && foodRestrictions.length === 0) {
-                hasCompatibleRestriction = true
-              } else if (foodCategories.some(cat => ['meat', 'beef', 'pork', 'chicken', 'turkey', 'fish', 'seafood'].includes(cat.toLowerCase()))) {
-                hasIncompatibleElements = true
-              } else {
-                hasCompatibleRestriction = true
-              }
-              break
-
-            case 'vegan':
-              // More lenient vegan logic - allow naturally vegan foods
-              if (foodRestrictions.includes('vegan')) {
-                hasCompatibleRestriction = true
-              } else if (foodCategories.some(cat => ['meat', 'dairy', 'eggs', 'fish', 'seafood', 'cheese', 'milk', 'butter', 'cream', 'honey'].includes(cat.toLowerCase()))) {
-                hasIncompatibleElements = true
-              } else if (foodAllergens.some(allergen => ['dairy', 'milk', 'eggs', 'fish', 'shellfish'].includes(allergen.toLowerCase()))) {
-                hasIncompatibleElements = true
-              } else {
-                // Allow foods that are naturally vegan (fruits, vegetables, grains, etc.)
-                const naturallyVeganCategories = ['fruits', 'vegetables', 'grains', 'nuts', 'seeds', 'legumes', 'berries', 'herbs', 'spices']
-                const isNaturallyVegan = foodCategories.some(cat => naturallyVeganCategories.includes(cat.toLowerCase()))
-                const isPlantBased = ['fruit', 'vegetable', 'grain', 'nut', 'seed', 'legume', 'berry', 'herb', 'spice'].some(type => 
-                  food.name.toLowerCase().includes(type) || foodCategories.some(cat => cat.toLowerCase().includes(type))
-                )
-                
-                if (isNaturallyVegan || isPlantBased || (foodCategories.length === 0 && foodRestrictions.length === 0)) {
+            // Special handling for different dietary restrictions
+            switch (restriction) {
+              case 'vegetarian':
+                // If no dietary info available, allow it unless it's explicitly meat
+                if (foodCategories.length === 0 && foodRestrictions.length === 0) {
                   hasCompatibleRestriction = true
+                } else if (foodCategories.some(cat => ['meat', 'beef', 'pork', 'chicken', 'turkey', 'fish', 'seafood'].includes(cat.toLowerCase()))) {
+                  hasIncompatibleElements = true
                 } else {
-                  // If unclear, allow it (err on the side of inclusion for common foods)
                   hasCompatibleRestriction = true
                 }
-              }
-              break
+                break
 
-            case 'gluten-free':
-              // Allow if explicitly gluten-free or no gluten-containing ingredients
-              if (foodRestrictions.includes('gluten-free')) {
-                hasCompatibleRestriction = true
-              } else if (foodCategories.some(cat => ['wheat', 'gluten', 'barley', 'rye'].includes(cat.toLowerCase()))) {
-                hasIncompatibleElements = true
-              } else {
-                // Default to allowing if no gluten info
-                hasCompatibleRestriction = true
-              }
-              break
+              case 'vegan':
+                // More lenient vegan logic - allow naturally vegan foods
+                if (foodRestrictions.includes('vegan')) {
+                  hasCompatibleRestriction = true
+                } else if (foodCategories.some(cat => ['meat', 'dairy', 'eggs', 'fish', 'seafood', 'cheese', 'milk', 'butter', 'cream', 'honey'].includes(cat.toLowerCase()))) {
+                  hasIncompatibleElements = true
+                } else if (foodAllergens.some(allergen => ['dairy', 'milk', 'eggs', 'fish', 'shellfish'].includes(allergen.toLowerCase()))) {
+                  hasIncompatibleElements = true
+                } else {
+                  // Allow foods that are naturally vegan (fruits, vegetables, grains, etc.)
+                  const naturallyVeganCategories = ['fruits', 'vegetables', 'grains', 'nuts', 'seeds', 'legumes', 'berries', 'herbs', 'spices']
+                  const isNaturallyVegan = foodCategories.some(cat => naturallyVeganCategories.includes(cat.toLowerCase()))
+                  const isPlantBased = ['fruit', 'vegetable', 'grain', 'nut', 'seed', 'legume', 'berry', 'herb', 'spice'].some(type => 
+                    food.name.toLowerCase().includes(type) || foodCategories.some(cat => cat.toLowerCase().includes(type))
+                  )
+                  
+                  if (isNaturallyVegan || isPlantBased || (foodCategories.length === 0 && foodRestrictions.length === 0)) {
+                    hasCompatibleRestriction = true
+                  } else {
+                    // If unclear, allow it (err on the side of inclusion for common foods)
+                    hasCompatibleRestriction = true
+                  }
+                }
+                break
 
-            case 'dairy-free':
-              if (foodRestrictions.includes('dairy-free')) {
-                hasCompatibleRestriction = true
-              } else if (foodCategories.includes('dairy') || foodAllergens.includes('dairy')) {
-                hasIncompatibleElements = true
-              } else {
-                hasCompatibleRestriction = true
-              }
-              break
+              case 'gluten-free':
+                // Allow if explicitly gluten-free or no gluten-containing ingredients
+                if (foodRestrictions.includes('gluten-free')) {
+                  hasCompatibleRestriction = true
+                } else if (foodCategories.some(cat => ['wheat', 'gluten', 'barley', 'rye'].includes(cat.toLowerCase()))) {
+                  hasIncompatibleElements = true
+                } else {
+                  // Default to allowing if no gluten info
+                  hasCompatibleRestriction = true
+                }
+                break
 
-            case 'pescatarian':
-              // Allow fish/seafood and vegetarian options
-              if (foodCategories.some(cat => ['fish', 'seafood'].includes(cat.toLowerCase())) ||
-                  foodRestrictions.includes('pescatarian') ||
-                  foodRestrictions.includes('vegetarian')) {
-                hasCompatibleRestriction = true
-              } else if (foodCategories.some(cat => ['meat', 'beef', 'pork', 'chicken', 'turkey'].includes(cat.toLowerCase()))) {
-                hasIncompatibleElements = true
-              } else {
-                // Allow unknowns
-                hasCompatibleRestriction = true
-              }
-              break
+              case 'dairy-free':
+                if (foodRestrictions.includes('dairy-free')) {
+                  hasCompatibleRestriction = true
+                } else if (foodCategories.includes('dairy') || foodAllergens.includes('dairy')) {
+                  hasIncompatibleElements = true
+                } else {
+                  hasCompatibleRestriction = true
+                }
+                break
 
-            default:
-              // For other restrictions, be lenient - allow if no conflicting info
-              if (foodRestrictions.includes(restriction) || 
-                  (foodRestrictions.length === 0 && foodCategories.length === 0)) {
-                hasCompatibleRestriction = true
-              }
-              break
+              case 'pescatarian':
+                // Allow fish/seafood and vegetarian options
+                if (foodCategories.some(cat => ['fish', 'seafood'].includes(cat.toLowerCase())) ||
+                    foodRestrictions.includes('pescatarian') ||
+                    foodRestrictions.includes('vegetarian')) {
+                  hasCompatibleRestriction = true
+                } else if (foodCategories.some(cat => ['meat', 'beef', 'pork', 'chicken', 'turkey'].includes(cat.toLowerCase()))) {
+                  hasIncompatibleElements = true
+                } else {
+                  // Allow unknowns
+                  hasCompatibleRestriction = true
+                }
+                break
+
+              default:
+                // For other restrictions, be lenient - allow if no conflicting info
+                if (foodRestrictions.includes(restriction) || 
+                    (foodRestrictions.length === 0 && foodCategories.length === 0)) {
+                  hasCompatibleRestriction = true
+                }
+                break
+            }
+          }
+
+          // LENIENT APPROACH: Only reject if there are definitive incompatible elements
+          if (hasIncompatibleElements) {
+            console.log(`❌ ${food.name} has incompatible elements for dietary restrictions`)
+            return false
+          }
+
+          // Accept if we found any compatible restriction or if no definitive incompatability
+          if (!hasCompatibleRestriction && foodRestrictions.length > 0) {
+            console.log(`⚠️ ${food.name} might not match dietary restrictions but allowing due to uncertainty`)
           }
         }
+        
+        console.log(`✅ ${food.name} passed dietary filters`)
+        return true
+      })
+    }
 
-        // LENIENT APPROACH: Only reject if there are definitive incompatible elements
-        if (hasIncompatibleElements) {
-          console.log(`❌ ${food.name} has incompatible elements for dietary restrictions`)
-          return false
-        }
+    // Apply advanced filters
+    if (advancedFilters.favoritesOnly) {
+      // This would need to be implemented with favorites data
+      console.log('🔍 Applying favorites filter')
+    }
 
-        // Accept if we found any compatible restriction or if no definitive incompatability
-        if (!hasCompatibleRestriction && foodRestrictions.length > 0) {
-          console.log(`⚠️ ${food.name} might not match dietary restrictions but allowing due to uncertainty`)
+    if (advancedFilters.source !== 'all') {
+      filteredFoods = filteredFoods.filter(food => {
+        if (advancedFilters.source === 'personal') {
+          return (food as any).is_custom || (food as any).user_id // User's personal foods
+        } else if (advancedFilters.source === 'database') {
+          return !(food as any).is_custom && !(food as any).user_id // Database foods
         }
-      }
+        return true
+      })
+    }
+
+    if (advancedFilters.category) {
+      filteredFoods = filteredFoods.filter(food => {
+        const foodCategories = food.dietary_attributes?.food_categories || []
+        return foodCategories.some(cat => 
+          cat.toLowerCase().includes(advancedFilters.category.toLowerCase())
+        )
+      })
+    }
+
+    // Apply nutrition filters
+    filteredFoods = filteredFoods.filter(food => {
+      if (!food.nutrition) return true
       
-      console.log(`✅ ${food.name} passed dietary filters`)
-      return true
+      const { calories, protein, carbs, fat } = food.nutrition
+      
+      return (
+        (!calories || (calories >= advancedFilters.nutrition.calories.min && calories <= advancedFilters.nutrition.calories.max)) &&
+        (!protein || (protein >= advancedFilters.nutrition.protein.min && protein <= advancedFilters.nutrition.protein.max)) &&
+        (!carbs || (carbs >= advancedFilters.nutrition.carbs.min && carbs <= advancedFilters.nutrition.carbs.max)) &&
+        (!fat || (fat >= advancedFilters.nutrition.fat.min && fat <= advancedFilters.nutrition.fat.max))
+      )
     })
 
-    console.log(`🔍 Dietary filtering complete: ${filteredFoods.length}/${foods.length} foods remaining`)
+    console.log(`🔍 All filtering complete: ${filteredFoods.length}/${foods.length} foods remaining`)
     return filteredFoods
   }
 
@@ -692,6 +790,11 @@ export default function FoodIndex() {
     onEditModalOpen()
   }
 
+  const handleViewFoodDetails = (food: FoodItem) => {
+    setSelectedFood(food)
+    onDetailModalOpen()
+  }
+
   const handleUpdateFood = async () => {
     if (!editingFood) return
 
@@ -839,7 +942,7 @@ export default function FoodIndex() {
       <Card key={food.id} _hover={{ shadow: 'md', cursor: 'pointer' }}>
         <CardBody>
           <VStack align="start" spacing={3}>
-            <Box w="full" onClick={() => handleEditFood(food)}>
+            <Box w="full" onClick={() => handleViewFoodDetails(food)}>
               {food.brand && (
                 <Text fontSize="sm" color="gray.400" fontWeight="medium" textTransform="uppercase" mb={1}>
                   {food.brand}
@@ -934,7 +1037,7 @@ export default function FoodIndex() {
         key={food.id} 
         _hover={{ shadow: 'md', cursor: 'pointer' }} 
         size="sm"
-        onClick={() => handleEditFood(food)}
+        onClick={() => handleViewFoodDetails(food)}
         bg="linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(249,252,255,0.95) 100%)"
       >
         <CardBody p={2}>
@@ -1011,7 +1114,7 @@ export default function FoodIndex() {
                 }}
                 fontSize="xs"
               >
-                Details
+                Edit
               </Button>
             </HStack>
           </VStack>
@@ -1256,16 +1359,32 @@ export default function FoodIndex() {
                       <option value="desc">High to Low</option>
                     </Select>
 
-                    {/* Dietary Filter Toggle */}
-                    {userPreferences && (userPreferences.dietary_restrictions?.length > 0 || userPreferences.allergens?.length > 0) && (
-                      <HStack spacing={2} bg="white" p={3} borderRadius="lg" border="2px solid" borderColor="gray.200">
-                        <Text fontSize="sm" fontWeight="medium">Dietary Filters:</Text>
-                        <Switch
-                          isChecked={applyDietaryFilter}
-                          onChange={(e) => setApplyDietaryFilter(e.target.checked)}
-                          colorScheme="green"
-                          size="lg"
-                        />
+                    {/* Dietary Filter Toggle - Always visible */}
+                    <HStack spacing={2} bg="white" p={3} borderRadius="lg" border="2px solid" borderColor={applyDietaryFilter ? "green.200" : "gray.200"}>
+                      <Text fontSize="sm" fontWeight="medium">Dietary Filters:</Text>
+                      <Switch
+                        isChecked={applyDietaryFilter}
+                        onChange={(e) => setApplyDietaryFilter(e.target.checked)}
+                        colorScheme="green"
+                        size="lg"
+                      />
+                      {applyDietaryFilter && userPreferences && (
+                        <Badge colorScheme="green" variant="solid" ml={2}>
+                          {(userPreferences.dietary_restrictions?.length || 0) + (userPreferences.allergens?.length || 0)} active
+                        </Badge>
+                      )}
+                    </HStack>
+
+                    {/* Advanced Filters */}
+                    {hasActiveAdvancedFilters() && (
+                      <HStack spacing={2} bg="blue.50" p={3} borderRadius="lg" border="2px solid" borderColor="blue.200">
+                        <Text fontSize="sm" fontWeight="medium">Advanced Filters:</Text>
+                        <Badge colorScheme="blue" variant="solid">
+                          Active
+                        </Badge>
+                        <Button size="xs" variant="outline" colorScheme="blue" onClick={resetAdvancedFilters}>
+                          Reset
+                        </Button>
                       </HStack>
                     )}
                   </HStack>
@@ -1345,20 +1464,23 @@ export default function FoodIndex() {
                     </Select>
                   </FormControl>
 
-                  {/* Dietary Filter Toggle */}
-                  {userPreferences && (userPreferences.dietary_restrictions?.length > 0 || userPreferences.allergens?.length > 0) && (
-                    <FormControl display="flex" alignItems="center" justifyContent="space-between">
-                      <FormLabel htmlFor="dietary-filter" mb="0" fontSize="sm">
-                        Apply Dietary Filters
-                      </FormLabel>
-                      <Switch
-                        id="dietary-filter"
-                        isChecked={applyDietaryFilter}
-                        onChange={(e) => setApplyDietaryFilter(e.target.checked)}
-                        colorScheme="green"
-                      />
-                    </FormControl>
-                  )}
+                  {/* Dietary Filter Toggle - Always visible */}
+                  <FormControl display="flex" alignItems="center" justifyContent="space-between">
+                    <FormLabel htmlFor="dietary-filter" mb="0" fontSize="sm">
+                      Apply Dietary Filters
+                      {applyDietaryFilter && userPreferences && (
+                        <Badge colorScheme="green" variant="solid" ml={2} fontSize="xs">
+                          {(userPreferences.dietary_restrictions?.length || 0) + (userPreferences.allergens?.length || 0)} active
+                        </Badge>
+                      )}
+                    </FormLabel>
+                    <Switch
+                      id="dietary-filter"
+                      isChecked={applyDietaryFilter}
+                      onChange={(e) => setApplyDietaryFilter(e.target.checked)}
+                      colorScheme="green"
+                    />
+                  </FormControl>
 
                   {/* Active Filters Display */}
                   {userPreferences && applyDietaryFilter && (userPreferences.dietary_restrictions?.length > 0 || userPreferences.allergens?.length > 0) && (
@@ -1990,6 +2112,25 @@ export default function FoodIndex() {
               </ModalBody>
             </ModalContent>
           </Modal>
+
+          {/* Food Detail Modal */}
+          <FoodDetailModal
+            food={selectedFood}
+            isOpen={isDetailModalOpen}
+            onClose={onDetailModalClose}
+            onLogFood={(food, servings, unit) => {
+              setSelectedFood(food)
+              setLogEntry({
+                meal_type: 'lunch',
+                servings: servings,
+                unit: unit,
+                notes: ''
+              })
+              onDetailModalClose()
+              onLogModalOpen()
+            }}
+            userProfile={userPreferences}
+          />
         </VStack>
       </Container>
     </Box>

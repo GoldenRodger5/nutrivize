@@ -81,26 +81,40 @@ export function useEnhancedHealthScore() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function fetchEnhancedHealthScore() {
-      try {
-        setLoading(true);
-        const response = await api.get('/ai-health/health-score');
-        setEnhancedHealthScore(response.data);
-        setError(null);
-      } catch (err) {
-        console.error('Error fetching enhanced health score:', err);
-        setError('Failed to load health score data');
-        setEnhancedHealthScore(null);
-      } finally {
-        setLoading(false);
-      }
+  const fetchEnhancedHealthScore = async () => {
+    try {
+      setLoading(true);
+      const response = await api.get('/ai-dashboard/health-score');
+      setEnhancedHealthScore(response.data);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching enhanced health score:', err);
+      setError('Failed to load health score data');
+      setEnhancedHealthScore(null);
+    } finally {
+      setLoading(false);
     }
+  };
 
+  const refreshHealthScore = async () => {
+    try {
+      setLoading(true);
+      const response = await api.post('/ai-dashboard/health-score/refresh');
+      setEnhancedHealthScore(response.data.data);
+      setError(null);
+    } catch (err) {
+      console.error('Error refreshing health score:', err);
+      setError('Failed to refresh health score');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchEnhancedHealthScore();
   }, []);
 
-  return { enhancedHealthScore, loading, error };
+  return { enhancedHealthScore, loading, error, refreshHealthScore };
 }
 
 /**
@@ -116,7 +130,7 @@ export function useProgressAnalytics() {
     async function fetchProgressAnalytics() {
       try {
         setLoading(true);
-        const response = await api.get('/ai-health/progress-analytics');
+        const response = await api.get('/ai-dashboard/progress-analytics');
         
         // Ensure we have default values for nested properties to prevent undefined errors
         const data = response.data || {};
@@ -126,11 +140,11 @@ export function useProgressAnalytics() {
             current_weight: 0,
             target_weight: 0,
             percent_complete: 0,
-            weight_lost_so_far: '0 lbs',
-            remaining_weight: '0 lbs',
-            current_rate: '0 lbs/week',
-            weekly_goal: 0,
-            estimated_completion: 'N/A'
+            weight_lost: 0,
+            remaining_weight: 0,
+            current_rate: 0,
+            weekly_goal: 1.0,
+            estimated_completion: 'Invalid Date'
           };
         }
         
@@ -147,18 +161,18 @@ export function useProgressAnalytics() {
             current_weight: 0,
             target_weight: 0,
             percent_complete: 0,
-            weight_lost_so_far: '0 lbs',
-            remaining_weight: '0 lbs',
-            current_rate: '0 lbs/week',
-            weekly_goal: 0,
-            estimated_completion: 'N/A'
+            weight_lost_so_far: "0 lbs",
+            remaining_weight: "0 lbs",
+            current_rate: "0 lbs/week",
+            weekly_goal: 1.0,
+            estimated_completion: 'Invalid Date'
           },
           achievement_rate: 0,
           streak_days: 0,
           consistency_score: 0,
           ai_insights: {
-            progress_summary: 'Data not available',
-            achievement_insights: 'Data not available',
+            progress_summary: "No data available",
+            achievement_insights: "Start tracking to see insights",
             milestone_projections: [],
             focus_areas: []
           }

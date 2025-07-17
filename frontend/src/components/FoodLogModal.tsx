@@ -27,12 +27,16 @@ import {
   Tab,
   TabPanel,
   useColorModeValue,
-  Divider
+  Divider,
+  IconButton,
+  Tooltip
 } from '@chakra-ui/react'
+import { FaHeart, FaRegHeart } from 'react-icons/fa'
 import api from '../utils/api'
 import { FoodItem } from '../types'
 import QuantityUnitInput from './QuantityUnitInput'
-import { calculateNutritionForQuantity } from '../utils/unitConversion'
+import { calculateNutritionForQuantity, getBestDefaultUnit } from '../utils/unitConversion'
+import { useUserFavorites } from '../hooks/useUserFavorites'
 
 interface FoodLogModalProps {
   isOpen: boolean
@@ -57,6 +61,15 @@ export default function FoodLogModal({ isOpen, onClose, onSuccess }: FoodLogModa
   const [popularLoading, setPopularLoading] = useState(false)
   const [recentLoading, setRecentLoading] = useState(false)
   const toast = useToast()
+  
+  // User favorites hook
+  const { 
+    favorites,
+    loading: favoritesLoading,
+    isFavorited,
+    getFavoriteByFoodId,
+    toggleFavorite,
+  } = useUserFavorites()
 
   const cardBg = useColorModeValue('white', 'gray.800')
   const borderColor = useColorModeValue('gray.200', 'gray.600')
@@ -78,6 +91,23 @@ export default function FoodLogModal({ isOpen, onClose, onSuccess }: FoodLogModa
       setFoods([])
     }
   }, [searchQuery])
+
+  // Set smart default unit when food is selected
+  useEffect(() => {
+    if (selectedFood) {
+      const bestUnit = getBestDefaultUnit(selectedFood.name, selectedFood.serving_unit)
+      
+      // Check if this food is a favorite and has default serving settings
+      const favorite = getFavoriteByFoodId(selectedFood.id)
+      if (favorite && favorite.default_serving_size && favorite.default_serving_unit) {
+        setSelectedUnit(favorite.default_serving_unit)
+        setAmount(favorite.default_serving_size)
+      } else {
+        setSelectedUnit(bestUnit)
+        setAmount(selectedFood.serving_size || 1)
+      }
+    }
+  }, [selectedFood, getFavoriteByFoodId])
 
   // Fetch user's personal food index
   const fetchUserFoods = async () => {
@@ -236,49 +266,80 @@ export default function FoodLogModal({ isOpen, onClose, onSuccess }: FoodLogModa
     }
   }
 
-  const FoodCard = ({ food, onClick }: { food: FoodItem, onClick: () => void }) => (
-    <Card
-      variant={selectedFood?.id === food.id ? 'filled' : 'outline'}
-      cursor="pointer"
-      onClick={() => {
-        onClick()
-        // Reset to base nutrition when selecting a new food
-        setConvertedNutrition(null)
-        setAmount(1)
-        setSelectedUnit('serving')
-      }}
-      _hover={{ bg: useColorModeValue('gray.50', 'gray.700'), transform: 'translateY(-1px)' }}
-      transition="all 0.2s"
-      size="sm"
-      bg={selectedFood?.id === food.id ? useColorModeValue('blue.50', 'blue.900') : cardBg}
-      borderColor={selectedFood?.id === food.id ? 'blue.300' : borderColor}
-    >
-      <CardBody py={2} px={3}>
-        <VStack align="start" spacing={1}>
-          <Text fontWeight="medium" fontSize="sm" noOfLines={2} lineHeight="1.2">
-            {food.name}
-          </Text>
-          {food.brand && (
-            <Text fontSize="xs" color="gray.500" noOfLines={1}>
-              {food.brand}
-            </Text>
-          )}
-          <HStack fontSize="xs" justify="space-between" w="full">
-            <HStack>
-              <Text color="green.500" fontWeight="bold">{food.nutrition?.calories || 0}</Text>
-              <Text color="gray.500">cal</Text>
+  const FoodCard = ({ food, onClick }: { food: FoodItem, onClick: () => void }) => {
+    const isSelected = selectedFood?.id === food.id
+    const isFoodFavorited = isFavorited(food.id)
+    
+    const handleFavoriteClick = async (e: React.MouseEvent) => {
+      e.stopPropagation()
+      await toggleFavorite(food.id, food.name, 'general')
+    }
+
+    return (
+      <Card
+        variant={isSelected ? 'filled' : 'outline'}
+        cursor="pointer"
+        onClick={() => {
+          onClick()
+          // Reset to base nutrition when selecting a new food
+          setConvertedNutrition(null)
+          setAmount(1)
+          setSelectedUnit('serving')
+        }}
+        _hover={{ bg: useColorModeValue('gray.50', 'gray.700'), transform: 'translateY(-1px)' }}
+        transition="all 0.2s"
+        size="sm"
+        bg={isSelected ? useColorModeValue('blue.50', 'blue.900') : cardBg}
+        borderColor={isSelected ? 'blue.300' : borderColor}
+      >
+        <CardBody py={2} px={3}>
+          <VStack align="start" spacing={1}>
+            <HStack justify="space-between" w="full">
+              <Text fontWeight="medium" fontSize="sm" noOfLines={2} lineHeight="1.2" flex={1}>
+                {food.name}
+              </Text>
+              <Tooltip label={isFoodFavorited ? 'Remove from favorites' : 'Add to favorites'}>
+                <IconButton
+                  icon={isFoodFavorited ? <FaHeart /> : <FaRegHeart />}
+                  size="xs"
+                  variant="ghost"
+                  colorScheme={isFoodFavorited ? 'red' : 'gray'}
+                  onClick={handleFavoriteClick}
+                  aria-label={isFoodFavorited ? 'Remove from favorites' : 'Add to favorites'}
+                />
+              </Tooltip>
             </HStack>
-            {food.nutrition?.protein && (
-              <HStack>
-                <Text color="blue.500" fontWeight="bold">{food.nutrition.protein}g</Text>
-                <Text color="gray.500">protein</Text>
-              </HStack>
+            
+            {food.brand && (
+              <Text fontSize="xs" color="gray.500" noOfLines={1}>
+                {food.brand}
+              </Text>
             )}
-          </HStack>
-        </VStack>
-      </CardBody>
-    </Card>
-  )
+            
+            <HStack fontSize="xs" justify="space-between" w="full">
+              <HStack>
+                <Text color="green.500" fontWeight="bold">{food.nutrition?.calories || 0}</Text>
+                <Text color="gray.500">cal</Text>
+              </HStack>
+              {food.nutrition?.protein && (
+                <HStack>
+                  <Text color="blue.500" fontWeight="bold">{food.nutrition.protein}g</Text>
+                  <Text color="gray.500">protein</Text>
+                </HStack>
+              )}
+            </HStack>
+            
+            {/* Show if this is a favorite with custom name */}
+            {isFoodFavorited && (
+              <Badge colorScheme="red" variant="subtle" fontSize="xs">
+                ❤️ Favorite
+              </Badge>
+            )}
+          </VStack>
+        </CardBody>
+      </Card>
+    )
+  }
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="4xl" scrollBehavior="inside">
@@ -338,12 +399,69 @@ export default function FoodLogModal({ isOpen, onClose, onSuccess }: FoodLogModa
             {/* Food Categories */}
             <Tabs variant="soft-rounded" colorScheme="blue">
               <TabList>
+                <Tab fontSize="sm">Favorites</Tab>
                 <Tab fontSize="sm">Recent Foods</Tab>
                 <Tab fontSize="sm">Popular Foods</Tab>
                 <Tab fontSize="sm">My Foods</Tab>
               </TabList>
 
               <TabPanels>
+                {/* Favorites Tab */}
+                <TabPanel px={0}>
+                  <VStack align="stretch" spacing={3}>
+                    <Text fontWeight="medium">Your Favorite Foods:</Text>
+                    {favoritesLoading ? (
+                      <HStack justify="center" py={8}>
+                        <Spinner size="md" />
+                        <Text>Loading favorites...</Text>
+                      </HStack>
+                    ) : favorites.length > 0 ? (
+                      <Box maxH="300px" overflowY="auto">
+                        <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={3}>
+                          {favorites.map((favorite) => {
+                            // Convert UserFavorite to FoodItem format for compatibility
+                            const foodItem: FoodItem = {
+                              id: favorite.food_id,
+                              name: favorite.custom_name || favorite.food_name,
+                              brand: undefined,
+                              serving_size: favorite.default_serving_size || 1,
+                              serving_unit: favorite.default_serving_unit || 'serving',
+                              nutrition: favorite.nutrition || {
+                                calories: 0,
+                                protein: 0,
+                                carbs: 0,
+                                fat: 0,
+                                fiber: 0,
+                                sugar: 0,
+                                sodium: 0
+                              },
+                              source: 'favorite',
+                              barcode: undefined,
+                              dietary_attributes: favorite.dietary_attributes || {
+                                dietary_restrictions: [],
+                                allergens: [],
+                                food_categories: []
+                              }
+                            }
+                            
+                            return (
+                              <FoodCard
+                                key={favorite.id}
+                                food={foodItem}
+                                onClick={() => setSelectedFood(foodItem)}
+                              />
+                            )
+                          })}
+                        </SimpleGrid>
+                      </Box>
+                    ) : (
+                      <Box textAlign="center" py={8}>
+                        <Text fontSize="sm" color="gray.500">No favorite foods yet.</Text>
+                        <Text fontSize="xs" color="gray.400">Add foods to your favorites using the ❤️ button!</Text>
+                      </Box>
+                    )}
+                  </VStack>
+                </TabPanel>
                 {/* Recent Foods */}
                 <TabPanel px={0}>
                   <VStack align="stretch" spacing={3}>
@@ -484,6 +602,9 @@ export default function FoodLogModal({ isOpen, onClose, onSuccess }: FoodLogModa
                         onQuantityChange={(newQuantity) => handleQuantityUnitChange(newQuantity, selectedUnit)}
                         onUnitChange={(newUnit) => handleQuantityUnitChange(amount, newUnit)}
                         label="Quantity & Unit"
+                        foodName={selectedFood.name}
+                        servingUnit={selectedFood.serving_unit}
+                        showSmartSuggestions={true}
                       />
 
                       <FormControl>

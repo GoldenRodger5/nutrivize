@@ -1486,17 +1486,30 @@ Format as JSON:
                 }
 
             # Add water tracking from actual water logs
+            # Check both today's date and tomorrow's date to handle timezone issues
+            today_str = today.isoformat()
+            tomorrow_str = (today + timedelta(days=1)).isoformat()
+            
             water_logs = list(self.db.water_logs.find({
                 "user_id": user_id,
-                "date": today.isoformat()
+                "date": {"$in": [today_str, tomorrow_str]}
             }))
 
             # Calculate total water from logs
             total_water = sum(log.get("amount", 0) for log in water_logs)
 
-            # Get target from preferences or use default
-            water_target = 8  # Default 8 cups/64 oz
-            if context.get("profile", {}).get("preferences", {}).get("nutrition", {}).get("water_target"):
+            # Get target from goals first, then preferences, then default
+            water_target = 64  # Default 64 fl oz (8 cups)
+            
+            # Check active goals first
+            active_goals = context.get("active_goals", [])
+            for goal in active_goals:
+                if goal.get("nutrition_targets", {}).get("water_target"):
+                    water_target = goal["nutrition_targets"]["water_target"]
+                    break
+            
+            # Fallback to user preferences if not found in goals
+            if water_target == 64 and context.get("profile", {}).get("preferences", {}).get("nutrition", {}).get("water_target"):
                 water_target = context["profile"]["preferences"]["nutrition"]["water_target"]
 
             # Calculate percentage
@@ -1518,7 +1531,7 @@ Format as JSON:
                 "carbs": {"current": 180, "target": 250, "percentage": 72},
                 "fat": {"current": 50, "target": 65, "percentage": 77},
                 "fiber": {"current": 20, "target": 25, "percentage": 80},
-                "water": {"current": 6, "target": 8, "percentage": 75}
+                "water": {"current": 32, "target": 64, "percentage": 50}
             }
 
     async def _generate_predictive_analytics(self, user_id: str, context: Dict[str, Any]) -> Dict[str, Any]:

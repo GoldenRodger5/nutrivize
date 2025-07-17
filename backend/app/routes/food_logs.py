@@ -4,6 +4,7 @@ from ..models.user import UserResponse
 from ..models.food_log import FoodLogCreate, FoodLogResponse, DailyNutritionSummary
 from ..services.food_log_service import food_log_service
 from ..services.ai_dashboard_cache_service import ai_dashboard_cache_service
+from ..services.user_service import user_service
 from typing import List
 from datetime import date
 import logging
@@ -22,6 +23,39 @@ async def log_food(
     """Log a food entry"""
     try:
         food_log = await food_log_service.log_food(log_data, current_user.uid)
+        
+        # Automatically add to recent foods
+        try:
+            nutrition_dict = {
+                "calories": log_data.nutrition.calories,
+                "protein": log_data.nutrition.protein,
+                "carbs": log_data.nutrition.carbs,
+                "fat": log_data.nutrition.fat,
+                "fiber": log_data.nutrition.fiber,
+                "sugar": log_data.nutrition.sugar,
+                "sodium": log_data.nutrition.sodium,
+            }
+            await user_service.add_to_recent_foods_from_log(
+                current_user.uid,
+                log_data.food_id,
+                log_data.food_name,
+                log_data.amount,
+                log_data.unit,
+                nutrition_dict
+            )
+            logger.info(f"Added food {log_data.food_name} to recent foods for user {current_user.uid}")
+        except Exception as recent_error:
+            logger.warning(f"Failed to add to recent foods: {recent_error}")
+            # Don't fail the request if adding to recent foods fails
+        
+        # Update favorite usage if this food is in favorites
+        try:
+            from ..services.user_favorites_service import user_favorites_service
+            await user_favorites_service.update_favorite_usage(current_user.uid, log_data.food_id)
+            logger.info(f"Updated favorite usage for food {log_data.food_id} for user {current_user.uid}")
+        except Exception as favorite_error:
+            logger.warning(f"Failed to update favorite usage: {favorite_error}")
+            # Don't fail the request if updating favorite usage fails
         
         # Invalidate AI dashboard cache since nutrition data has changed
         try:
