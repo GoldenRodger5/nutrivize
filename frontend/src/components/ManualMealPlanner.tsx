@@ -111,6 +111,16 @@ const ManualMealPlanner: React.FC = () => {
   
   const { isOpen: isCreateOpen, onOpen: onCreateOpen, onClose: onCreateClose } = useDisclosure();
   const { isOpen: isTemplateOpen, onOpen: onTemplateOpen, onClose: onTemplateClose } = useDisclosure();
+  const { isOpen: isAllPlansOpen, onOpen: onAllPlansOpen, onClose: onAllPlansClose } = useDisclosure();
+
+  // Toggle function for collapsible plans view
+  const toggleAllPlans = () => {
+    if (isAllPlansOpen) {
+      onAllPlansClose()
+    } else {
+      onAllPlansOpen()
+    }
+  }
   
   const [newPlan, setNewPlan] = useState({
     name: '',
@@ -437,8 +447,26 @@ const ManualMealPlanner: React.FC = () => {
           </Alert>
         )}
 
+        {/* Manual Plans Management Controls */}
+        {plans.length > 0 && (
+          <HStack justify="space-between" align="center">
+            <Text fontSize="lg" fontWeight="semibold" color="gray.700">
+              All Manual Plans ({plans.length})
+            </Text>
+            <Button
+              size="sm"
+              variant="outline"
+              colorScheme="blue"
+              onClick={toggleAllPlans}
+            >
+              {isAllPlansOpen ? 'Hide All Plans' : 'View All Plans'}
+            </Button>
+          </HStack>
+        )}
+
         {/* Plans Grid */}
-        <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
+        {isAllPlansOpen && (
+          <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
           {plans.map((plan) => (
             <Card
               key={plan.plan_id}
@@ -533,6 +561,7 @@ const ManualMealPlanner: React.FC = () => {
             </Card>
           ))}
         </SimpleGrid>
+        )}
 
         {/* Active Plan Daily View */}
         {activePlan && (

@@ -63,6 +63,7 @@ import api from '../utils/api'
 import EnhancedShoppingList from '../components/EnhancedShoppingList'
 import { ShoppingList } from '../types'
 import LogMealFoodModal from '../components/LogMealFoodModal'
+import { useFoodIndex } from '../contexts/FoodIndexContext'
 
 // TypeScript interfaces
 interface NutritionInfo {
@@ -140,6 +141,10 @@ const MealPlans: React.FC = () => {
   const isMobile = useBreakpointValue({ base: true, md: false })
   const cardColumns = useBreakpointValue({ base: 1, md: 2, lg: 3 })
   const modalSize = useBreakpointValue({ base: 'full', md: 'xl', lg: '6xl' })
+  
+  // Food index context for real-time updates
+  const { triggerRefresh } = useFoodIndex()
+  
   // Initialize with empty array to prevent map errors
   const [mealPlans, setMealPlans] = useState<MealPlan[]>([])
   const [selectedPlan, setSelectedPlan] = useState<MealPlan | null>(null)
@@ -201,6 +206,18 @@ const MealPlans: React.FC = () => {
   const { isOpen: isMultiFoodLogOpen, onClose: onMultiFoodLogClose } = useDisclosure()
   // Add disclosure for single meal food logging
   const { isOpen: isSingleMealLogOpen, onOpen: onSingleMealLogOpen, onClose: onSingleMealLogClose } = useDisclosure()
+  // Add disclosure for viewing all meal plans
+  const { isOpen: isAllPlansOpen, onOpen: onAllPlansOpen, onClose: onAllPlansClose } = useDisclosure()
+  const { isOpen: isAllPlansModalOpen, onOpen: onAllPlansModalOpen, onClose: onAllPlansModalClose } = useDisclosure()
+
+  // Toggle function for collapsible plans view
+  const toggleAllPlans = () => {
+    if (isAllPlansOpen) {
+      onAllPlansClose()
+    } else {
+      onAllPlansOpen()
+    }
+  }
 
   const toast = useToast()
 
@@ -215,7 +232,7 @@ const MealPlans: React.FC = () => {
       }
     }
     fetchUserPreferences()
-  }, [])
+  }, [triggerRefresh])
 
   // Apply user preferences to meal plan form
   const applyUserPreferences = () => {
@@ -1168,9 +1185,43 @@ const MealPlans: React.FC = () => {
             </CardBody>
           </Card>
         ) : (
-          <SimpleGrid columns={cardColumns} spacing={6}>
-            {mealPlans.map(renderMealPlanCard)}
-          </SimpleGrid>
+          <VStack spacing={4} align="stretch">
+            {/* All Meal Plans Management */}
+            <HStack justify="space-between" align="center">
+              <Text fontSize="lg" fontWeight="semibold" color="gray.700">
+                All Meal Plans ({mealPlans.length})
+              </Text>
+              <HStack spacing={2}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  colorScheme="blue"
+                  onClick={toggleAllPlans}
+                >
+                  {isAllPlansOpen ? 'Hide All Plans' : 'View All Plans'}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  colorScheme="purple"
+                  onClick={onAllPlansModalOpen}
+                >
+                  Manage Plans
+                </Button>
+              </HStack>
+            </HStack>
+            
+            {/* Collapsible All Plans Grid */}
+            {isAllPlansOpen && (
+              <Card variant="outline" bg="gray.50">
+                <CardBody>
+                  <SimpleGrid columns={cardColumns} spacing={4}>
+                    {mealPlans.map(renderMealPlanCard)}
+                  </SimpleGrid>
+                </CardBody>
+              </Card>
+            )}
+          </VStack>
         )}
 
         {/* Create Meal Plan Modal */}
@@ -2131,6 +2182,147 @@ const MealPlans: React.FC = () => {
             mealType={singleMealToLog.mealType}
           />
         )}
+
+        {/* Manage All Meal Plans Modal */}
+        <Modal isOpen={isAllPlansModalOpen} onClose={onAllPlansModalClose} size="6xl">
+          <ModalOverlay />
+          <ModalContent maxH="90vh">
+            <ModalHeader>
+              <HStack>
+                <Text>Manage All Meal Plans</Text>
+                <Badge colorScheme="blue">{mealPlans.length} Plans</Badge>
+              </HStack>
+            </ModalHeader>
+            <ModalCloseButton />
+            <ModalBody overflowY="auto" maxH="70vh">
+              <VStack spacing={4} align="stretch">
+                {mealPlans.length === 0 ? (
+                  <Card>
+                    <CardBody textAlign="center" py={8}>
+                      <Text fontSize="lg" color="gray.500" mb={4}>
+                        No meal plans found
+                      </Text>
+                      <Button colorScheme="blue" onClick={() => {
+                        onAllPlansModalClose();
+                        onCreateOpen();
+                      }}>
+                        Create Your First Meal Plan
+                      </Button>
+                    </CardBody>
+                  </Card>
+                ) : (
+                  <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4}>
+                    {mealPlans.map((plan) => (
+                      <Card key={plan.plan_id} cursor="pointer" 
+                            _hover={{ transform: 'translateY(-2px)', shadow: 'lg' }}
+                            borderColor={selectedPlan?.plan_id === plan.plan_id ? 'blue.500' : 'gray.200'}
+                            borderWidth={selectedPlan?.plan_id === plan.plan_id ? 2 : 1}>
+                        <CardBody>
+                          <VStack spacing={3} align="stretch">
+                            <HStack justify="space-between">
+                              <VStack align="start" spacing={1}>
+                                <Text fontWeight="bold" fontSize="md" noOfLines={1}>
+                                  {plan.name || plan.title || `Plan ${plan.plan_id.slice(-6)}`}
+                                </Text>
+                                <HStack spacing={2}>
+                                  <Badge colorScheme="purple">{plan.total_days} days</Badge>
+                                  {selectedPlan?.plan_id === plan.plan_id && (
+                                    <Badge colorScheme="green">Active</Badge>
+                                  )}
+                                </HStack>
+                              </VStack>
+                              <IconButton
+                                size="sm"
+                                variant="ghost"
+                                colorScheme="red"
+                                aria-label="Delete plan"
+                                icon={<DeleteIcon />}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteMealPlan(plan.plan_id);
+                                }}
+                              />
+                            </HStack>
+                            
+                            <Text fontSize="sm" color="gray.600">
+                              Created: {new Date(plan.created_at).toLocaleDateString()}
+                            </Text>
+                            
+                            {/* Quick nutrition overview */}
+                            <SimpleGrid columns={2} spacing={2}>
+                              <Stat size="sm">
+                                <StatLabel fontSize="xs">Avg Calories</StatLabel>
+                                <StatNumber fontSize="sm">
+                                  {(() => {
+                                    if (plan.target_nutrition?.calories) {
+                                      return plan.target_nutrition.calories;
+                                    }
+                                    if (plan.calories_per_day) {
+                                      return plan.calories_per_day;
+                                    }
+                                    if (plan.days && plan.days.length > 0) {
+                                      const totalCalories = plan.days.reduce((sum, day) => 
+                                        sum + (day.total_nutrition?.calories || 0), 0);
+                                      return Math.round(totalCalories / plan.days.length);
+                                    }
+                                    return 'N/A';
+                                  })()}
+                                </StatNumber>
+                              </Stat>
+                              <Stat size="sm">
+                                <StatLabel fontSize="xs">Restrictions</StatLabel>
+                                <StatNumber fontSize="sm">
+                                  {plan.dietary_restrictions?.length || 0}
+                                </StatNumber>
+                              </Stat>
+                            </SimpleGrid>
+                            
+                            <HStack spacing={2}>
+                              <Button
+                                size="sm"
+                                colorScheme="blue"
+                                variant={selectedPlan?.plan_id === plan.plan_id ? "solid" : "outline"}
+                                onClick={() => {
+                                  setSelectedPlan(plan);
+                                  onAllPlansModalClose();
+                                }}
+                                flex={1}
+                              >
+                                {selectedPlan?.plan_id === plan.plan_id ? "Current" : "Select"}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setSelectedPlan(plan);
+                                  onAllPlansModalClose();
+                                  onDetailsOpen();
+                                }}
+                              >
+                                Details
+                              </Button>
+                            </HStack>
+                          </VStack>
+                        </CardBody>
+                      </Card>
+                    ))}
+                  </SimpleGrid>
+                )}
+              </VStack>
+            </ModalBody>
+            <ModalFooter>
+              <Button variant="ghost" mr={3} onClick={onAllPlansModalClose}>
+                Close
+              </Button>
+              <Button colorScheme="blue" onClick={() => {
+                onAllPlansModalClose();
+                onCreateOpen();
+              }}>
+                Create New Plan
+              </Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
       </VStack>
     </Container>
   )

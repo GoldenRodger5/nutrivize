@@ -38,9 +38,11 @@ import {
 import api from '../utils/api'
 import { useAuth } from '../contexts/AuthContext'
 import { saveTimezonePreference } from '../utils/timezone'
+import { useFoodIndex } from '../contexts/FoodIndexContext'
 
 export default function Settings() {
   const { user } = useAuth()
+  const { triggerRefresh } = useFoodIndex()
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const toast = useToast()
@@ -117,6 +119,8 @@ export default function Settings() {
     setSaving(true)
     try {
       await api.put('/preferences/dietary', dietaryPrefs)
+      // Trigger refresh in Food Index to update compatibility immediately
+      triggerRefresh()
       toast({
         title: 'Preferences Saved',
         description: 'Your dietary preferences have been updated.',

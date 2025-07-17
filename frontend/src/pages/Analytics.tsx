@@ -37,6 +37,7 @@ import {
   FiClock
 } from 'react-icons/fi'
 import { useAppState } from '../contexts/AppStateContext'
+import { useFoodIndex } from '../contexts/FoodIndexContext'
 import AnalyticsInsights from '../components/analytics/AnalyticsInsights'
 import { analyticsService, type Insight, type TrendData } from '../services/analyticsService'
 
@@ -118,6 +119,8 @@ export default function Analytics() {
     loading,
   } = useAppState()
 
+  const { triggerRefresh } = useFoodIndex()
+
   const isMobile = useBreakpointValue({ base: true, md: false })
 
   // AI Insights State
@@ -125,12 +128,12 @@ export default function Analytics() {
   const [trends, setTrends] = useState<TrendData[]>([])
   const [insightsLoading, setInsightsLoading] = useState(false)
   const [lastUpdated, setLastUpdated] = useState<string>()
-  const [timeframe, setTimeframe] = useState<'week' | 'month'>('week')
+  const [timeframe, setTimeframe] = useState<'day' | 'week' | 'month'>('week')
   
   const toast = useToast()
   const borderColor = useColorModeValue('gray.200', 'gray.700')
 
-  const fetchAnalyticsData = async (selectedTimeframe: 'week' | 'month' = timeframe) => {
+  const fetchAnalyticsData = async (selectedTimeframe: 'day' | 'week' | 'month' = timeframe) => {
     if (insightsLoading) return
     
     setInsightsLoading(true)
@@ -217,14 +220,14 @@ export default function Analytics() {
     await fetchAnalyticsData(timeframe)
   }
 
-  const handleTimeframeChange = (newTimeframe: 'week' | 'month') => {
+  const handleTimeframeChange = (newTimeframe: 'day' | 'week' | 'month') => {
     setTimeframe(newTimeframe)
     fetchAnalyticsData(newTimeframe)
   }
 
   useEffect(() => {
     fetchAnalyticsData()
-  }, [])
+  }, [triggerRefresh])
 
   // Helper functions
   const getNutritionProgress = (current: number, target: number) => {

@@ -52,7 +52,7 @@ class AnalyticsService {
   /**
    * Generate AI-powered insights about user's nutrition patterns
    */
-  async generateInsights(timeframe: 'week' | 'month' = 'week', forceRefresh: boolean = false): Promise<AnalyticsResponse> {
+  async generateInsights(timeframe: 'day' | 'week' | 'month' = 'week', forceRefresh: boolean = false): Promise<AnalyticsResponse> {
     try {
       const response = await api.get('/analytics/insights', {
         params: {
@@ -113,7 +113,7 @@ class AnalyticsService {
   /**
    * Get detailed macronutrient breakdown with visualizations
    */
-  async getMacroBreakdown(timeframe: 'week' | 'month' = 'week'): Promise<any> {
+  async getMacroBreakdown(timeframe: 'day' | 'week' | 'month' = 'week'): Promise<any> {
     try {
       const response = await api.get('/analytics/macro-breakdown', {
         params: { timeframe }
@@ -156,14 +156,14 @@ class AnalyticsService {
   /**
    * Get comprehensive analytics data in one call with error resilience
    */
-  async getComprehensiveAnalytics(timeframe: 'week' | 'month' = 'week'): Promise<{
+  async getComprehensiveAnalytics(timeframe: 'day' | 'week' | 'month' = 'week'): Promise<{
     insights: AnalyticsResponse | null
     trends: NutritionTrendsResponse | null
     goalProgress: GoalProgressResponse | null
     patterns: FoodPatternsResponse | null
     macroBreakdown: any | null
   }> {
-    const days = timeframe === 'week' ? 7 : 30
+    const days = timeframe === 'day' ? 1 : timeframe === 'week' ? 7 : 30
     
     // Make requests individually and handle errors gracefully
     const results = await Promise.allSettled([

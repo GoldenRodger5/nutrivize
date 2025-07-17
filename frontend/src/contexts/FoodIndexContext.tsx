@@ -8,6 +8,7 @@ interface FoodIndexContextType {
   error: string | null;
   refreshUserFoods: () => Promise<void>;
   searchUserFoods: (query: string) => Promise<FoodItem[]>;
+  triggerRefresh: () => void;
 }
 
 const FoodIndexContext = createContext<FoodIndexContextType | undefined>(undefined);
@@ -28,6 +29,7 @@ export function FoodIndexProvider({ children }: FoodIndexProviderProps) {
   const [userFoods, setUserFoods] = useState<FoodItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const fetchUserFoods = async () => {
     setIsLoading(true);
@@ -42,6 +44,10 @@ export function FoodIndexProvider({ children }: FoodIndexProviderProps) {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const triggerRefresh = () => {
+    setRefreshTrigger(prev => prev + 1);
   };
 
   const searchUserFoods = async (query: string): Promise<FoodItem[]> => {
@@ -59,14 +65,15 @@ export function FoodIndexProvider({ children }: FoodIndexProviderProps) {
 
   useEffect(() => {
     fetchUserFoods();
-  }, []);
+  }, [refreshTrigger]);
 
   const value = {
     userFoods,
     isLoading,
     error,
     refreshUserFoods: fetchUserFoods,
-    searchUserFoods
+    searchUserFoods,
+    triggerRefresh
   };
 
   return (

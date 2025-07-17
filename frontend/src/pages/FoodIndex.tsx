@@ -140,7 +140,7 @@ export default function FoodIndex() {
   const toast = useToast()
 
   // Add food index context
-  const { refreshUserFoods } = useFoodIndex()
+  const { refreshUserFoods, triggerRefresh } = useFoodIndex()
 
   const ITEMS_PER_PAGE = 20
 
@@ -265,7 +265,7 @@ export default function FoodIndex() {
       }
     }
     fetchUserPreferences()
-  }, [])
+  }, [triggerRefresh])
 
   // Filter foods based on dietary preferences AND advanced filters
   const filterFoodsByDietaryPrefs = (foods: FoodItem[]) => {

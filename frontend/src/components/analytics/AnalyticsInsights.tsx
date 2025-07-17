@@ -24,8 +24,8 @@ interface AnalyticsInsightsProps {
   loading: boolean
   lastUpdated?: string
   onRefresh: () => Promise<void>
-  timeframe: 'week' | 'month'
-  onTimeframeChange: (timeframe: 'week' | 'month') => void
+  timeframe: 'day' | 'week' | 'month'
+  onTimeframeChange: (timeframe: 'day' | 'week' | 'month') => void
 }
 
 export default function AnalyticsInsights({
@@ -99,6 +99,14 @@ export default function AnalyticsInsights({
           
           <VStack align="end" spacing={2}>
             <HStack spacing={2}>
+              <Button
+                size="sm"
+                variant={timeframe === 'day' ? 'solid' : 'outline'}
+                colorScheme="blue"
+                onClick={() => onTimeframeChange('day')}
+              >
+                Day
+              </Button>
               <Button
                 size="sm"
                 variant={timeframe === 'week' ? 'solid' : 'outline'}
