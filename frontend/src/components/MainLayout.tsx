@@ -19,6 +19,7 @@ import RestaurantMenuAnalysis from '../pages/RestaurantMenuAnalysis'
 import HealthInsights from '../pages/HealthInsights'
 import NutritionCoaching from '../pages/NutritionCoaching'
 import ManualMealPlanner from '../pages/ManualMealPlanner'
+import FavoritesPage from '../pages/Favorites'
 import { useState, useEffect } from 'react'
 
 export default function MainLayout() {
@@ -56,6 +57,7 @@ export default function MainLayout() {
           <Route path="/ai-dashboard" element={<AIDashboard />} />
           <Route path="/food-log" element={<FoodLog />} />
           <Route path="/food-index" element={<FoodIndex />} />
+          <Route path="/favorites" element={<FavoritesPage />} />
           <Route path="/meal-suggestions" element={<MealSuggestions />} />
           <Route path="/meal-planning" element={<MealSuggestions />} />
           <Route path="/meal-plans" element={<MealPlans />} />

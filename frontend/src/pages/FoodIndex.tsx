@@ -74,6 +74,7 @@ import FoodCompatibilityScore from '../components/FoodCompatibilityScore'
 import DietaryProfileBuilder from '../components/DietaryProfileBuilder'
 import QuantityUnitInput from '../components/QuantityUnitInput'
 import FoodDetailModal from '../components/FoodDetailModal'
+import MyFoodsModal from '../components/MyFoodsModal'
 import { calculateNutritionForQuantity } from '../utils/unitConversion'
 import { useFoodIndex } from '../contexts/FoodIndexContext'
 
@@ -142,6 +143,11 @@ export default function FoodIndex() {
     isOpen: isDetailModalOpen, 
     onOpen: onDetailModalOpen, 
     onClose: onDetailModalClose 
+  } = useDisclosure()
+  const { 
+    isOpen: isMyFoodsModalOpen, 
+    onOpen: onMyFoodsModalOpen, 
+    onClose: onMyFoodsModalClose 
   } = useDisclosure()
   const toast = useToast()
 
@@ -1346,6 +1352,18 @@ export default function FoodIndex() {
                   </Button>
                 </HStack>
 
+                {/* My Foods Button */}
+                <Button
+                  leftIcon={<HeartIcon />}
+                  onClick={onMyFoodsModalOpen}
+                  size="sm"
+                  colorScheme="red"
+                  variant="outline"
+                  w="full"
+                >
+                  My Foods
+                </Button>
+
                 {/* Mobile Dietary Profile Button */}
                 <Button
                   onClick={onDietaryBuilderOpen}
@@ -1390,6 +1408,15 @@ export default function FoodIndex() {
                       colorScheme="blue"
                     >
                       Search
+                    </Button>
+                    <Button
+                      leftIcon={<HeartIcon />}
+                      onClick={onMyFoodsModalOpen}
+                      size="md"
+                      variant="outline"
+                      colorScheme="red"
+                    >
+                      My Foods
                     </Button>
                     <Button
                       leftIcon={<FilterIcon />}
@@ -2243,6 +2270,24 @@ export default function FoodIndex() {
               onLogModalOpen()
             }}
             userProfile={userPreferences}
+          />
+
+          {/* My Foods Modal */}
+          <MyFoodsModal
+            isOpen={isMyFoodsModalOpen}
+            onClose={onMyFoodsModalClose}
+            onFoodSelect={(food) => {
+              setSelectedFood(food)
+              setLogEntry({
+                meal_type: 'lunch',
+                servings: 1,
+                unit: food.serving_unit,
+                notes: ''
+              })
+              onMyFoodsModalClose()
+              onLogModalOpen()
+            }}
+            showLogButtons={true}
           />
         </VStack>
       </Container>

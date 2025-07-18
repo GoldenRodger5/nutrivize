@@ -54,15 +54,7 @@ async def add_favorite(
     """Add a food to user's favorites"""
     try:
         favorite = await user_favorites_service.add_favorite(current_user.uid, favorite_data)
-        return JSONResponse(
-            content=favorite.dict() if hasattr(favorite, 'dict') else favorite,
-            headers={
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-                "Access-Control-Allow-Headers": "*",
-                "Access-Control-Allow-Credentials": "true",
-            }
-        )
+        return favorite  # Let FastAPI handle serialization automatically
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -79,15 +71,7 @@ async def remove_favorite(
         success = await user_favorites_service.remove_favorite(current_user.uid, food_id)
         if not success:
             raise HTTPException(status_code=404, detail="Favorite not found")
-        return JSONResponse(
-            content={"message": "Favorite removed successfully"},
-            headers={
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-                "Access-Control-Allow-Headers": "*",
-                "Access-Control-Allow-Credentials": "true",
-            }
-        )
+        return {"message": "Favorite removed successfully"}
     except HTTPException:
         raise
     except Exception as e:
@@ -105,15 +89,7 @@ async def get_favorites(
         favorites = await user_favorites_service.get_user_favorites(
             current_user.uid, category, limit
         )
-        return JSONResponse(
-            content=[fav.dict() if hasattr(fav, 'dict') else fav for fav in favorites],
-            headers={
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-                "Access-Control-Allow-Headers": "*",
-                "Access-Control-Allow-Credentials": "true",
-            }
-        )
+        return favorites  # Let FastAPI handle serialization automatically
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error getting favorites: {str(e)}")
 

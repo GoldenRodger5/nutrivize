@@ -9,14 +9,7 @@ from ..models.user import UserResponse
 from ..services.user_service import user_service
 from ..services.food_log_service import food_log_service
 
-router = APIRouter(prefix="/foods", tags=["user-foods"])
-
-class FavoriteFoodItem(BaseModel):
-    food_id: str
-    food_name: str
-    serving_size: float = 100
-    serving_unit: str = "g"
-    added_at: Optional[datetime] = None
+router = APIRouter(prefix="/user-foods", tags=["user-foods"])
 
 class RecentFoodItem(BaseModel):
     food_id: str
@@ -25,116 +18,6 @@ class RecentFoodItem(BaseModel):
     serving_unit: str
     last_used: datetime
     usage_count: int = 1
-
-@router.get("/favorites")
-async def get_favorite_foods(
-    current_user: UserResponse = Depends(get_current_user)
-):
-    """Get user's favorite foods"""
-    try:
-        user_id = current_user.uid
-        
-        # Get user preferences which now include favorite foods
-        preferences = await user_service.get_user_preferences(user_id)
-        favorite_foods = preferences.get("favorite_foods", [])
-        
-        return JSONResponse(
-            content={
-                "success": True,
-                "favorite_foods": favorite_foods
-            },
-            headers={
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-                "Access-Control-Allow-Headers": "*",
-                "Access-Control-Allow-Credentials": "true",
-            }
-        )
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get favorite foods: {str(e)}")
-
-@router.post("/favorites")
-async def add_favorite_food(
-    favorite_food: FavoriteFoodItem,
-    current_user: UserResponse = Depends(get_current_user)
-):
-    """Add a food to favorites"""
-    try:
-        user_id = current_user.uid
-        
-        # Get current favorites
-        preferences = await user_service.get_user_preferences(user_id)
-        favorite_foods = preferences.get("favorite_foods", [])
-        
-        # Check if already in favorites
-        existing_favorite = next((f for f in favorite_foods if f["food_id"] == favorite_food.food_id), None)
-        if existing_favorite:
-            raise HTTPException(status_code=400, detail="Food already in favorites")
-        
-        # Add to favorites
-        favorite_food.added_at = datetime.utcnow()
-        favorite_foods.append(favorite_food.dict())
-        
-        # Update user preferences
-        await user_service.update_user_preferences(user_id, {
-            "favorite_foods": favorite_foods
-        })
-        
-        return JSONResponse(
-            content={
-                "success": True,
-                "message": "Food added to favorites successfully"
-            },
-            headers={
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-                "Access-Control-Allow-Headers": "*",
-                "Access-Control-Allow-Credentials": "true",
-            }
-        )
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to add favorite food: {str(e)}")
-
-@router.delete("/favorites/{food_id}")
-async def remove_favorite_food(
-    food_id: str,
-    current_user: UserResponse = Depends(get_current_user)
-):
-    """Remove a food from favorites"""
-    try:
-        user_id = current_user.uid
-        
-        # Get current favorites
-        preferences = await user_service.get_user_preferences(user_id)
-        favorite_foods = preferences.get("favorite_foods", [])
-        
-        # Remove from favorites
-        favorite_foods = [f for f in favorite_foods if f["food_id"] != food_id]
-        
-        # Update user preferences
-        await user_service.update_user_preferences(user_id, {
-            "favorite_foods": favorite_foods
-        })
-        
-        return JSONResponse(
-            content={
-                "success": True,
-                "message": "Food removed from favorites successfully"
-            },
-            headers={
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-                "Access-Control-Allow-Headers": "*",
-                "Access-Control-Allow-Credentials": "true",
-            }
-        )
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to remove favorite food: {str(e)}")
 
 @router.get("/recent")
 async def get_recent_foods(
@@ -211,33 +94,6 @@ async def get_recent_foods(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get recent foods: {str(e)}")
-
-# CORS OPTIONS handlers
-@router.options("/favorites")
-async def options_favorites():
-    return JSONResponse(
-        content={"detail": "OK"},
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-            "Access-Control-Allow-Headers": "*",
-            "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Max-Age": "86400",
-        }
-    )
-
-@router.options("/favorites/{food_id}")
-async def options_favorites_delete():
-    return JSONResponse(
-        content={"detail": "OK"},
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-            "Access-Control-Allow-Headers": "*",
-            "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Max-Age": "86400",
-        }
-    )
 
 @router.options("/recent")
 async def options_recent():
