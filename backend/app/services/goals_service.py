@@ -175,6 +175,13 @@ class GoalsService:
             created_at=updated_goal["created_at"]
         )
     
+    async def delete_goal(self, goal_id: str, user_id: str) -> bool:
+        """Delete a goal"""
+        result = self.goals_collection.delete_one(
+            {"_id": ObjectId(goal_id), "user_id": user_id}
+        )
+        return result.deleted_count > 0
+    
     async def deactivate_all_goals(self, user_id: str):
         """Deactivate all goals for a user (when setting a new active goal)"""
         self.goals_collection.update_many(

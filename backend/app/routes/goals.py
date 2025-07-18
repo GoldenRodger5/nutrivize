@@ -63,6 +63,18 @@ async def update_goal(
     return goal
 
 
+@router.delete("/{goal_id}")
+async def delete_goal(
+    goal_id: str,
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Delete a goal"""
+    success = await goals_service.delete_goal(goal_id, current_user.uid)
+    if not success:
+        raise HTTPException(status_code=404, detail="Goal not found")
+    return {"message": "Goal deleted successfully"}
+
+
 @router.post("/calculate-targets", response_model=NutritionTargets)
 async def calculate_nutrition_targets(
     user_data: dict,

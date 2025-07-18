@@ -11,6 +11,8 @@ import {
   Spinner,
   Alert,
   AlertIcon,
+  AlertTitle,
+  AlertDescription,
   Modal,
   ModalOverlay,
   ModalContent,
@@ -57,13 +59,19 @@ import {
 } from '@chakra-ui/react'
 import { AddIcon, ViewIcon, DeleteIcon, EditIcon } from '@chakra-ui/icons'
 import { MdCheckCircle, MdSchedule, MdShoppingCart } from 'react-icons/md'
-import { FiInfo } from 'react-icons/fi'
+import { FiInfo, FiPlus, FiTrendingUp, FiTarget } from 'react-icons/fi'
 import api from '../utils/api'
 // Note: timezone utilities removed as they were unused after function cleanup
 import EnhancedShoppingList from '../components/EnhancedShoppingList'
 import { ShoppingList } from '../types'
 import LogMealFoodModal from '../components/LogMealFoodModal'
 import { useFoodIndex } from '../contexts/FoodIndexContext'
+import MacroDistributionSlider from '../components/MacroDistributionSlider'
+import DatePicker from '../components/DatePicker'
+import MealPlanOptimizer from '../components/MealPlanOptimizer'
+import BatchMealLogger from '../components/BatchMealLogger'
+import SmartMealRecommendations from '../components/SmartMealRecommendations'
+import NutritionOptimizationSuggestions from '../components/NutritionOptimizationSuggestions'
 
 // TypeScript interfaces
 interface NutritionInfo {
@@ -177,7 +185,7 @@ const MealPlans: React.FC = () => {
   const [singleMealToLog, setSingleMealToLog] = useState<{meal: MealPlanMeal, mealType: string} | null>(null)
 
   // Form state for creating new meal plan
-  const [newPlanData, setNewPlanData] = useState<MealPlanRequest & { name: string; protein_percent: number; carbs_percent: number; fat_percent: number }>({
+  const [newPlanData, setNewPlanData] = useState<MealPlanRequest & { name: string; protein_percent: number; carbs_percent: number; fat_percent: number; start_date: string }>({
     name: '',
     days: 3,
     dietary_restrictions: [],
@@ -193,7 +201,8 @@ const MealPlans: React.FC = () => {
     carbs_percent: 40,
     fat_percent: 30,
     use_food_index_only: false,
-    special_requests: ''
+    special_requests: '',
+    start_date: new Date().toISOString().split('T')[0] // Today's date as default
   })
 
   const { isOpen: isCreateOpen, onOpen: onCreateOpen, onClose: onCreateClose } = useDisclosure()
@@ -209,6 +218,12 @@ const MealPlans: React.FC = () => {
   // Add disclosure for viewing all meal plans
   const { isOpen: isAllPlansOpen, onOpen: onAllPlansOpen, onClose: onAllPlansClose } = useDisclosure()
   const { isOpen: isAllPlansModalOpen, onOpen: onAllPlansModalOpen, onClose: onAllPlansModalClose } = useDisclosure()
+  
+  // Add disclosure for Phase 3 Advanced Features
+  const { isOpen: isBatchLoggerOpen, onOpen: onBatchLoggerOpen, onClose: onBatchLoggerClose } = useDisclosure()
+  const { isOpen: isOptimizerOpen, onOpen: onOptimizerOpen, onClose: onOptimizerClose } = useDisclosure()
+  const { isOpen: isRecommendationsOpen, onOpen: onRecommendationsOpen, onClose: onRecommendationsClose } = useDisclosure()
+  const { isOpen: isNutritionOptOpen, onOpen: onNutritionOptOpen, onClose: onNutritionOptClose } = useDisclosure()
 
   // Toggle function for collapsible plans view
   const toggleAllPlans = () => {
@@ -378,10 +393,13 @@ const MealPlans: React.FC = () => {
         fat_target: 65,
         exclude_foods: [],
         meal_types: ['breakfast', 'lunch', 'dinner'],
+        complexity_level: 'any',
         protein_percent: 30,
         carbs_percent: 40,
         fat_percent: 30,
-        special_requests: ''
+        use_food_index_only: false,
+        special_requests: '',
+        start_date: new Date().toISOString().split('T')[0]
       })
       
       onCreateClose()
@@ -549,6 +567,16 @@ const MealPlans: React.FC = () => {
       return
     }
 
+    // Optimistically remove the plan from the UI
+    const originalPlans = [...mealPlans]
+    setMealPlans(prev => prev.filter(plan => plan.plan_id !== planId))
+    
+    // Close details modal if the deleted plan was selected
+    if (selectedPlan?.plan_id === planId) {
+      setSelectedPlan(null)
+      onDetailsClose()
+    }
+
     try {
       await api.delete(`/meal-planning/plans/${planId}`)
       
@@ -560,16 +588,23 @@ const MealPlans: React.FC = () => {
         isClosable: true
       })
       
-      // Refresh the meal plans list
+      // Refresh the meal plans list to ensure consistency
       await fetchMealPlans()
       
-      // Close details modal if the deleted plan was selected
-      if (selectedPlan?.plan_id === planId) {
-        setSelectedPlan(null)
-        onDetailsClose()
-      }
     } catch (err: any) {
       console.error('Error deleting meal plan:', err)
+      
+      // Restore original plans on error
+      setMealPlans(originalPlans)
+      
+      // Restore selected plan if it was the one being deleted
+      if (selectedPlan?.plan_id === planId) {
+        const restoredPlan = originalPlans.find(plan => plan.plan_id === planId)
+        if (restoredPlan) {
+          setSelectedPlan(restoredPlan)
+        }
+      }
+      
       toast({
         title: 'Error',
         description: 'Failed to delete meal plan',
@@ -1030,6 +1065,18 @@ const MealPlans: React.FC = () => {
               >
                 Shopping List
               </Button>
+              <Button
+                size="sm"
+                colorScheme="green"
+                variant="ghost"
+                leftIcon={<FiTarget />}
+                onClick={() => {
+                  setSelectedPlan(plan)
+                  onOptimizerOpen()
+                }}
+              >
+                Optimize
+              </Button>
               <IconButton
                 size="sm"
                 aria-label="Delete plan"
@@ -1077,9 +1124,35 @@ const MealPlans: React.FC = () => {
               </HStack>
             )}
           </VStack>
-          <Button leftIcon={<AddIcon />} colorScheme="blue" onClick={onCreateOpen}>
-            Create New Plan
-          </Button>
+          <HStack spacing={2}>
+            <Button leftIcon={<AddIcon />} colorScheme="blue" onClick={onCreateOpen}>
+              Create New Plan
+            </Button>
+            <Button 
+              leftIcon={<FiPlus />} 
+              colorScheme="purple" 
+              variant="outline"
+              onClick={onBatchLoggerOpen}
+            >
+              Batch Logger
+            </Button>
+            <Button 
+              leftIcon={<FiTrendingUp />} 
+              colorScheme="orange" 
+              variant="outline"
+              onClick={onRecommendationsOpen}
+            >
+              Smart Recommendations
+            </Button>
+            <Button 
+              leftIcon={<FiTarget />} 
+              colorScheme="green" 
+              variant="outline"
+              onClick={onNutritionOptOpen}
+            >
+              Nutrition Optimizer
+            </Button>
+          </HStack>
         </HStack>
 
         {error && (
@@ -1241,6 +1314,16 @@ const MealPlans: React.FC = () => {
                   />
                 </FormControl>
 
+                <DatePicker
+                  value={newPlanData.start_date}
+                  onChange={(date) => setNewPlanData({ ...newPlanData, start_date: date })}
+                  label="Start Date"
+                  placeholder="Select when to start this meal plan"
+                  helperText="Choose the date when you want to begin following this meal plan"
+                  minDate={new Date().toISOString().split('T')[0]} // Can't start in the past
+                  isDisabled={isLoading}
+                />
+
                 <FormControl>
                   <FormLabel>Number of Days</FormLabel>
                   <NumberInput
@@ -1273,47 +1356,18 @@ const MealPlans: React.FC = () => {
                   </NumberInput>
                 </FormControl>
 
-                <FormControl>
-                  <FormLabel>Macro Distribution (%)</FormLabel>
-                  <SimpleGrid columns={3} spacing={3}>
-                    <Box>
-                      <Text fontSize="sm" mb={1}>Protein</Text>
-                      <NumberInput
-                        value={newPlanData.protein_percent}
-                        onChange={(_, num) => setNewPlanData({ ...newPlanData, protein_percent: num || 30 })}
-                        min={5}
-                        max={50}
-                      >
-                        <NumberInputField />
-                      </NumberInput>
-                    </Box>
-                    <Box>
-                      <Text fontSize="sm" mb={1}>Carbs</Text>
-                      <NumberInput
-                        value={newPlanData.carbs_percent}
-                        onChange={(_, num) => setNewPlanData({ ...newPlanData, carbs_percent: num || 40 })}
-                        min={20}
-                        max={70}
-                      >
-                        <NumberInputField />
-                      </NumberInput>
-                    </Box>
-                    <Box>
-                      <Text fontSize="sm" mb={1}>Fat</Text>
-                      <NumberInput
-                        value={newPlanData.fat_percent}
-                        onChange={(_, num) => setNewPlanData({ ...newPlanData, fat_percent: num || 30 })}
-                        min={15}
-                        max={45}
-                      >
-                        <NumberInputField />
-                      </NumberInput>
-                    </Box>
-                  </SimpleGrid>
-                  <FormHelperText>
-                    Percentages will be normalized to 100%
-                  </FormHelperText>
-                </FormControl>
+                <MacroDistributionSlider
+                  protein={newPlanData.protein_percent}
+                  carbs={newPlanData.carbs_percent}
+                  fat={newPlanData.fat_percent}
+                  onChange={(macros) => setNewPlanData({ 
+                    ...newPlanData, 
+                    protein_percent: macros.protein,
+                    carbs_percent: macros.carbs,
+                    fat_percent: macros.fat
+                  })}
+                  isDisabled={isLoading}
+                />
 
                 <FormControl>
                   <FormLabel>Dietary Restrictions</FormLabel>
@@ -2321,6 +2375,102 @@ const MealPlans: React.FC = () => {
                 Create New Plan
               </Button>
             </ModalFooter>
+          </ModalContent>
+        </Modal>
+
+        {/* Phase 3 Advanced Features Modals */}
+        
+        {/* Batch Meal Logger Modal */}
+        <Modal isOpen={isBatchLoggerOpen} onClose={onBatchLoggerClose} size="6xl">
+          <ModalOverlay />
+          <ModalContent maxH="90vh">
+            <ModalHeader>Batch Meal Logger</ModalHeader>
+            <ModalCloseButton />
+            <ModalBody>
+              <BatchMealLogger 
+                mealPlan={selectedPlan}
+                onLogComplete={(loggedItems) => {
+                  toast({
+                    title: 'Batch Logged Successfully',
+                    description: `${loggedItems.length} items logged successfully`,
+                    status: 'success',
+                    duration: 3000,
+                    isClosable: true
+                  })
+                  onBatchLoggerClose()
+                }}
+              />
+            </ModalBody>
+          </ModalContent>
+        </Modal>
+
+        {/* Meal Plan Optimizer Modal */}
+        <Modal isOpen={isOptimizerOpen} onClose={onOptimizerClose} size="6xl">
+          <ModalOverlay />
+          <ModalContent maxH="90vh">
+            <ModalHeader>Meal Plan Optimizer</ModalHeader>
+            <ModalCloseButton />
+            <ModalBody>
+              {selectedPlan ? (
+                <MealPlanOptimizer 
+                  planId={selectedPlan.plan_id}
+                />
+              ) : (
+                <Alert status="info">
+                  <AlertIcon />
+                  <AlertTitle>No Meal Plan Selected</AlertTitle>
+                  <AlertDescription>
+                    Please select a meal plan to optimize.
+                  </AlertDescription>
+                </Alert>
+              )}
+            </ModalBody>
+          </ModalContent>
+        </Modal>
+
+        {/* Smart Meal Recommendations Modal */}
+        <Modal isOpen={isRecommendationsOpen} onClose={onRecommendationsClose} size="6xl">
+          <ModalOverlay />
+          <ModalContent maxH="90vh">
+            <ModalHeader>Smart Meal Recommendations</ModalHeader>
+            <ModalCloseButton />
+            <ModalBody>
+              <SmartMealRecommendations 
+                mealType="lunch"
+                onRecommendationSelect={(recommendation) => {
+                  toast({
+                    title: 'Recommendation Selected',
+                    description: `${recommendation.name} has been selected`,
+                    status: 'success',
+                    duration: 3000,
+                    isClosable: true
+                  })
+                  onRecommendationsClose()
+                }}
+              />
+            </ModalBody>
+          </ModalContent>
+        </Modal>
+
+        {/* Nutrition Optimization Modal */}
+        <Modal isOpen={isNutritionOptOpen} onClose={onNutritionOptClose} size="6xl">
+          <ModalOverlay />
+          <ModalContent maxH="90vh">
+            <ModalHeader>Nutrition Optimization</ModalHeader>
+            <ModalCloseButton />
+            <ModalBody>
+              <NutritionOptimizationSuggestions 
+                onSuggestionApply={(suggestion) => {
+                  toast({
+                    title: 'Optimization Applied',
+                    description: `${suggestion.nutrient} optimization applied`,
+                    status: 'success',
+                    duration: 3000,
+                    isClosable: true
+                  })
+                }}
+              />
+            </ModalBody>
           </ModalContent>
         </Modal>
       </VStack>

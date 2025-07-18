@@ -15,6 +15,9 @@ import Goals from '../pages/Goals'
 import Settings from '../pages/Settings'
 import Analytics from '../pages/Analytics'
 import RestaurantAI from '../pages/RestaurantAI'
+import RestaurantMenuAnalysis from '../pages/RestaurantMenuAnalysis'
+import HealthInsights from '../pages/HealthInsights'
+import NutritionCoaching from '../pages/NutritionCoaching'
 import ManualMealPlanner from '../pages/ManualMealPlanner'
 import { useState, useEffect } from 'react'
 
@@ -58,6 +61,9 @@ export default function MainLayout() {
           <Route path="/meal-plans" element={<MealPlans />} />
           <Route path="/manual-meal-planning" element={<ManualMealPlanner />} />
           <Route path="/restaurant-ai" element={<RestaurantAI />} />
+          <Route path="/restaurant-menu-analysis" element={<RestaurantMenuAnalysis />} />
+          <Route path="/health-insights" element={<HealthInsights />} />
+          <Route path="/nutrition-coaching" element={<NutritionCoaching />} />
           <Route path="/ai" element={<AIChat />} />
           <Route path="/ai-chat" element={<AIChat />} />
           <Route path="/goals" element={<Goals />} />

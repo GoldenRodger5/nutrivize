@@ -19,6 +19,8 @@ class NutritionTargets(BaseModel):
     carbs: float
     fat: float
     fiber: Optional[float] = None
+    sugar: Optional[float] = None
+    sodium: Optional[float] = None
     water_target: Optional[float] = 64.0  # fl oz per day
 
 

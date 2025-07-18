@@ -1992,6 +1992,28 @@ Format as JSON:
             logger.error(f"Error storing health insights: {e}")
             # Don't raise exception, just log the error
 
+    async def get_ai_response(self, prompt: str, max_tokens: int = 8000) -> str:
+        """
+        Generic AI response method for getting Claude responses
+        """
+        try:
+            response = self.client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=max_tokens,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ]
+            )
+            
+            return response.content[0].text if response.content else ""
+            
+        except Exception as e:
+            logger.error(f"AI response error: {str(e)}")
+            return f"I apologize, but I'm having trouble processing your request right now. Please try again later."
+
 
 # Global instance
 unified_ai_service = UnifiedAIService()

@@ -48,6 +48,9 @@ import {
 import { FiInfo, FiSave, FiChevronDown, FiChevronUp } from 'react-icons/fi'
 import { MealSuggestion } from '../types'
 import api from '../utils/api'
+import { convertUnit } from '../utils/unitConversion'
+import MealSuggestionLogModal from '../components/MealSuggestionLogModal'
+import AddToMealPlanModal from '../components/AddToMealPlanModal'
 
 const STORAGE_KEY = 'meal_suggestions_cache'
 const FILTERS_STORAGE_KEY = 'meal_suggestions_filters'
@@ -68,6 +71,8 @@ export default function MealSuggestions() {
   })
   const [selectedSuggestion, setSelectedSuggestion] = useState<MealSuggestion | null>(null)
   const [editingSuggestion, setEditingSuggestion] = useState<MealSuggestion | null>(null)
+  const [logModalSuggestion, setLogModalSuggestion] = useState<MealSuggestion | null>(null)
+  const [addToMealPlanSuggestion, setAddToMealPlanSuggestion] = useState<MealSuggestion | null>(null)
   const { isOpen, onOpen, onClose } = useDisclosure()
   const toast = useToast()
   const isMobile = useBreakpointValue({ base: true, md: false })
@@ -98,7 +103,25 @@ export default function MealSuggestions() {
 
   const openEditModal = (suggestion: MealSuggestion) => {
     setSelectedSuggestion(suggestion)
-    setEditingSuggestion({ ...suggestion }) // Create a copy for editing
+    
+    // Create a deep copy and store original nutrition values for each ingredient
+    const editingCopy = {
+      ...suggestion,
+      ingredients: suggestion.ingredients.map(ingredient => ({
+        ...ingredient,
+        // Store original nutrition values from the API response
+        originalNutrition: {
+          calories: ingredient.calories || 0,
+          protein: ingredient.protein || 0,
+          carbs: ingredient.carbs || 0,
+          fat: ingredient.fat || 0,
+          originalAmount: ingredient.amount || 1,
+          originalUnit: ingredient.unit || 'g'
+        }
+      }))
+    }
+    
+    setEditingSuggestion(editingCopy)
     onOpen()
   }
 
@@ -135,8 +158,109 @@ export default function MealSuggestions() {
   const updateIngredient = (index: number, field: string, value: any) => {
     if (editingSuggestion) {
       const updatedIngredients = [...editingSuggestion.ingredients]
-      updatedIngredients[index] = { ...updatedIngredients[index], [field]: value }
+      const updatedIngredient = { ...updatedIngredients[index] }
+      ;(updatedIngredient as any)[field] = value
+      
+      // If amount or unit changed, recalculate nutrition for this ingredient
+      if (field === 'amount' || field === 'unit') {
+        const baseNutrition = getBaseNutritionForIngredient(updatedIngredient)
+        const currentAmount = updatedIngredient.amount ?? 0
+        const currentUnit = updatedIngredient.unit || 'g'
+        const originalUnit = (updatedIngredient as any).originalNutrition?.originalUnit || 'g'
+        
+        const scaledNutrition = calculateScaledNutrition(baseNutrition, currentAmount, currentUnit, originalUnit)
+        
+        updatedIngredient.calories = scaledNutrition.calories
+        updatedIngredient.protein = scaledNutrition.protein
+        updatedIngredient.carbs = scaledNutrition.carbs
+        updatedIngredient.fat = scaledNutrition.fat
+      }
+      
+      updatedIngredients[index] = updatedIngredient
+      
       setEditingSuggestion({ ...editingSuggestion, ingredients: updatedIngredients })
+      
+      // Recalculate total nutrition after updating the ingredient
+      setTimeout(() => {
+        updateTotalNutrition(updatedIngredients)
+      }, 0)
+    }
+  }
+
+  const getBaseNutritionForIngredient = (ingredient: any) => {
+    // Use the stored original nutrition values from when the modal was opened
+    if (ingredient.originalNutrition) {
+      return {
+        calories: ingredient.originalNutrition.calories,
+        protein: ingredient.originalNutrition.protein,
+        carbs: ingredient.originalNutrition.carbs,
+        fat: ingredient.originalNutrition.fat,
+        baseAmount: ingredient.originalNutrition.originalAmount
+      }
+    }
+    
+    // Fallback to current values if original nutrition is not available
+    return {
+      calories: ingredient.calories || 0,
+      protein: ingredient.protein || 0,
+      carbs: ingredient.carbs || 0,
+      fat: ingredient.fat || 0,
+      baseAmount: ingredient.amount || 1
+    }
+  }
+
+  const calculateScaledNutrition = (baseNutrition: any, newAmount: number, newUnit: string, originalUnit: string) => {
+    // If amount is 0, return 0 for all nutrition values
+    if (newAmount === 0) {
+      return {
+        calories: 0,
+        protein: 0,
+        carbs: 0,
+        fat: 0
+      }
+    }
+    
+    // Convert the new amount to the same unit as the original for accurate scaling
+    let scaleFactor = 1
+    
+    if (newUnit === originalUnit) {
+      // Same unit, direct scaling
+      scaleFactor = newAmount / baseNutrition.baseAmount
+    } else {
+      // Different units, need to convert
+      const conversionResult = convertUnit(newAmount, newUnit, originalUnit)
+      
+      if (conversionResult.isValid) {
+        // Successfully converted, use converted value for scaling
+        scaleFactor = conversionResult.value / baseNutrition.baseAmount
+      } else {
+        // Units are incompatible, fall back to direct scaling
+        // This handles cases like switching between weight and volume units
+        scaleFactor = newAmount / baseNutrition.baseAmount
+        console.warn(`Cannot convert ${newUnit} to ${originalUnit}: ${conversionResult.error}`)
+      }
+    }
+    
+    return {
+      calories: Math.round(baseNutrition.calories * scaleFactor),
+      protein: Math.round(baseNutrition.protein * scaleFactor * 10) / 10, // 1 decimal place
+      carbs: Math.round(baseNutrition.carbs * scaleFactor * 10) / 10,
+      fat: Math.round(baseNutrition.fat * scaleFactor * 10) / 10
+    }
+  }
+
+  const updateTotalNutrition = (ingredients: any[]) => {
+    if (editingSuggestion) {
+      const totalNutrition = ingredients.reduce((total, ingredient) => ({
+        calories: total.calories + (ingredient.calories || 0),
+        protein: total.protein + (ingredient.protein || 0),
+        carbs: total.carbs + (ingredient.carbs || 0),
+        fat: total.fat + (ingredient.fat || 0),
+        fiber: total.fiber + (ingredient.fiber || 0),
+        sodium: total.sodium + (ingredient.sodium || 0)
+      }), { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, sodium: 0 })
+      
+      setEditingSuggestion(prev => prev ? { ...prev, nutrition: totalNutrition } : null)
     }
   }
 
@@ -524,6 +648,7 @@ export default function MealSuggestions() {
                           size={isMobile ? "xs" : "sm"} 
                           colorScheme="green" 
                           flex={1}
+                          onClick={() => setAddToMealPlanSuggestion(suggestion)}
                         >
                           Add to Meal Plan
                         </Button>
@@ -531,6 +656,7 @@ export default function MealSuggestions() {
                           size={isMobile ? "xs" : "sm"} 
                           variant="outline" 
                           flex={1}
+                          onClick={() => setLogModalSuggestion(suggestion)}
                         >
                           Log This Meal
                         </Button>
@@ -651,7 +777,7 @@ export default function MealSuggestions() {
                       </Thead>
                       <Tbody>
                         {editingSuggestion.ingredients.map((ingredient, index) => (
-                          <Tr key={index}>
+                          <Tr key={`${ingredient.name}-${index}`}>
                             <Td>
                               <Input
                                 value={ingredient.name}
@@ -664,17 +790,38 @@ export default function MealSuggestions() {
                                 value={ingredient.amount}
                                 onChange={(_, value) => updateIngredient(index, 'amount', value || 0)}
                                 min={0}
+                                step={0.1}
+                                precision={2}
                                 size="sm"
                               >
                                 <NumberInputField />
                               </NumberInput>
                             </Td>
                             <Td>
-                              <Input
+                              <Select
                                 value={ingredient.unit}
                                 onChange={(e) => updateIngredient(index, 'unit', e.target.value)}
                                 size="sm"
-                              />
+                              >
+                                {/* Weight Units */}
+                                <option value="g">g (grams)</option>
+                                <option value="kg">kg (kilograms)</option>
+                                <option value="oz">oz (ounces)</option>
+                                <option value="lb">lb (pounds)</option>
+                                
+                                {/* Volume Units */}
+                                <option value="ml">ml (milliliters)</option>
+                                <option value="l">l (liters)</option>
+                                <option value="cup">cup</option>
+                                <option value="tbsp">tbsp (tablespoons)</option>
+                                <option value="tsp">tsp (teaspoons)</option>
+                                <option value="fl oz">fl oz (fluid ounces)</option>
+                                
+                                {/* Count/Piece Units */}
+                                <option value="serving">serving</option>
+                                <option value="piece">piece</option>
+                                <option value="slice">slice</option>
+                              </Select>
                             </Td>
                             <Td>
                               <NumberInput
@@ -765,6 +912,30 @@ export default function MealSuggestions() {
           </ModalFooter>
         </ModalContent>
       </Modal>
+
+      {/* Log Meal Modal */}
+      {logModalSuggestion && (
+        <MealSuggestionLogModal
+          isOpen={!!logModalSuggestion}
+          onClose={() => setLogModalSuggestion(null)}
+          suggestion={logModalSuggestion}
+          onSuccess={() => {
+            // Optional: Add success callback
+          }}
+        />
+      )}
+
+      {/* Add to Meal Plan Modal */}
+      {addToMealPlanSuggestion && (
+        <AddToMealPlanModal
+          isOpen={!!addToMealPlanSuggestion}
+          onClose={() => setAddToMealPlanSuggestion(null)}
+          suggestion={addToMealPlanSuggestion}
+          onSuccess={() => {
+            // Optional: Add success callback
+          }}
+        />
+      )}
     </Container>
     </Box>
   )

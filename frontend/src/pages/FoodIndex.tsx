@@ -84,13 +84,19 @@ const SearchIcon = () => (
   </Icon>
 )
 
-const AddIcon = () => (
-  <Icon viewBox="0 0 24 24" fill="currentColor" w={4} h={4}>
-    <path d="M19,11H13V5a1,1,0,0,0-2,0v6H5a1,1,0,0,0,0,2h6v6a1,1,0,0,0,2,0V13h6a1,1,0,0,0,0-2Z"/>
-  </Icon>
-)
+  const AddIcon = () => (
+    <Icon viewBox="0 0 24 24" fill="currentColor" w={4} h={4}>
+      <path d="M19,11H13V5a1,1,0,0,0-2,0v6H5a1,1,0,0,0,0,2h6v6a1,1,0,0,0,2,0V13h6a1,1,0,0,0,0-2Z"/>
+    </Icon>
+  )
 
-const FilterIcon = () => (
+  const HeartIcon = ({ filled = false }) => (
+    <Icon viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth={2} w={4} h={4}>
+      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+    </Icon>
+  )
+
+  const FilterIcon = () => (
   <Icon viewBox="0 0 24 24" fill="currentColor" w={4} h={4}>
     <path d="M14,12V19.88C14.04,20.18 13.94,20.5 13.71,20.71C13.32,21.1 12.69,21.1 12.3,20.71L10.29,18.7C10.06,18.47 9.96,18.16 10,17.87V12H9.97L4.21,4.62C3.87,4.19 3.95,3.56 4.38,3.22C4.57,3.08 4.78,3 5,3V3H19V3C19.22,3 19.43,3.08 19.62,3.22C20.05,3.56 20.13,4.19 19.79,4.62L14.03,12H14Z"/>
   </Icon>
@@ -156,6 +162,10 @@ export default function FoodIndex() {
 
   // State for editing food
   const [editingFood, setEditingFood] = useState<FoodItem | null>(null)
+
+  // State for favorites
+  const [favorites, setFavorites] = useState<Set<string>>(new Set())
+  const [favoritesLoading, setFavoritesLoading] = useState<Set<string>>(new Set())
 
   // Form state for adding new food
   const [newFood, setNewFood] = useState({
@@ -265,6 +275,22 @@ export default function FoodIndex() {
       }
     }
     fetchUserPreferences()
+  }, [triggerRefresh])
+
+  // Fetch user favorites
+  useEffect(() => {
+    const fetchFavorites = async () => {
+      try {
+        const response = await api.get('/favorites')
+        const favoriteIds = new Set<string>(response.data.map((fav: any) => String(fav.food_id)))
+        setFavorites(favoriteIds)
+        console.log('✅ Loaded user favorites:', favoriteIds)
+      } catch (error) {
+        console.error('❌ Error fetching favorites:', error)
+        setFavorites(new Set<string>())
+      }
+    }
+    fetchFavorites()
   }, [triggerRefresh])
 
   // Filter foods based on dietary preferences AND advanced filters
@@ -696,6 +722,65 @@ export default function FoodIndex() {
     setCurrentPage(newPage)
   }
 
+  // Handle adding/removing foods from favorites
+  const handleToggleFavorite = async (food: FoodItem) => {
+    const foodId = food.id
+    const isFavorite = favorites.has(foodId)
+    
+    // Add to loading state
+    setFavoritesLoading(prev => new Set(prev).add(foodId))
+    
+    try {
+      if (isFavorite) {
+        // Remove from favorites
+        await api.delete(`/favorites/${foodId}`)
+        setFavorites(prev => {
+          const newFavorites = new Set(prev)
+          newFavorites.delete(foodId)
+          return newFavorites
+        })
+        toast({
+          title: 'Removed from Favorites',
+          description: `${food.name} has been removed from your favorites.`,
+          status: 'info',
+          duration: 2000,
+          isClosable: true,
+        })
+      } else {
+        // Add to favorites
+        await api.post('/favorites', {
+          food_id: foodId,
+          food_name: food.name,
+          category: 'general'
+        })
+        setFavorites(prev => new Set(prev).add(foodId))
+        toast({
+          title: 'Added to Favorites',
+          description: `${food.name} has been added to your favorites.`,
+          status: 'success',
+          duration: 2000,
+          isClosable: true,
+        })
+      }
+    } catch (error) {
+      console.error('Error toggling favorite:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to update favorites. Please try again.',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      })
+    } finally {
+      // Remove from loading state
+      setFavoritesLoading(prev => {
+        const newLoading = new Set(prev)
+        newLoading.delete(foodId)
+        return newLoading
+      })
+    }
+  }
+
   const handleAddFood = async () => {
     try {
       await api.post('/foods', newFood)
@@ -1015,6 +1100,20 @@ export default function FoodIndex() {
               </Button>
               <Button
                 size="sm"
+                colorScheme={favorites.has(food.id) ? "red" : "gray"}
+                variant={favorites.has(food.id) ? "solid" : "outline"}
+                leftIcon={<HeartIcon filled={favorites.has(food.id)} />}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleToggleFavorite(food)
+                }}
+                isLoading={favoritesLoading.has(food.id)}
+                aria-label={favorites.has(food.id) ? "Remove from favorites" : "Add to favorites"}
+              >
+                {favorites.has(food.id) ? "♥" : "♡"}
+              </Button>
+              <Button
+                size="sm"
                 colorScheme="blue"
                 variant="outline"
                 onClick={(e) => {
@@ -1103,6 +1202,20 @@ export default function FoodIndex() {
                 fontSize="xs"
               >
                 Log Food
+              </Button>
+              <Button
+                size="xs"
+                colorScheme={favorites.has(food.id) ? "red" : "gray"}
+                variant={favorites.has(food.id) ? "solid" : "outline"}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleToggleFavorite(food)
+                }}
+                isLoading={favoritesLoading.has(food.id)}
+                aria-label={favorites.has(food.id) ? "Remove from favorites" : "Add to favorites"}
+                fontSize="xs"
+              >
+                {favorites.has(food.id) ? "♥" : "♡"}
               </Button>
               <Button
                 size="xs"

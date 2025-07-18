@@ -390,6 +390,7 @@ export default function Goals() {
     if (!selectedGoal) return
     
     setDeleting(true)
+    
     try {
       await api.delete(`/goals/${selectedGoal.id}`)
       

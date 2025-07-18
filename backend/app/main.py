@@ -11,7 +11,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("nutrivize")
 
 # Import routes safely
-from .routes import auth, foods, food_logs, ai, meal_planning, preferences, goals, weight_logs, water_logs, nutrition_labels, dietary, ai_dashboard, restaurant_ai, ai_health, food_stats, user_foods, user, user_favorites
+from .routes import auth, foods, food_logs, ai, ai_coaching, meal_planning, preferences, goals, weight_logs, water_logs, nutrition_labels, dietary, ai_dashboard, restaurant_ai, ai_health, food_stats, user_foods, user, user_favorites
 
 # Try to import analytics routes, but use the hotfix if there's an error
 try:
@@ -110,6 +110,7 @@ app.include_router(user.router)
 app.include_router(user_favorites.router)
 app.include_router(food_logs.router)
 app.include_router(ai.router)
+app.include_router(ai_coaching.router)
 app.include_router(analytics.router)
 app.include_router(meal_planning.router)
 app.include_router(preferences.router)

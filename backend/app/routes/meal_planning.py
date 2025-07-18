@@ -2346,3 +2346,112 @@ async def options_manual_insights():
             "Access-Control-Max-Age": "86400",
         }
     )
+
+class MealSuggestionData(BaseModel):
+    name: str
+    description: str
+    meal_type: str
+    prep_time: Optional[int] = None
+    nutrition: Dict[str, Any]
+    ingredients: List[Dict[str, Any]] = []
+
+@router.post("/plans/{plan_id}/add-meal")
+async def add_meal_to_plan(
+    plan_id: str,
+    meal_data: MealSuggestionData,
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Add a meal suggestion to an existing meal plan"""
+    try:
+        # Get the existing meal plan
+        plan = await meal_planning_service.get_plan_by_id(current_user.id, plan_id)
+        if not plan:
+            raise HTTPException(status_code=404, detail="Meal plan not found")
+        
+        # Create new meal object
+        new_meal = {
+            "id": str(uuid.uuid4()),
+            "name": meal_data.name,
+            "description": meal_data.description,
+            "meal_type": meal_data.meal_type,
+            "prep_time": meal_data.prep_time,
+            "nutrition": meal_data.nutrition,
+            "ingredients": meal_data.ingredients,
+            "added_at": datetime.utcnow().isoformat()
+        }
+        
+        # Add meal to plan
+        if "meals" not in plan:
+            plan["meals"] = []
+        plan["meals"].append(new_meal)
+        
+        # Update the plan
+        await meal_planning_service.update_plan(current_user.id, plan_id, plan)
+        
+        return JSONResponse(
+            content={"detail": "Meal added successfully", "meal": new_meal},
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                "Access-Control-Allow-Headers": "*",
+                "Access-Control-Allow-Credentials": "true",
+            }
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to add meal to plan: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to add meal to plan: {str(e)}")
+
+@router.options("/plans/{plan_id}/add-meal")
+async def options_add_meal():
+    return JSONResponse(
+        content={"detail": "OK"},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Max-Age": "86400",
+        }
+    )
+
+@router.post("/meal-suggestions/log")
+async def log_meal_suggestion(
+    meal_data: FoodLogCreate,
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Log a meal suggestion to the food diary"""
+    try:
+        # Use the existing food log service to log the meal
+        result = await food_log_service.create_food_log(current_user.id, meal_data)
+        
+        return JSONResponse(
+            content={"detail": "Meal logged successfully", "log": result},
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+                "Access-Control-Allow-Headers": "*",
+                "Access-Control-Allow-Credentials": "true",
+            }
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to log meal suggestion: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to log meal suggestion: {str(e)}")
+
+@router.options("/meal-suggestions/log")
+async def options_log_meal_suggestion():
+    return JSONResponse(
+        content={"detail": "OK"},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Max-Age": "86400",
+        }
+    )
