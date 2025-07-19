@@ -63,7 +63,7 @@ import AIResponseFormatter from '../components/AIResponseFormatter'
 // Types for restaurant menu analysis
 interface MenuAnalysisRequest {
   source_type: 'url' | 'image' | 'pdf'
-  source_data: string // URL or base64 encoded data
+  source_data: string[] // Array of URLs or base64 encoded data
   restaurant_name?: string
   menu_name?: string
 }
@@ -105,6 +105,8 @@ interface MenuAnalysisResult {
   total_items_found: number
   analysis_confidence: number
   created_at: string
+  processing_method?: string // 'standard', 'medium', 'batch_processing'
+  chunks_processed?: number // Number of chunks processed (for batch processing)
 }
 
 // Visual nutrition interfaces
@@ -268,7 +270,7 @@ export default function RestaurantAI() {
     try {
       const analysisData: MenuAnalysisRequest = {
         source_type: menuFile ? (menuFile.type.includes('pdf') ? 'pdf' : 'image') : 'url',
-        source_data: menuFile ? await fileToBase64(menuFile) : menuUrl,
+        source_data: [menuFile ? await fileToBase64(menuFile) : menuUrl],
         restaurant_name: restaurantName,
         menu_name: ''
       }
@@ -281,9 +283,17 @@ export default function RestaurantAI() {
       setAnalysisResults(newAnalyses)
       setFilteredResults(newAnalyses) // Update filtered results too
       
+      // Create success message based on processing method
+      let successMessage = `Found ${analysis.total_items_found} menu items with ${analysis.analysis_confidence}% confidence.`
+      if (analysis.processing_method === 'batch_processing') {
+        successMessage += ` Processed ${analysis.chunks_processed} sections for comprehensive analysis.`
+      } else if (analysis.processing_method === 'medium') {
+        successMessage += ` Used enhanced processing for this large menu.`
+      }
+      
       toast({
         title: 'Menu Analyzed Successfully!',
-        description: `Found ${analysis.total_items_found} menu items with ${analysis.analysis_confidence}% confidence.`,
+        description: successMessage,
         status: 'success',
         duration: 5000,
         isClosable: true,
@@ -299,9 +309,21 @@ export default function RestaurantAI() {
       onFilterClose()
     } catch (error: any) {
       console.error('Error analyzing menu:', error)
+      
+      // Extract error message properly
+      let errorMessage = 'Failed to analyze menu. Please try again.'
+      if (error.response?.data?.detail) {
+        if (typeof error.response.data.detail === 'string') {
+          errorMessage = error.response.data.detail
+        } else if (Array.isArray(error.response.data.detail)) {
+          // Handle Pydantic validation errors
+          errorMessage = error.response.data.detail.map((err: any) => err.msg || err.message || 'Validation error').join(', ')
+        }
+      }
+      
       toast({
         title: 'Analysis Failed',
-        description: error.response?.data?.detail || 'Failed to analyze menu. Please try again.',
+        description: errorMessage,
         status: 'error',
         duration: 5000,
         isClosable: true,
@@ -397,9 +419,21 @@ export default function RestaurantAI() {
       })
     } catch (error: any) {
       console.error('Error analyzing visual nutrition:', error)
+      
+      // Extract error message properly
+      let errorMessage = 'Failed to analyze meal image.'
+      if (error.response?.data?.detail) {
+        if (typeof error.response.data.detail === 'string') {
+          errorMessage = error.response.data.detail
+        } else if (Array.isArray(error.response.data.detail)) {
+          // Handle Pydantic validation errors
+          errorMessage = error.response.data.detail.map((err: any) => err.msg || err.message || 'Validation error').join(', ')
+        }
+      }
+      
       toast({
         title: 'Analysis Failed',
-        description: error.response?.data?.detail || 'Failed to analyze meal image.',
+        description: errorMessage,
         status: 'error',
         duration: 3000,
         isClosable: true,
@@ -483,9 +517,21 @@ export default function RestaurantAI() {
       setVisualNutrition(null)
     } catch (error: any) {
       console.error('Error logging food:', error)
+      
+      // Extract error message properly
+      let errorMessage = 'Failed to log food.'
+      if (error.response?.data?.detail) {
+        if (typeof error.response.data.detail === 'string') {
+          errorMessage = error.response.data.detail
+        } else if (Array.isArray(error.response.data.detail)) {
+          // Handle Pydantic validation errors
+          errorMessage = error.response.data.detail.map((err: any) => err.msg || err.message || 'Validation error').join(', ')
+        }
+      }
+      
       toast({
         title: 'Logging Failed',
-        description: error.response?.data?.detail || 'Failed to log food.',
+        description: errorMessage,
         status: 'error',
         duration: 3000,
         isClosable: true,
@@ -648,7 +694,7 @@ export default function RestaurantAI() {
                     flex={isMobile ? 1 : 0}
                     minW={isMobile ? "120px" : "auto"}
                   >
-                    📸 Upload Image
+                    📸 Upload File
                   </Button>
                 </HStack>
 
@@ -678,7 +724,7 @@ export default function RestaurantAI() {
                     </FormControl>
                   ) : (
                     <FormControl w="full">
-                      <FormLabel fontSize={isMobile ? "sm" : "md"}>Menu Image</FormLabel>
+                      <FormLabel fontSize={isMobile ? "sm" : "md"}>Menu Image/PDF</FormLabel>
                       <Button
                         leftIcon={<FiUpload />}
                         onClick={() => document.getElementById('menu-upload')?.click()}
@@ -686,12 +732,12 @@ export default function RestaurantAI() {
                         w="full"
                         size={isMobile ? "sm" : "md"}
                       >
-                        {menuFile ? menuFile.name : 'Choose Image'}
+                        {menuFile ? menuFile.name : 'Choose Image/PDF'}
                       </Button>
                       <input
                         id="menu-upload"
                         type="file"
-                        accept="image/*"
+                        accept="image/*,.pdf,application/pdf"
                         onChange={handleFileUpload}
                         style={{ display: 'none' }}
                       />
@@ -1065,7 +1111,7 @@ export default function RestaurantAI() {
                     🍽️ No menu analyses yet
                   </Text>
                   <Text fontSize="sm" color="gray.400" textAlign="center">
-                    Upload a menu image or provide a restaurant menu URL to get started with AI-powered nutrition analysis.
+                    Upload a menu image/PDF or provide a restaurant menu URL to get started with AI-powered nutrition analysis.
                   </Text>
                 </VStack>
               </CardBody>

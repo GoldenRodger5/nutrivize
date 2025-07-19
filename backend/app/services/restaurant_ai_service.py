@@ -5,9 +5,9 @@ Restaurant AI Service - Menu analysis and meal recommendations
 import logging
 import uuid
 import base64
-import re
 import json
 import os
+import re
 from datetime import datetime
 from typing import List, Dict, Optional, Any
 from pydantic import BaseModel
@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 # Pydantic models for menu analysis
 class MenuAnalysisRequest(BaseModel):
-    source_type: str  # 'url', 'image', 'pdf', 'multi_image', 'multi_pdf'
+    source_type: str  # 'url', 'image', 'pdf', 'multi_image', 'multi_pdf', 'text'
     source_data: List[str]  # List of URLs or base64 encoded data for multiple files
     restaurant_name: Optional[str] = None
     menu_name: Optional[str] = None
@@ -63,6 +63,8 @@ class MenuAnalysisResult(BaseModel):
     analysis_confidence: float
     created_at: str
     user_id: str
+    processing_method: Optional[str] = None  # 'standard', 'medium', 'batch_processing'
+    chunks_processed: Optional[int] = None  # Number of chunks processed (for batch processing)
 
 class VisualNutritionRequest(BaseModel):
     item_id: str
@@ -119,7 +121,9 @@ class RestaurantAIService:
                 total_items_found=len(analysis_result['recommendations']),
                 analysis_confidence=analysis_result.get('confidence_score', 85),
                 created_at=datetime.utcnow().isoformat(),
-                user_id=user_id
+                user_id=user_id,
+                processing_method=analysis_result.get('processing_method', 'standard'),
+                chunks_processed=analysis_result.get('chunks_processed', None)
             )
             
             # Save to database
@@ -172,7 +176,10 @@ class RestaurantAIService:
     async def _extract_menu_text(self, request: MenuAnalysisRequest) -> str:
         """Extract text from different menu sources, including multiple files"""
         try:
-            if request.source_type in ['url']:
+            if request.source_type in ['text']:
+                # Handle direct text input
+                return "\n".join(request.source_data)
+            elif request.source_type in ['url']:
                 # Handle URLs (single URL)
                 return await self._extract_from_url(request.source_data[0])
             elif request.source_type in ['image', 'multi_image']:
@@ -288,15 +295,37 @@ class RestaurantAIService:
             raise Exception(f"Failed to extract text from PDF: {str(e)}")
     
     async def _analyze_menu_with_ai(self, menu_text: str, request: MenuAnalysisRequest) -> Dict[str, Any]:
-        """Use AI to analyze menu text and generate recommendations with increased token limits"""
+        """Use AI to analyze menu text and generate recommendations with batch processing for large menus"""
         try:
-            # Increase content window significantly for large menus
-            content_limit = 12000  # Increased from 4000 to handle multiple pages
+            # Calculate text size and determine if we need batch processing
+            text_length = len(menu_text)
+            logger.info(f"Menu text length: {text_length} characters")
             
-            prompt = f"""Analyze the following comprehensive restaurant menu text and provide a detailed analysis with meal recommendations.
+            # For very large menus (>50k chars), use batch processing
+            if text_length > 50000:
+                logger.info("Large menu detected - using batch processing")
+                return await self._analyze_large_menu_batch(menu_text, request)
+            
+            # For medium menus (>20k chars), use higher token limit
+            elif text_length > 20000:
+                logger.info("Medium menu detected - using increased token limit")
+                return await self._analyze_medium_menu(menu_text, request)
+            
+            # For smaller menus, use standard processing
+            else:
+                logger.info("Standard menu size - using normal processing")
+                return await self._analyze_standard_menu(menu_text, request)
+                
+        except Exception as e:
+            logger.error(f"Error in AI menu analysis: {e}")
+            return self._create_fallback_analysis(menu_text, request)
+    
+    async def _analyze_standard_menu(self, menu_text: str, request: MenuAnalysisRequest) -> Dict[str, Any]:
+        """Analyze standard-sized menu with full text"""
+        prompt = f"""Analyze the following comprehensive restaurant menu text and provide a detailed analysis with meal recommendations.
 
-MENU TEXT (May contain multiple pages/documents):
-{menu_text[:content_limit]}
+MENU TEXT:
+{menu_text}
 
 Please provide your analysis in the following JSON format:
 
@@ -374,42 +403,228 @@ ANALYSIS GUIDELINES:
    - Extract exact prices if mentioned in the menu
    - If no price, leave as null
 
-IMPORTANT: This menu may contain multiple pages or documents. Analyze ALL items found across all sections comprehensively. Pay attention to section headers like "PAGE 1", "PAGE 2", "DOCUMENT 1", etc.
+IMPORTANT: Analyze ALL menu items found across all sections comprehensively. Pay attention to section headers and categories. Extract ALL identifiable dishes, not just a subset.
 
 Please analyze all identifiable menu items and provide detailed, accurate recommendations.
 Return ONLY the JSON object, no additional text."""
 
-            # Use enhanced AI service with higher token limit
+        # Use enhanced AI service with standard token limit
+        response = await self.ai_service.generate_response(
+            prompt, 
+            max_tokens=8000,  # Increased for comprehensive menu analysis
+            model="claude-sonnet-4-20250514"
+        )
+        
+        return await self._parse_ai_response(response, request, 'standard')
+    
+    async def _analyze_medium_menu(self, menu_text: str, request: MenuAnalysisRequest) -> Dict[str, Any]:
+        """Analyze medium-sized menu with increased token limit"""
+        prompt = f"""Analyze the following comprehensive restaurant menu text and provide a detailed analysis with meal recommendations.
+
+MENU TEXT (Medium-sized menu):
+{menu_text}
+
+Please provide your analysis in the following JSON format. This menu is larger than average, so please be thorough and extract ALL menu items:
+
+{{
+  "restaurant_name": "Restaurant name if mentioned, otherwise use provided name",
+  "menu_name": "Menu name if mentioned (e.g., 'Dinner Menu', 'Lunch Specials')",
+  "confidence_score": 85,
+  "recommendations": [
+    {{
+      "id": "unique_id",
+      "name": "Dish name",
+      "description": "Detailed description of the dish",
+      "category": "appetizer|main_course|side|dessert|beverage|other",
+      "estimated_nutrition": {{
+        "calories": 450,
+        "protein": 25,
+        "carbs": 35,
+        "fat": 20,
+        "fiber": 8,
+        "sodium": 650,
+        "sugar": 5,
+        "confidence_score": 75
+      }},
+      "dietary_attributes": {{
+        "dietary_restrictions": ["vegetarian", "gluten-free", "high-protein"],
+        "allergens": ["dairy", "nuts"],
+        "food_categories": ["protein", "vegetables"]
+      }},
+      "price": "$12.99",
+      "recommendations_score": 85,
+      "reasoning": "This dish is recommended because it provides high protein content with moderate calories, includes vegetables, and can be made gluten-free upon request.",
+      "modifications_suggested": [
+        "Ask for dressing on the side to reduce calories",
+        "Request extra vegetables for more fiber"
+      ]
+    }}
+  ]
+}}
+
+CRITICAL: This is a medium-sized menu with many items. Please extract ALL identifiable dishes from ALL sections. Don't limit to just a few items - analyze the entire menu comprehensively.
+
+Return ONLY the JSON object, no additional text."""
+
+        # Use enhanced AI service with higher token limit for medium menus
+        response = await self.ai_service.generate_response(
+            prompt, 
+            max_tokens=16000,  # Higher limit for medium menus
+            model="claude-sonnet-4-20250514"
+        )
+        
+        return await self._parse_ai_response(response, request, 'medium')
+    
+    async def _analyze_large_menu_batch(self, menu_text: str, request: MenuAnalysisRequest) -> Dict[str, Any]:
+        """Analyze very large menu using batch processing"""
+        try:
+            logger.info("Starting batch processing for large menu")
+            
+            # Split menu into chunks of approximately 40k characters
+            chunk_size = 40000
+            chunks = [menu_text[i:i+chunk_size] for i in range(0, len(menu_text), chunk_size)]
+            
+            logger.info(f"Split menu into {len(chunks)} chunks for batch processing")
+            
+            # Process each chunk
+            all_recommendations = []
+            restaurant_name = request.restaurant_name
+            menu_name = None
+            total_confidence = 0
+            
+            for i, chunk in enumerate(chunks):
+                logger.info(f"Processing chunk {i+1}/{len(chunks)}")
+                
+                chunk_result = await self._analyze_menu_chunk(chunk, request, i+1, len(chunks))
+                
+                if chunk_result:
+                    # Extract restaurant name and menu name from first chunk
+                    if i == 0:
+                        restaurant_name = chunk_result.get('restaurant_name', restaurant_name)
+                        menu_name = chunk_result.get('menu_name', menu_name)
+                    
+                    # Add recommendations
+                    chunk_recommendations = chunk_result.get('recommendations', [])
+                    all_recommendations.extend(chunk_recommendations)
+                    
+                    # Track confidence
+                    total_confidence += chunk_result.get('confidence_score', 0)
+            
+            # Calculate average confidence
+            avg_confidence = total_confidence / len(chunks) if chunks else 0
+            
+            # Create combined analysis
+            combined_analysis = {
+                'restaurant_name': restaurant_name,
+                'menu_name': menu_name,
+                'confidence_score': int(avg_confidence),
+                'recommendations': all_recommendations,
+                'processing_method': 'batch_processing',
+                'chunks_processed': len(chunks),
+                'total_items_found': len(all_recommendations)
+            }
+            
+            logger.info(f"Batch processing complete. Found {len(all_recommendations)} total items across {len(chunks)} chunks")
+            
+            # Validate and enhance the combined analysis
+            return self._validate_and_enhance_analysis(combined_analysis, request)
+            
+        except Exception as e:
+            logger.error(f"Error in batch processing: {e}")
+            return self._create_fallback_analysis(menu_text, request)
+    
+    async def _analyze_menu_chunk(self, chunk_text: str, request: MenuAnalysisRequest, chunk_num: int, total_chunks: int) -> Dict[str, Any]:
+        """Analyze a single chunk of menu text"""
+        prompt = f"""Analyze the following restaurant menu text chunk ({chunk_num}/{total_chunks}) and extract ALL menu items.
+
+MENU TEXT CHUNK {chunk_num}/{total_chunks}:
+{chunk_text}
+
+Please provide your analysis in the following JSON format:
+
+{{
+  "restaurant_name": "Restaurant name if mentioned",
+  "menu_name": "Menu name if mentioned",
+  "confidence_score": 85,
+  "recommendations": [
+    {{
+      "id": "unique_id_{chunk_num}",
+      "name": "Dish name",
+      "description": "Detailed description of the dish",
+      "category": "appetizer|main_course|side|dessert|beverage|other",
+      "estimated_nutrition": {{
+        "calories": 450,
+        "protein": 25,
+        "carbs": 35,
+        "fat": 20,
+        "fiber": 8,
+        "sodium": 650,
+        "sugar": 5,
+        "confidence_score": 75
+      }},
+      "dietary_attributes": {{
+        "dietary_restrictions": ["vegetarian", "gluten-free", "high-protein"],
+        "allergens": ["dairy", "nuts"],
+        "food_categories": ["protein", "vegetables"]
+      }},
+      "price": "$12.99",
+      "recommendations_score": 85,
+      "reasoning": "This dish is recommended because it provides high protein content with moderate calories, includes vegetables, and can be made gluten-free upon request.",
+      "modifications_suggested": [
+        "Ask for dressing on the side to reduce calories",
+        "Request extra vegetables for more fiber"
+      ]
+    }}
+  ]
+}}
+
+CRITICAL INSTRUCTIONS:
+1. This is chunk {chunk_num} of {total_chunks} - extract ALL menu items from this chunk
+2. Don't skip any items - even if they seem incomplete due to chunk boundaries
+3. Use unique IDs with chunk number: "item_{chunk_num}_1", "item_{chunk_num}_2", etc.
+4. Extract ALL identifiable dishes, drinks, appetizers, desserts, etc.
+5. Pay attention to prices, descriptions, and categories
+
+Return ONLY the JSON object, no additional text."""
+
+        try:
             response = await self.ai_service.generate_response(
                 prompt, 
-                max_tokens=12000,  # Increased for comprehensive menu analysis
-                model="claude-sonnet-4-20250514"  # Use Claude-4 Sonnet for best analysis quality
+                max_tokens=12000,  # High limit for chunk processing
+                model="claude-sonnet-4-20250514"
             )
             
-            # Clean and parse the JSON response
-            try:
-                # Extract JSON from response if wrapped in text
-                json_match = re.search(r'\{.*\}', response, re.DOTALL)
-                if json_match:
-                    json_str = json_match.group()
-                else:
-                    json_str = response
-                
-                analysis_data = json.loads(json_str)
-                
-                # Validate and enhance the analysis
-                analysis_data = self._validate_and_enhance_analysis(analysis_data, request)
-                
-                return analysis_data
-                
-            except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse AI response JSON: {e}")
-                # Return fallback analysis
-                return self._create_fallback_analysis(menu_text, request)
-                
+            return await self._parse_ai_response(response, request, 'batch_chunk')
+            
         except Exception as e:
-            logger.error(f"Error in AI menu analysis: {e}")
-            return self._create_fallback_analysis(menu_text, request)
+            logger.error(f"Error processing chunk {chunk_num}: {e}")
+            return None
+    
+    async def _parse_ai_response(self, response: str, request: MenuAnalysisRequest, processing_method: str = 'standard') -> Dict[str, Any]:
+        """Parse AI response and handle JSON extraction"""
+        try:
+            # Extract JSON from response if wrapped in text
+            json_match = re.search(r'\{.*\}', response, re.DOTALL)
+            if json_match:
+                json_str = json_match.group()
+            else:
+                json_str = response
+            
+            analysis_data = json.loads(json_str)
+            
+            # Add processing method
+            analysis_data['processing_method'] = processing_method
+            
+            # Validate and enhance the analysis
+            analysis_data = self._validate_and_enhance_analysis(analysis_data, request)
+            
+            return analysis_data
+            
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse AI response JSON: {e}")
+            logger.error(f"Response content: {response[:500]}...")
+            # Return fallback analysis
+            return self._create_fallback_analysis("Failed to parse AI response", request)
     
     def _validate_and_enhance_analysis(self, analysis_data: Dict[str, Any], request: MenuAnalysisRequest) -> Dict[str, Any]:
         """Validate and enhance the AI analysis results"""

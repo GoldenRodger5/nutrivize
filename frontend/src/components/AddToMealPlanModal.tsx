@@ -26,6 +26,12 @@ import {
 import api from '../utils/api'
 import { MealSuggestion } from '../types'
 
+interface MealPlan {
+  id: string
+  name: string
+  meals?: any[]
+}
+
 interface AddToMealPlanModalProps {
   isOpen: boolean
   onClose: () => void
@@ -43,7 +49,7 @@ export default function AddToMealPlanModal({
   const [selectedMealType, setSelectedMealType] = useState('lunch')
   const [loading, setLoading] = useState(false)
   const [fetchingPlans, setFetchingPlans] = useState(false)
-  const [mealPlans, setMealPlans] = useState<any[]>([])
+  const [mealPlans, setMealPlans] = useState<MealPlan[]>([])
   
   const toast = useToast()
 
@@ -60,9 +66,13 @@ export default function AddToMealPlanModal({
     setFetchingPlans(true)
     try {
       const response = await api.get('/meal-planning/manual/plans')
-      setMealPlans(response.data)
+      // Ensure we always set an array, even if the API returns unexpected data
+      const plans = Array.isArray(response.data) ? response.data : []
+      setMealPlans(plans)
     } catch (error: any) {
       console.error('Error fetching meal plans:', error)
+      // Ensure we set an empty array on error
+      setMealPlans([])
       toast({
         title: 'Error Loading Meal Plans',
         description: 'Failed to load meal plans. Please try again.',
@@ -173,7 +183,7 @@ export default function AddToMealPlanModal({
                     onChange={(e) => setSelectedPlanId(e.target.value)}
                     placeholder="Choose a meal plan"
                   >
-                    {mealPlans.map((plan) => (
+                    {Array.isArray(mealPlans) && mealPlans.map((plan) => (
                       <option key={plan.id} value={plan.id}>
                         {plan.name} ({plan.meals?.length || 0} meals)
                       </option>

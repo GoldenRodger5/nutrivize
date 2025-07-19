@@ -38,13 +38,14 @@ import { FoodItem } from '../types'
 import FoodCompatibilityScore from './FoodCompatibilityScore'
 import { calculateNutritionForQuantity } from '../utils/unitConversion'
 import { SERVING_UNITS } from '../constants/servingUnits'
-import api from '../utils/api'
+import { getSmartUnitAssignment } from '../utils/smartUnitAssignment'
+import { useUserFavorites } from '../hooks/useUserFavorites'
 
 interface FoodDetailModalProps {
   food: FoodItem | null
   isOpen: boolean
   onClose: () => void
-  onLogFood?: (food: FoodItem, servings: number, unit: string) => void
+  onLogFood?: (food: FoodItem, quantity: number, unit: string) => void
   userProfile?: any
 }
 
@@ -55,45 +56,74 @@ const FoodDetailModal: React.FC<FoodDetailModalProps> = ({
   onLogFood,
   userProfile
 }) => {
-  const [servings, setServings] = useState(1)
-  const [unit, setUnit] = useState('serving')
+  const [quantity, setQuantity] = useState(1)
+  const [unit, setUnit] = useState('g')
   const [isFavorite, setIsFavorite] = useState(false)
   const [favoriteLoading, setFavoriteLoading] = useState(false)
   const [nutritionData, setNutritionData] = useState<any>(null)
   const toast = useToast()
+  
+  // Use the advanced favorites system
+  const { 
+    addFavorite: addToFavorites, 
+    removeFavorite: removeFromFavorites,
+    isFavorited 
+  } = useUserFavorites()
+
+  // Reset state when food changes
+  useEffect(() => {
+    if (food) {
+      // Set quantity from food data
+      setQuantity(food.serving_size || 1)
+      
+      // Set unit from food data
+      if (food.serving_unit && food.serving_unit !== 'serving' && food.serving_unit !== 'servings') {
+        setUnit(food.serving_unit)
+      } else if (food.serving_unit === 'serving' || food.serving_unit === 'servings') {
+        const smartUnit = getSmartUnitAssignment(food.name || '')
+        setUnit(smartUnit.defaultUnit)
+      } else {
+        setUnit('g')
+      }
+    }
+  }, [food])
 
   // Calculate nutrition for current serving size
   useEffect(() => {
-    if (food && servings > 0) {
+    if (food && quantity > 0) {
       const calculatedNutrition = calculateNutritionForQuantity(
         food.nutrition as unknown as Record<string, number>,
         food.serving_size,
         food.serving_unit,
-        servings,
-        unit === 'serving' ? food.serving_unit : unit
+        quantity,
+        unit
       )
-      setNutritionData(calculatedNutrition)
-    }
-  }, [food, servings, unit])
-
-  // Check if food is favorited
-  useEffect(() => {
-    const checkFavoriteStatus = async () => {
-      if (!food) return
       
-      try {
-        const response = await api.get('/favorites')
-        const favorites = response.data.favorites || []
-        setIsFavorite(favorites.some((fav: any) => fav.food_id === food.id))
-      } catch (error) {
-        console.error('Error checking favorite status:', error)
+      if (calculatedNutrition) {
+        setNutritionData(calculatedNutrition)
+      } else {
+        // If unit conversion fails, use simple ratio scaling
+        const ratio = quantity / (food.serving_size || 1)
+        const fallbackNutrition = {
+          calories: Math.round((food.nutrition?.calories || 0) * ratio),
+          protein: Math.round((food.nutrition?.protein || 0) * ratio * 10) / 10,
+          carbs: Math.round((food.nutrition?.carbs || 0) * ratio * 10) / 10,
+          fat: Math.round((food.nutrition?.fat || 0) * ratio * 10) / 10,
+          fiber: Math.round((food.nutrition?.fiber || 0) * ratio * 10) / 10,
+          sugar: Math.round((food.nutrition?.sugar || 0) * ratio * 10) / 10,
+          sodium: Math.round((food.nutrition?.sodium || 0) * ratio * 10) / 10
+        }
+        setNutritionData(fallbackNutrition)
       }
     }
+  }, [food, quantity, unit])
 
-    if (isOpen && food) {
-      checkFavoriteStatus()
+  // Check if food is favorited using the hook
+  useEffect(() => {
+    if (food && isOpen) {
+      setIsFavorite(isFavorited(food.id))
     }
-  }, [food, isOpen])
+  }, [food, isOpen, isFavorited])
 
   const handleToggleFavorite = async () => {
     if (!food) return
@@ -101,7 +131,7 @@ const FoodDetailModal: React.FC<FoodDetailModalProps> = ({
     setFavoriteLoading(true)
     try {
       if (isFavorite) {
-        await api.delete(`/favorites/${food.id}`)
+        await removeFromFavorites(food.id)
         setIsFavorite(false)
         toast({
           title: 'Removed from favorites',
@@ -109,7 +139,11 @@ const FoodDetailModal: React.FC<FoodDetailModalProps> = ({
           duration: 2000,
         })
       } else {
-        await api.post('/favorites', { food_id: food.id })
+        await addToFavorites({ 
+          food_id: food.id,
+          custom_name: food.name,
+          category: 'general'
+        })
         setIsFavorite(true)
         toast({
           title: 'Added to favorites',
@@ -131,7 +165,7 @@ const FoodDetailModal: React.FC<FoodDetailModalProps> = ({
 
   const handleLogFood = () => {
     if (food && onLogFood) {
-      onLogFood(food, servings, unit)
+      onLogFood(food, quantity, unit)
       onClose()
     }
   }
@@ -175,14 +209,14 @@ const FoodDetailModal: React.FC<FoodDetailModalProps> = ({
             {/* Serving Size Calculator */}
             <Box>
               <Text fontSize="lg" fontWeight="bold" mb={3}>
-                Serving Size Calculator
+                Quantity & Unit
               </Text>
               <HStack spacing={4}>
                 <FormControl flex={1}>
-                  <FormLabel fontSize="sm">Servings</FormLabel>
+                  <FormLabel fontSize="sm">Quantity</FormLabel>
                   <NumberInput
-                    value={servings}
-                    onChange={(_, value) => setServings(value || 1)}
+                    value={quantity}
+                    onChange={(_, value) => setQuantity(value || 1)}
                     min={0.1}
                     max={50}
                     step={0.1}
@@ -199,7 +233,6 @@ const FoodDetailModal: React.FC<FoodDetailModalProps> = ({
                 <FormControl flex={1}>
                   <FormLabel fontSize="sm">Unit</FormLabel>
                   <Select value={unit} onChange={(e) => setUnit(e.target.value)}>
-                    <option value="serving">Serving</option>
                     {SERVING_UNITS.map(unitOption => (
                       <option key={unitOption} value={unitOption}>
                         {unitOption}
@@ -221,7 +254,7 @@ const FoodDetailModal: React.FC<FoodDetailModalProps> = ({
                 <Stat>
                   <StatLabel>Calories</StatLabel>
                   <StatNumber>{Math.round(nutritionData?.calories || 0)}</StatNumber>
-                  <StatHelpText>per {servings} {unit}(s)</StatHelpText>
+                  <StatHelpText>per {quantity} {unit}(s)</StatHelpText>
                 </Stat>
                 <Stat>
                   <StatLabel>Protein</StatLabel>

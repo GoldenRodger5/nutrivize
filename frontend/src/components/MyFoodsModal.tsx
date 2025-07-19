@@ -36,13 +36,27 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogContent,
-  AlertDialogOverlay
+  AlertDialogOverlay,
+  NumberInput,
+  NumberInputField,
+  NumberInputStepper,
+  NumberIncrementStepper,
+  NumberDecrementStepper,
+  FormControl,
+  FormLabel,
+  Divider,
+  Collapse,
+  useColorModeValue
 } from '@chakra-ui/react'
-import { FaHeart, FaTrash, FaSearch, FaPlus, FaClock, FaStar } from 'react-icons/fa'
+import { FaHeart, FaTrash, FaSearch, FaPlus, FaClock, FaStar, FaChevronDown, FaChevronUp } from 'react-icons/fa'
 import { useUserFavorites } from '../hooks/useUserFavorites'
 import { UserFavorite } from '../services/userFavoritesService'
 import api from '../utils/api'
 import { FoodItem } from '../types'
+import FoodDetailModal from './FoodDetailModal'
+import { calculateNutritionForQuantity } from '../utils/unitConversion'
+import { SERVING_UNITS } from '../constants/servingUnits'
+import { getSmartUnitAssignment } from '../utils/smartUnitAssignment'
 
 interface MyFoodsModalProps {
   isOpen: boolean
@@ -89,6 +103,8 @@ const MyFoodsModal: React.FC<MyFoodsModalProps> = ({
   const [sortBy, setSortBy] = useState<'name' | 'usage' | 'date'>('name')
   const [deletingFavorite, setDeletingFavorite] = useState<UserFavorite | null>(null)
   const [tabIndex, setTabIndex] = useState(0)
+  const [selectedFood, setSelectedFood] = useState<FoodItem | null>(null)
+  const [isFoodDetailOpen, setIsFoodDetailOpen] = useState(false)
 
   const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onClose: onDeleteClose } = useDisclosure()
   const cancelRef = React.useRef<HTMLButtonElement>(null)
@@ -149,6 +165,16 @@ const MyFoodsModal: React.FC<MyFoodsModalProps> = ({
         isClosable: true,
       })
     }
+  }
+
+  const handleFoodClick = (food: FoodItem) => {
+    setSelectedFood(food)
+    setIsFoodDetailOpen(true)
+  }
+
+  const handleFoodDetailClose = () => {
+    setIsFoodDetailOpen(false)
+    setSelectedFood(null)
   }
 
   const convertFavoriteToFoodItem = (favorite: UserFavorite): FoodItem => {
@@ -231,70 +257,302 @@ const MyFoodsModal: React.FC<MyFoodsModalProps> = ({
     return filtered
   }, [favorites, searchQuery, selectedCategory, sortBy, searchFavorites])
 
-  const FavoriteCard = ({ favorite }: { favorite: UserFavorite }) => (
-    <Card size="sm" _hover={{ shadow: 'md' }}>
-      <CardBody>
-        <VStack align="start" spacing={2}>
-          <HStack justify="space-between" w="full">
-            <VStack align="start" spacing={0} flex={1}>
-              <Text fontWeight="bold" fontSize="sm" noOfLines={1}>
-                {favorite.custom_name || favorite.food_name}
-              </Text>
-              {favorite.custom_name && (
-                <Text fontSize="xs" color="gray.500" noOfLines={1}>
-                  {favorite.food_name}
+  const FavoriteCard = ({ favorite }: { favorite: UserFavorite }) => {
+    const [isExpanded, setIsExpanded] = useState(false)
+    
+    // Convert "serving" units to smart units
+    const getInitialUnit = () => {
+      const currentUnit = favorite.default_serving_unit || 'g'
+      if (currentUnit === 'serving' || currentUnit === 'servings') {
+        const smartUnit = getSmartUnitAssignment(favorite.food_name)
+        return smartUnit.defaultUnit
+      }
+      return currentUnit
+    }
+    
+    const getInitialSize = () => {
+      const currentSize = favorite.default_serving_size || 1
+      const currentUnit = favorite.default_serving_unit || 'g'
+      if (currentUnit === 'serving' || currentUnit === 'servings') {
+        const smartUnit = getSmartUnitAssignment(favorite.food_name)
+        return smartUnit.defaultSize
+      }
+      return currentSize
+    }
+    
+    const [customQuantity, setCustomQuantity] = useState(getInitialSize())
+    const [customUnit, setCustomUnit] = useState(getInitialUnit())
+    const [calculatedNutrition, setCalculatedNutrition] = useState(favorite.nutrition || null)
+    
+    const bgColor = useColorModeValue('white', 'gray.800')
+    const expandedBg = useColorModeValue('gray.50', 'gray.700')
+    
+    // Calculate nutrition when quantity or unit changes
+    useEffect(() => {
+      if (favorite.nutrition) {
+        const baseSize = favorite.default_serving_size || 1
+        const baseUnit = favorite.default_serving_unit || 'g'
+        
+        // If base unit is "serving", use ratio scaling since we can't convert
+        if (baseUnit === 'serving' || baseUnit === 'servings') {
+          const ratio = customQuantity / baseSize
+          setCalculatedNutrition({
+            calories: Math.round((favorite.nutrition.calories || 0) * ratio),
+            protein: Math.round((favorite.nutrition.protein || 0) * ratio * 10) / 10,
+            carbs: Math.round((favorite.nutrition.carbs || 0) * ratio * 10) / 10,
+            fat: Math.round((favorite.nutrition.fat || 0) * ratio * 10) / 10,
+            fiber: Math.round((favorite.nutrition.fiber || 0) * ratio * 10) / 10,
+            sugar: Math.round((favorite.nutrition.sugar || 0) * ratio * 10) / 10,
+            sodium: Math.round((favorite.nutrition.sodium || 0) * ratio * 10) / 10
+          })
+        } else {
+          // Try unit conversion
+          const newNutrition = calculateNutritionForQuantity(
+            favorite.nutrition,
+            baseSize,
+            baseUnit,
+            customQuantity,
+            customUnit
+          )
+          
+          if (newNutrition) {
+            setCalculatedNutrition({
+              calories: newNutrition.calories || 0,
+              protein: newNutrition.protein || 0,
+              carbs: newNutrition.carbs || 0,
+              fat: newNutrition.fat || 0,
+              fiber: newNutrition.fiber || 0,
+              sugar: newNutrition.sugar || 0,
+              sodium: newNutrition.sodium || 0
+            })
+          } else {
+            // If conversion fails, use ratio scaling
+            const ratio = customQuantity / baseSize
+            setCalculatedNutrition({
+              calories: Math.round((favorite.nutrition.calories || 0) * ratio),
+              protein: Math.round((favorite.nutrition.protein || 0) * ratio * 10) / 10,
+              carbs: Math.round((favorite.nutrition.carbs || 0) * ratio * 10) / 10,
+              fat: Math.round((favorite.nutrition.fat || 0) * ratio * 10) / 10,
+              fiber: Math.round((favorite.nutrition.fiber || 0) * ratio * 10) / 10,
+              sugar: Math.round((favorite.nutrition.sugar || 0) * ratio * 10) / 10,
+              sodium: Math.round((favorite.nutrition.sodium || 0) * ratio * 10) / 10
+            })
+          }
+        }
+      }
+    }, [customQuantity, customUnit, favorite])
+    
+    const handleAddToLog = (e: React.MouseEvent) => {
+      e.stopPropagation()
+      
+      // Create a modified favorite with custom quantity
+      const modifiedFavorite = {
+        ...favorite,
+        default_serving_size: customQuantity,
+        default_serving_unit: customUnit,
+        nutrition: calculatedNutrition || favorite.nutrition
+      }
+      
+      onFoodSelect?.(convertFavoriteToFoodItem(modifiedFavorite))
+    }
+    
+    return (
+      <Card 
+        size="sm" 
+        bg={isExpanded ? expandedBg : bgColor}
+        _hover={{ shadow: 'md', cursor: 'pointer' }} 
+        onClick={() => handleFoodClick(convertFavoriteToFoodItem(favorite))}
+      >
+        <CardBody>
+          <VStack align="start" spacing={2}>
+            <HStack justify="space-between" w="full">
+              <VStack align="start" spacing={0} flex={1}>
+                <Text fontWeight="bold" fontSize="sm" noOfLines={1}>
+                  {favorite.custom_name || favorite.food_name}
                 </Text>
-              )}
-            </VStack>
-            <HStack spacing={1}>
-              <IconButton
-                aria-label="Remove from favorites"
-                icon={<FaTrash />}
+                {favorite.custom_name && (
+                  <Text fontSize="xs" color="gray.500" noOfLines={1}>
+                    {favorite.food_name}
+                  </Text>
+                )}
+              </VStack>
+              <HStack spacing={1}>
+                <IconButton
+                  aria-label="Expand nutrition details"
+                  icon={isExpanded ? <FaChevronUp /> : <FaChevronDown />}
+                  size="xs"
+                  variant="ghost"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setIsExpanded(!isExpanded)
+                  }}
+                />
+                <IconButton
+                  aria-label="Remove from favorites"
+                  icon={<FaTrash />}
+                  size="xs"
+                  colorScheme="red"
+                  variant="ghost"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleDeleteFavorite(favorite)
+                  }}
+                />
+              </HStack>
+            </HStack>
+
+            <HStack justify="space-between" w="full">
+              <Badge colorScheme="purple" size="sm">
+                {favorite.category}
+              </Badge>
+              <HStack spacing={1}>
+                <FaStar size={10} />
+                <Text fontSize="xs" color="gray.500">
+                  {favorite.usage_count}
+                </Text>
+              </HStack>
+            </HStack>
+
+            {/* Basic nutrition display */}
+            {calculatedNutrition && (
+              <SimpleGrid columns={2} spacing={1} w="full" fontSize="xs">
+                <Text>Cal: {Math.round(calculatedNutrition.calories || 0)}</Text>
+                <Text>Pro: {Math.round((calculatedNutrition.protein || 0) * 10) / 10}g</Text>
+                <Text>Carbs: {Math.round((calculatedNutrition.carbs || 0) * 10) / 10}g</Text>
+                <Text>Fat: {Math.round((calculatedNutrition.fat || 0) * 10) / 10}g</Text>
+              </SimpleGrid>
+            )}
+
+            {/* Expanded nutrition and unit conversion */}
+            <Collapse in={isExpanded} animateOpacity>
+              <VStack spacing={3} align="stretch" w="full" pt={2}>
+                <Divider />
+                
+                {/* Unit Conversion Controls */}
+                <Box>
+                  <HStack spacing={2} align="end">
+                    <FormControl size="sm" flex="1">
+                      <FormLabel fontSize="xs" mb={1}>Quantity</FormLabel>
+                      <NumberInput
+                        value={customQuantity}
+                        onChange={(_, value) => setCustomQuantity(value || 1)}
+                        min={0.1}
+                        max={50}
+                        step={0.1}
+                        precision={1}
+                        size="sm"
+                      >
+                        <NumberInputField />
+                        <NumberInputStepper>
+                          <NumberIncrementStepper />
+                          <NumberDecrementStepper />
+                        </NumberInputStepper>
+                      </NumberInput>
+                    </FormControl>
+                    
+                    <FormControl size="sm" flex="1">
+                      <FormLabel fontSize="xs" mb={1}>Unit</FormLabel>
+                      <Select
+                        value={customUnit}
+                        onChange={(e) => setCustomUnit(e.target.value)}
+                        size="sm"
+                      >
+                        {SERVING_UNITS.map(unit => (
+                          <option key={unit} value={unit}>
+                            {unit}
+                          </option>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </HStack>
+                  
+                  <Text fontSize="xs" color="gray.500" mt={1}>
+                    {(favorite.default_serving_unit === 'serving' || favorite.default_serving_unit === 'servings') ? 
+                      `Original: ${favorite.default_serving_size || 1} ${favorite.default_serving_unit || 'serving'} (converted to descriptive unit)` :
+                      `Default: ${favorite.default_serving_size || 1} ${favorite.default_serving_unit || 'g'}`
+                    }
+                  </Text>
+                </Box>
+
+                {/* Detailed Nutrition */}
+                {calculatedNutrition && (
+                  <Box>
+                    <Text fontSize="xs" fontWeight="bold" mb={2}>
+                      Nutrition per {customQuantity} {customUnit}(s):
+                    </Text>
+                    <Box maxH="120px" overflowY="auto" pr={2}>
+                      <SimpleGrid columns={2} spacing={2} fontSize="xs">
+                        <Text>🔥 Calories: {Math.round(calculatedNutrition.calories || 0)}</Text>
+                        <Text>💪 Protein: {Math.round((calculatedNutrition.protein || 0) * 10) / 10}g</Text>
+                        <Text>🌾 Carbs: {Math.round((calculatedNutrition.carbs || 0) * 10) / 10}g</Text>
+                        <Text>🥑 Fat: {Math.round((calculatedNutrition.fat || 0) * 10) / 10}g</Text>
+                        {calculatedNutrition.fiber > 0 && (
+                          <Text>🌿 Fiber: {Math.round((calculatedNutrition.fiber || 0) * 10) / 10}g</Text>
+                        )}
+                        {calculatedNutrition.sugar > 0 && (
+                          <Text>🍯 Sugar: {Math.round((calculatedNutrition.sugar || 0) * 10) / 10}g</Text>
+                        )}
+                        {calculatedNutrition.sodium > 0 && (
+                          <Text>🧂 Sodium: {Math.round(calculatedNutrition.sodium || 0)}mg</Text>
+                        )}
+                      </SimpleGrid>
+                    </Box>
+                  </Box>
+                )}
+
+                {/* Dietary Attributes */}
+                {favorite.dietary_attributes && (
+                  <Box maxH="80px" overflowY="auto" pr={2}>
+                    <Text fontSize="xs" fontWeight="bold" mb={1}>Dietary Info:</Text>
+                    <VStack align="start" spacing={1}>
+                      {favorite.dietary_attributes.dietary_restrictions?.length > 0 && (
+                        <Text fontSize="xs">
+                          🏷️ <strong>Restrictions:</strong> {favorite.dietary_attributes.dietary_restrictions.join(', ')}
+                        </Text>
+                      )}
+                      {favorite.dietary_attributes.allergens?.length > 0 && (
+                        <Text fontSize="xs">
+                          ⚠️ <strong>Allergens:</strong> {favorite.dietary_attributes.allergens.join(', ')}
+                        </Text>
+                      )}
+                      {favorite.dietary_attributes.food_categories?.length > 0 && (
+                        <Text fontSize="xs">
+                          📂 <strong>Categories:</strong> {favorite.dietary_attributes.food_categories.join(', ')}
+                        </Text>
+                      )}
+                    </VStack>
+                  </Box>
+                )}
+
+                {/* Notes */}
+                {favorite.notes && (
+                  <Box>
+                    <Text fontSize="xs" fontWeight="bold" mb={1}>Notes:</Text>
+                    <Text fontSize="xs" color="gray.600">{favorite.notes}</Text>
+                  </Box>
+                )}
+              </VStack>
+            </Collapse>
+
+            {showLogButtons && (
+              <Button
                 size="xs"
-                colorScheme="red"
-                variant="ghost"
-                onClick={() => handleDeleteFavorite(favorite)}
-              />
-            </HStack>
-          </HStack>
-
-          <HStack justify="space-between" w="full">
-            <Badge colorScheme="purple" size="sm">
-              {favorite.category}
-            </Badge>
-            <HStack spacing={1}>
-              <FaStar size={10} />
-              <Text fontSize="xs" color="gray.500">
-                {favorite.usage_count}
-              </Text>
-            </HStack>
-          </HStack>
-
-          {favorite.nutrition && (
-            <SimpleGrid columns={2} spacing={1} w="full" fontSize="xs">
-              <Text>Cal: {Math.round(favorite.nutrition.calories || 0)}</Text>
-              <Text>Pro: {favorite.nutrition.protein || 0}g</Text>
-            </SimpleGrid>
-          )}
-
-          {showLogButtons && (
-            <Button
-              size="xs"
-              colorScheme="green"
-              leftIcon={<FaPlus />}
-              onClick={() => onFoodSelect?.(convertFavoriteToFoodItem(favorite))}
-              w="full"
-            >
-              Add to Log
-            </Button>
-          )}
-        </VStack>
-      </CardBody>
-    </Card>
-  )
+                colorScheme="green"
+                leftIcon={<FaPlus />}
+                onClick={handleAddToLog}
+                w="full"
+              >
+                Add {customQuantity} {customUnit}(s) to Log
+              </Button>
+            )}
+          </VStack>
+        </CardBody>
+      </Card>
+    )
+  }
 
   const RecentFoodCard = ({ recent }: { recent: RecentFood }) => (
-    <Card size="sm" _hover={{ shadow: 'md' }}>
+    <Card size="sm" _hover={{ shadow: 'md', cursor: 'pointer' }} onClick={() => handleFoodClick(convertRecentToFoodItem(recent))}>
       <CardBody>
         <VStack align="start" spacing={2}>
           <HStack justify="space-between" w="full">
@@ -324,7 +582,10 @@ const MyFoodsModal: React.FC<MyFoodsModalProps> = ({
               size="xs"
               colorScheme="blue"
               leftIcon={<FaPlus />}
-              onClick={() => onFoodSelect?.(convertRecentToFoodItem(recent))}
+              onClick={(e) => {
+                e.stopPropagation()
+                onFoodSelect?.(convertRecentToFoodItem(recent))
+              }}
               w="full"
             >
               Add to Log
@@ -496,6 +757,17 @@ const MyFoodsModal: React.FC<MyFoodsModalProps> = ({
           </AlertDialogContent>
         </AlertDialogOverlay>
       </AlertDialog>
+
+      {/* Food Detail Modal */}
+      <FoodDetailModal
+        food={selectedFood}
+        isOpen={isFoodDetailOpen}
+        onClose={handleFoodDetailClose}
+        onLogFood={onFoodSelect && ((food, _quantity, _unit) => {
+          onFoodSelect(food)
+          handleFoodDetailClose()
+        })}
+      />
     </>
   )
 }

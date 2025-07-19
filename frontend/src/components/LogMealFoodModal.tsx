@@ -65,7 +65,7 @@ export default function LogMealFoodModal({
 }: LogMealFoodModalProps) {
   const [foodName, setFoodName] = useState('')
   const [amount, setAmount] = useState(1)
-  const [unit, setUnit] = useState('serving')
+  const [unit, setUnit] = useState('g')
   const [selectedMealType, setSelectedMealType] = useState('')
   const [notes, setNotes] = useState('')
   const [loading, setLoading] = useState(false)
@@ -250,14 +250,14 @@ export default function LogMealFoodModal({
                   value={unit}
                   onChange={(e) => handleUnitChange(e.target.value)}
                 >
-                  <option value="serving">serving</option>
                   <option value="cup">cup</option>
                   <option value="piece">piece</option>
-                  <option value="slice">slice</option>
-                  <option value="bowl">bowl</option>
-                  <option value="plate">plate</option>
                   <option value="g">g</option>
                   <option value="oz">oz</option>
+                  <option value="tbsp">tbsp</option>
+                  <option value="tsp">tsp</option>
+                  <option value="ml">ml</option>
+                  <option value="fl oz">fl oz</option>
                   <option value="tbsp">tbsp</option>
                   <option value="tsp">tsp</option>
                 </Select>

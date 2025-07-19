@@ -11,7 +11,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("nutrivize")
 
 # Import routes safely
-from .routes import auth, foods, food_logs, ai, ai_coaching, meal_planning, preferences, goals, weight_logs, water_logs, nutrition_labels, dietary, ai_dashboard, restaurant_ai, ai_health, food_stats, user_foods, user, user_favorites
+from .routes import auth, foods, food_logs, ai, meal_planning, preferences, goals, weight_logs, water_logs, nutrition_labels, dietary, ai_dashboard, restaurant_ai, ai_health, food_stats, user_favorites, user_foods
 
 # Try to import analytics routes, but use the hotfix if there's an error
 try:
@@ -65,8 +65,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 # Configure CORS
-# Default origins list
-default_origins = [
+origins = [
     "http://localhost:3000",
     "http://localhost:5173",
     "http://localhost:5174",
@@ -83,15 +82,6 @@ default_origins = [
     "https://nutrivize.onrender.com",
 ]
 
-# Allow additional origins from environment variable
-additional_origins = os.getenv("ADDITIONAL_CORS_ORIGINS", "")
-if additional_origins:
-    additional_origins_list = [origin.strip() for origin in additional_origins.split(",")]
-    default_origins.extend(additional_origins_list)
-    print(f"✅ Added additional CORS origins: {additional_origins_list}")
-
-origins = default_origins
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -105,12 +95,8 @@ print(f"✅ CORS configured with origins: {origins}")
 # Add routes
 app.include_router(auth.router)
 app.include_router(foods.router)
-app.include_router(user_foods.router)
-app.include_router(user.router)
-app.include_router(user_favorites.router)
 app.include_router(food_logs.router)
 app.include_router(ai.router)
-app.include_router(ai_coaching.router)
 app.include_router(analytics.router)
 app.include_router(meal_planning.router)
 app.include_router(preferences.router)
@@ -123,6 +109,8 @@ app.include_router(ai_dashboard.router)
 app.include_router(restaurant_ai.router)
 app.include_router(ai_health.router)
 app.include_router(food_stats.router)
+app.include_router(user_favorites.router)
+app.include_router(user_foods.router)
 
 # Serve static files from the frontend build directory
 static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "dist")

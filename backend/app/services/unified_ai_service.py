@@ -479,7 +479,7 @@ class UnifiedAIService:
                     
                     # Calculate per 100g values for comparison
                     serving_size = food.get("serving_size", 1)
-                    serving_unit = food.get("serving_unit", "serving")
+                    serving_unit = food.get("serving_unit", "g")
                     
                     # Rough conversion to 100g equivalent (simplified)
                     calories_per_100g = calories * 2 if serving_unit in ["tbsp", "tablespoon"] else calories
@@ -837,8 +837,8 @@ RESPONSE STYLE:
             except Exception as e:
                 response = response.replace(index_match.group(0), f"❌ Couldn't index food: {str(e)}")
 
-        # AI-initiated goal updates
-        goal_match = re.search(r"AI_UPDATE_GOALS:\s*({.*?})", response, re.DOTALL)
+        # AI-initiated goal updates (handle both singular and plural variants)
+        goal_match = re.search(r"AI_UPDATE_GOAL(?:S)?:\s*({.*?})", response, re.DOTALL)
         if goal_match:
             try:
                 goal_data = json.loads(goal_match.group(1))
@@ -846,6 +846,40 @@ RESPONSE STYLE:
                 response = response.replace(goal_match.group(0), "✅ I've updated your goals!")
             except Exception as e:
                 response = response.replace(goal_match.group(0), f"❌ Couldn't update goals: {str(e)}")
+                
+        # AI-initiated favorite food management
+        favorite_match = re.search(r"AI_ADD_FAVORITE:\s*({.*?})", response, re.DOTALL)
+        if favorite_match:
+            try:
+                favorite_data = json.loads(favorite_match.group(1))
+                await self._add_to_favorites(user_id, favorite_data)
+                response = response.replace(favorite_match.group(0), "✅ I've added that to your favorites!")
+            except Exception as e:
+                response = response.replace(favorite_match.group(0), f"❌ Couldn't add to favorites: {str(e)}")
+                
+        # AI-initiated shopping list creation
+        shopping_match = re.search(r"AI_CREATE_SHOPPING_LIST:\s*({.*?})", response, re.DOTALL)
+        if shopping_match:
+            try:
+                shopping_data = json.loads(shopping_match.group(1))
+                await self._create_shopping_list(user_id, shopping_data)
+                response = response.replace(shopping_match.group(0), "✅ I've created your shopping list!")
+            except Exception as e:
+                response = response.replace(shopping_match.group(0), f"❌ Couldn't create shopping list: {str(e)}")
+
+        # AI-initiated user food logs search
+        logs_match = re.search(r"AI_SEARCH_USER_LOGS:\s*({.*?})", response, re.DOTALL)
+        if logs_match:
+            try:
+                search_criteria = json.loads(logs_match.group(1))
+                food_logs = await self._search_user_food_logs(user_id, search_criteria)
+                if food_logs:
+                    logs_summary = self._format_food_logs_for_display(food_logs)
+                    response = response.replace(logs_match.group(0), f"📋 **Your Food Logs:**\n{logs_summary}")
+                else:
+                    response = response.replace(logs_match.group(0), "📋 No food logs found for the specified criteria.")
+            except Exception as e:
+                response = response.replace(logs_match.group(0), f"❌ Couldn't retrieve food logs: {str(e)}")
 
         # AI-initiated disliked food detection and addition
         await self._detect_and_add_disliked_foods(response, user_id)
@@ -885,7 +919,7 @@ RESPONSE STYLE:
                 "date": today.isoformat(),
                 "food_name": food_data.get("name", "Unknown Food"),
                 "amount": food_data.get("amount", 1.0),
-                "unit": food_data.get("unit", "serving"),
+                "unit": food_data.get("unit", "g"),
                 "meal_type": food_data.get("meal_type", "snack"),
                 "nutrition": food_data.get("nutrition", {}),
                 "notes": food_data.get("notes", "Logged via AI"),
@@ -994,6 +1028,77 @@ RESPONSE STYLE:
         except Exception as e:
             logger.error(f"Error saving preferences: {e}")
             raise e
+
+    async def _search_user_food_logs(self, user_id: str, search_criteria: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Search user's food logs based on criteria"""
+        try:
+            # Build query based on search criteria
+            query = {"user_id": user_id}
+            
+            # Date filtering
+            if search_criteria.get("date") == "today":
+                today = date.today().isoformat()
+                query["date"] = today
+            elif search_criteria.get("date") == "yesterday":
+                yesterday = (date.today() - timedelta(days=1)).isoformat()
+                query["date"] = yesterday
+            elif search_criteria.get("date") == "this_week":
+                week_ago = (date.today() - timedelta(days=7)).isoformat()
+                query["date"] = {"$gte": week_ago}
+            elif search_criteria.get("date_range"):
+                start_date = search_criteria["date_range"].get("start")
+                end_date = search_criteria["date_range"].get("end")
+                if start_date and end_date:
+                    query["date"] = {"$gte": start_date, "$lte": end_date}
+            
+            # Meal type filtering
+            if search_criteria.get("meal_type"):
+                query["meal_type"] = search_criteria["meal_type"]
+            
+            # Food name filtering
+            if search_criteria.get("food_name"):
+                query["food_name"] = {"$regex": search_criteria["food_name"], "$options": "i"}
+
+            # Get food logs
+            food_logs = list(self.db.food_logs.find(query).sort("logged_at", -1).limit(20))
+            
+            # Convert ObjectIds to strings
+            for log in food_logs:
+                log["_id"] = str(log["_id"])
+            
+            return food_logs
+            
+        except Exception as e:
+            logger.error(f"Error searching food logs: {e}")
+            return []
+
+    def _format_food_logs_for_display(self, food_logs: List[Dict[str, Any]]) -> str:
+        """Format food logs for AI response display"""
+        if not food_logs:
+            return "No food logs found."
+        
+        formatted_logs = []
+        current_date = None
+        
+        for log in food_logs:
+            log_date = log.get("date", "Unknown date")
+            
+            # Add date header if new date
+            if log_date != current_date:
+                formatted_logs.append(f"\n**{log_date}:**")
+                current_date = log_date
+            
+            # Format individual log entry
+            food_name = log.get("food_name", "Unknown food")
+            amount = log.get("amount", 0)
+            unit = log.get("unit", "g")
+            meal_type = log.get("meal_type", "unknown").title()
+            calories = log.get("nutrition", {}).get("calories", 0)
+            
+            entry = f"• **{food_name}** - {amount} {unit} ({meal_type}) - {calories} cal"
+            formatted_logs.append(entry)
+        
+        return "\n".join(formatted_logs)
 
     async def _search_user_food_logs(self, user_id: str, search_criteria: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Search user's food logs based on criteria"""
@@ -2013,6 +2118,79 @@ Format as JSON:
         except Exception as e:
             logger.error(f"AI response error: {str(e)}")
             return f"I apologize, but I'm having trouble processing your request right now. Please try again later."
+
+    async def _add_to_favorites(self, user_id: str, favorite_data: Dict[str, Any]) -> str:
+        """Add a food to user's favorites"""
+        try:
+            # First try to find the food in the foods collection
+            food_name = favorite_data.get("name", "").lower()
+            food = self.db.foods.find_one({"name": {"$regex": food_name, "$options": "i"}})
+            
+            if not food:
+                # If not found, create a new food entry
+                food_doc = {
+                    "name": favorite_data.get("name", "Unknown Food"),
+                    "brand": favorite_data.get("brand", ""),
+                    "serving_size": favorite_data.get("serving_size", 1),
+                    "serving_unit": favorite_data.get("serving_unit", "serving"),
+                    "nutrition": favorite_data.get("nutrition", {}),
+                    "source": "user_created",
+                    "created_by": user_id,
+                    "created_at": datetime.utcnow()
+                }
+                result = self.db.foods.insert_one(food_doc)
+                food_id = str(result.inserted_id)
+            else:
+                food_id = str(food["_id"])
+            
+            # Add to user's favorites
+            favorite = {
+                "food_id": food_id,
+                "food_name": favorite_data.get("name", "Unknown Food"),
+                "default_quantity": favorite_data.get("default_quantity", 1.0),
+                "default_unit": favorite_data.get("default_unit", "serving"),
+                "calories": favorite_data.get("nutrition", {}).get("calories", 0),
+                "protein": favorite_data.get("nutrition", {}).get("protein", 0),
+                "carbs": favorite_data.get("nutrition", {}).get("carbs", 0),
+                "fat": favorite_data.get("nutrition", {}).get("fat", 0),
+                "fiber": favorite_data.get("nutrition", {}).get("fiber", 0),
+                "sugar": favorite_data.get("nutrition", {}).get("sugar", 0),
+                "sodium": favorite_data.get("nutrition", {}).get("sodium", 0),
+                "added_date": datetime.utcnow().isoformat()
+            }
+            
+            # Update user preferences to add this favorite
+            self.db.users.update_one(
+                {"uid": user_id},
+                {"$addToSet": {"preferences.favorite_foods": favorite}},
+                upsert=True
+            )
+            
+            return f"Added {favorite_data.get('name', 'food')} to favorites"
+            
+        except Exception as e:
+            logger.error(f"Error adding to favorites: {e}")
+            raise e
+
+    async def _create_shopping_list(self, user_id: str, shopping_data: Dict[str, Any]) -> str:
+        """Create a shopping list from meal plan or food list"""
+        try:
+            shopping_list = {
+                "user_id": user_id,
+                "name": shopping_data.get("name", "AI Generated Shopping List"),
+                "items": shopping_data.get("items", []),
+                "categories": shopping_data.get("categories", {}),
+                "estimated_cost": shopping_data.get("estimated_cost", 0),
+                "created_at": datetime.utcnow(),
+                "meal_plan_id": shopping_data.get("meal_plan_id", None)
+            }
+            
+            result = self.db.shopping_lists.insert_one(shopping_list)
+            return f"Shopping list created with ID: {result.inserted_id}"
+            
+        except Exception as e:
+            logger.error(f"Error creating shopping list: {e}")
+            raise e
 
 
 # Global instance

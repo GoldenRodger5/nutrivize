@@ -9,8 +9,8 @@ import logging
 import json
 import re
 import uuid
-from datetime import datetime, timedelta, date
-from typing import Dict, List, Any, Optional, Union
+from datetime import datetime, timedelta, date, timezone
+from typing import Dict, List, Any, Optional
 from bson import ObjectId
 import traceback
 
@@ -63,8 +63,16 @@ class UnifiedAIService:
                 request, user_id, user_context
             )
 
-            # Check if the message is about the food index
-            if any(term in processed_request.message.lower() for term in ["food index", "my foods", "foods i have", "foods in my"]):
+            # Check if the message is about the food index - expanded detection
+            food_index_terms = [
+                "food index", "my foods", "foods i have", "foods in my", 
+                "what foods", "show me foods", "foods are", "foods with",
+                "high protein foods", "low calorie foods", "vegan foods",
+                "foods that are", "how many foods", "list foods",
+                "foods containing", "protein foods", "healthy foods"
+            ]
+            
+            if any(term in processed_request.message.lower() for term in food_index_terms):
                 # Update the food index summary for immediate use
                 user_context["food_index_summary"] = await self.get_food_index_summary(user_id)
                 logger.info(f"Food index query detected. Retrieved food index for user {user_id}")
@@ -92,7 +100,7 @@ class UnifiedAIService:
 
             # Call Claude with enhanced context
             response = self.client.messages.create(
-                model="claude-3-5-sonnet-20241022",
+                model="claude-sonnet-4-20250514",
                 max_tokens=3000,
                 system=system_prompt,
                 messages=messages
@@ -139,17 +147,25 @@ class UnifiedAIService:
         Generate a comprehensive meal plan using AI with full user context
         """
         try:
-                                            user_context = await self._get_comprehensive_user_context(user_id)
-
+                    user_context = await self._get_comprehensive_user_context(user_id)
+            
+            # Enforce maximum duration limit of 3 days
+            requested_duration = plan_request.get('duration', 7)
+            max_duration = 3
+            actual_duration = min(requested_duration, max_duration)
+            
+            if requested_duration > max_duration:
+                logger.warning(f"Duration limited from {requested_duration} to {max_duration} days")
+            
             prompt = f"""
-            Create a comprehensive {plan_request.get('duration', 7)}-day meal plan for this user:
+            Create a comprehensive {actual_duration}-day meal plan for this user:
 
             USER PROFILE:
             {self._format_user_context_for_ai(user_context)}
 
             PLAN REQUIREMENTS:
             - Plan Name: "{plan_request.get('name', 'My Meal Plan')}" (MUST be preserved in response)
-            - Duration: {plan_request.get('duration', 7)} days
+            - Duration: {actual_duration} days (maximum allowed)
             - Meals per day: {plan_request.get('meals_per_day', 3)}
             - Budget preference: {plan_request.get('budget', 'moderate')}
             - Prep time preference: {plan_request.get('prep_time', 'moderate')}
@@ -170,8 +186,8 @@ class UnifiedAIService:
             """
 
             response = self.client.messages.create(
-                model="claude-3-5-sonnet-20241022",
-                max_tokens=10000,  # Increased for maximum comprehensive meal planning
+                model="claude-sonnet-4-20250514",
+                max_tokens=20000,  # Maximum allowed tokens for claude-sonnet-4-20250514 (64k limit)
                 messages=[{"role": "user", "content": prompt}]
             )
 
@@ -183,60 +199,15 @@ class UnifiedAIService:
             return meal_plan_data
 
         except Exception as e:
-            logger.error(f"Error generating meal plan for user {user_id}: {e}")
-            # Return a basic fallback meal plan instead of error
-            return {
-                "id": str(uuid.uuid4()),
-                "name": plan_request.get('name', 'My Meal Plan'),  # Preserve name in fallback
-                "user_id": user_id,
-                "duration": plan_request.get('duration', 7),
-                "meals_per_day": plan_request.get('meals_per_day', 3),
-                "status": "fallback",
-                "message": "Generated basic meal plan due to service limitations",
-                "daily_plans": [
-                    {
-                        "day": i + 1,
-                        "date": (datetime.now() + timedelta(days=i)).strftime("%Y-%m-%d"),
-                        "meals": [
-                            {
-                                "type": "breakfast",
-                                "name": "Healthy Breakfast",
-                                "ingredients": ["oats", "banana", "almond milk"],
-                                "calories": 350,
-                                "prep_time": "10 minutes"
-                            },
-                            {
-                                "type": "lunch", 
-                                "name": "Balanced Lunch",
-                                "ingredients": ["quinoa", "vegetables", "protein"],
-                                "calories": 450,
-                                "prep_time": "20 minutes"
-                            },
-                            {
-                                "type": "dinner",
-                                "name": "Nutritious Dinner", 
-                                "ingredients": ["lean protein", "vegetables", "whole grains"],
-                                "calories": 500,
-                                "prep_time": "30 minutes"
-                            }
-                        ]
-                    } for i in range(plan_request.get('duration', 7))
-                ],
-                "total_nutrition": {
-                    "daily_avg_calories": 1300,
-                    "daily_avg_protein": 80,
-                    "daily_avg_carbs": 150,
-                    "daily_avg_fat": 45
-                },
-                "created_at": datetime.now().isoformat()
-            }
+            logger.error(f"Error generating meal plan: {e}")
+            raise e
 
     async def get_health_insights(self, user_id: str) -> Dict[str, Any]:
         """
         Generate comprehensive health insights using AI analysis
         """
         try:
-                                            user_context = await self._get_comprehensive_user_context(user_id)
+                    user_context = await self._get_comprehensive_user_context(user_id)
 
             # Analyze user data patterns
             nutrition_analysis = await self._analyze_nutrition_patterns(user_id)
@@ -308,7 +279,7 @@ class UnifiedAIService:
             """
 
             response = self.client.messages.create(
-                model="claude-3-5-sonnet-20241022",
+                model="claude-sonnet-4-20250514",
                 max_tokens=3000,
                 messages=[{"role": "user", "content": prompt}]
             )
@@ -444,47 +415,33 @@ class UnifiedAIService:
     async def get_food_index_summary(self, user_id: str, limit: int = 50) -> str:
         """Get a comprehensive summary of the user's food index items"""
         try:
-            if self.db is None:
-                return "Unable to access food database."
-
-            # Get user foods collection
-            user_foods_collection = self.db.user_foods
-            
-            # Query for user's foods - add error handling and logging
-            try:
-                # First check if collection exists
-                if "user_foods" not in self.db.list_collection_names():
-                    logger.warning(f"user_foods collection doesn't exist for user {user_id}")
-                    return "Your food index is empty. To build your personal food index, start logging foods you eat regularly."
-                    
-                user_foods = list(user_foods_collection.find({"user_id": user_id}).limit(limit))
-                logger.info(f"Found {len(user_foods)} foods for user {user_id}")
-            except Exception as e:
-                logger.error(f"Error querying user_foods: {str(e)}")
-                return f"Error accessing food index: {str(e)}"
+            # Use the food service to get user's food index (same as /foods/search endpoint)
+            user_foods = await self.food_service.get_user_food_index(user_id)
+            logger.info(f"Found {len(user_foods)} foods for user {user_id}")
 
             if not user_foods or len(user_foods) == 0:
                 # Check the main food index if user doesn't have personal foods
-                foods_collection = self.db.foods
-                foods = list(foods_collection.find().limit(limit))
+                from ..models.food import FoodSearch
+                search_params = FoodSearch(q="", limit=15, skip=0)
+                general_foods = await self.food_service.search_food_items(search_params)
 
-                if not foods:
+                if not general_foods:
                     return "Your food index is empty. To build your personal food index, start logging foods you eat regularly."
 
                 # Format foods from main index  
                 foods_summary = f"**Your Personal Food Index: Empty (0 foods)**\n"
-                foods_summary += f"Here are {min(len(foods), 15)} foods from the main database that you can add:\n\n"
+                foods_summary += f"Here are {min(len(general_foods), 15)} foods from the main database that you can add:\n\n"
                 
                 # Group by category
                 categories = {}
-                for food in foods[:15]:
-                    category = food.get("category", "Other")
+                for food in general_foods[:15]:
+                    category = food.dietary_attributes.food_categories[0] if food.dietary_attributes.food_categories else "Other"
                     if category not in categories:
                         categories[category] = []
-                    categories[category].append(food.get("name", "Unknown food"))
+                    categories[category].append(food.name)
                 
                 for category, food_names in categories.items():
-                    foods_summary += f"**{category}:**\n"
+                    foods_summary += f"**{category.title()}:**\n"
                     for name in food_names[:5]:  # Limit per category
                         foods_summary += f"  • {name}\n"
                     foods_summary += "\n"
@@ -492,30 +449,92 @@ class UnifiedAIService:
                 foods_summary += "**To build your personal food index:** Log foods you eat regularly using the food logging feature."
                 return foods_summary
 
-            # Format user foods with comprehensive details
+            # Format user foods with comprehensive details including nutrition
             foods_summary = f"**Your Personal Food Index: {len(user_foods)} foods**\n\n"
             
-            # Group foods by category
+            # Group foods by category with detailed nutrition info
             categories = {}
             total_logged = 0
             recent_additions = []
+            high_protein_foods = []
+            low_calorie_foods = []
+            vegan_foods = []
             
             for food in user_foods:
-                category = food.get("category", "Other")
+                # Get category from dietary attributes if available
+                category = "Other"
+                if isinstance(food, dict):
+                    food_categories = food.get("dietary_attributes", {}).get("food_categories", [])
+                    if food_categories:
+                        category = food_categories[0].title()
+                    
+                    name = food.get("name", "Unknown food")
+                    times_logged = food.get("times_logged", 0)
+                    date_added = food.get("date_added", None)
+                    
+                    # Extract nutritional information
+                    nutrition = food.get("nutrition", {})
+                    calories = nutrition.get("calories", 0)
+                    protein = nutrition.get("protein", 0)
+                    
+                    # Calculate per 100g values for comparison
+                    serving_size = food.get("serving_size", 1)
+                    serving_unit = food.get("serving_unit", "serving")
+                    
+                    # Rough conversion to 100g equivalent (simplified)
+                    calories_per_100g = calories * 2 if serving_unit in ["tbsp", "tablespoon"] else calories
+                    protein_per_100g = protein * 2 if serving_unit in ["tbsp", "tablespoon"] else protein
+                    
+                    # Extract dietary attributes
+                    dietary_attributes = food.get("dietary_attributes", {})
+                    restrictions = dietary_attributes.get("dietary_restrictions", [])
+                    is_vegan = "vegan" in [r.lower() for r in restrictions] if restrictions else False
+                else:
+                    # Handle FoodItemResponse objects
+                    food_categories = food.dietary_attributes.food_categories if food.dietary_attributes else []
+                    if food_categories:
+                        category = food_categories[0].title()
+                    
+                    name = food.name
+                    times_logged = 0  # Not available in this format
+                    date_added = None
+                    
+                    nutrition = food.nutrition
+                    calories = nutrition.calories
+                    protein = nutrition.protein
+                    calories_per_100g = calories
+                    protein_per_100g = protein
+                    
+                    restrictions = food.dietary_attributes.dietary_restrictions if food.dietary_attributes else []
+                    is_vegan = "vegan" in [r.lower() for r in restrictions] if restrictions else False
+
                 if category not in categories:
                     categories[category] = []
                 
-                name = food.get("name", "Unknown food")
-                times_logged = food.get("times_logged", 0)
-                date_added = food.get("date_added", None)
-                
-                categories[category].append({
+                food_info = {
                     "name": name,
                     "times_logged": times_logged,
-                    "date_added": date_added
-                })
+                    "date_added": date_added,
+                    "calories": calories,
+                    "protein": protein,
+                    "calories_per_100g": calories_per_100g,
+                    "protein_per_100g": protein_per_100g,
+                    "dietary_restrictions": restrictions,
+                    "is_vegan": is_vegan
+                }
                 
+                categories[category].append(food_info)
                 total_logged += times_logged
+                
+                # Categorize foods for quick reference
+                if protein >= 15:  # High protein threshold
+                    high_protein_foods.append(f"{name} ({protein}g protein)")
+                    
+                if calories > 0 and calories <= 100:  # Low calorie threshold
+                    low_calorie_foods.append(f"{name} ({calories} cal)")
+                    
+                if is_vegan:
+                    vegan_foods.append(name)
                 
                 # Track recent additions (last 7 days)
                 if isinstance(date_added, datetime):
@@ -523,29 +542,62 @@ class UnifiedAIService:
                     if days_ago <= 7:
                         recent_additions.append(name)
 
-            # Display by category
+            # Display by category with nutrition info
             for category, food_list in categories.items():
                 foods_summary += f"**{category} ({len(food_list)} foods):**\n"
                 # Sort by times logged (most used first)
                 food_list.sort(key=lambda x: x["times_logged"], reverse=True)
                 
-                for food in food_list[:8]:  # Show top 8 per category
-                    times_text = f" (logged {food['times_logged']}x)" if food['times_logged'] > 0 else ""
-                    foods_summary += f"  • {food['name']}{times_text}\n"
+                for food in food_list[:6]:  # Show top 6 per category to save space
+                    times_text = f" (used {food['times_logged']}x)" if food['times_logged'] > 0 else ""
+                    
+                    # Add nutrition info if available
+                    nutrition_info = ""
+                    if food['protein'] > 0:
+                        nutrition_info += f" | {food['protein']}g protein"
+                    if food['calories'] > 0:
+                        nutrition_info += f" | {food['calories']} cal"
+                    if food['dietary_restrictions']:
+                        nutrition_info += f" | {', '.join(food['dietary_restrictions'][:2])}"  # Show first 2 restrictions
+                    
+                    foods_summary += f"  • **{food['name']}**{times_text}{nutrition_info}\n"
                 
-                if len(food_list) > 8:
-                    foods_summary += f"  ... and {len(food_list) - 8} more\n"
+                if len(food_list) > 6:
+                    foods_summary += f"  ... and {len(food_list) - 6} more\n"
                 foods_summary += "\n"
 
+            # Add quick reference sections for common queries
+            foods_summary += f"**Quick Reference for AI Queries:**\n"
+            
+            if high_protein_foods:
+                foods_summary += f"**High Protein Foods (15g+):** {', '.join(high_protein_foods[:5])}\n"
+                if len(high_protein_foods) > 5:
+                    foods_summary += f"  ... and {len(high_protein_foods) - 5} more high protein options\n"
+            
+            if low_calorie_foods:
+                foods_summary += f"**Low Calorie Foods (≤100 cal):** {', '.join(low_calorie_foods[:5])}\n"
+                if len(low_calorie_foods) > 5:
+                    foods_summary += f"  ... and {len(low_calorie_foods) - 5} more low calorie options\n"
+            
+            if vegan_foods:
+                foods_summary += f"**Vegan Foods:** {', '.join(vegan_foods[:5])}\n"
+                if len(vegan_foods) > 5:
+                    foods_summary += f"  ... and {len(vegan_foods) - 5} more vegan options\n"
+            
+            foods_summary += f"\n"
+
             # Add summary stats
-            foods_summary += f"**Summary:**\n"
-            foods_summary += f"  • Total foods in your index: {len(user_foods)}\n"
-            foods_summary += f"  • Total times foods have been logged: {total_logged}\n"
+            foods_summary += f"**Summary Stats:**\n"
+            foods_summary += f"  • Total foods in index: {len(user_foods)}\n"
+            foods_summary += f"  • Total times logged: {total_logged}\n"
+            foods_summary += f"  • High protein foods: {len(high_protein_foods)}\n"
+            foods_summary += f"  • Low calorie foods: {len(low_calorie_foods)}\n"
+            foods_summary += f"  • Vegan foods: {len(vegan_foods)}\n"
             
             if recent_additions:
-                foods_summary += f"  • Recently added: {', '.join(recent_additions[:5])}\n"
+                foods_summary += f"  • Recently added: {', '.join(recent_additions[:3])}\n"
             
-            foods_summary += f"\n*This is your personal food index. These are foods you've previously logged or added.*"
+            foods_summary += f"\n*Note: This data includes all nutritional attributes and dietary information for intelligent AI responses.*"
             
             return foods_summary
 
@@ -565,6 +617,7 @@ class UnifiedAIService:
 - **Data Management**: Store and retrieve meal plans, food logs, and preferences
 - **Insights & Analytics**: Provide trends, progress tracking, and personalized insights
 - **Interactive Planning**: Ask follow-up questions to refine recommendations
+- **Food Index Queries**: Interactive exploration of user's personal food database
 
 📊 RESPONSE GUIDELINES FOR DIRECT QUERIES:
 When users ask direct questions like "what's in my food index", "show me my recent meals", or "how many calories should I eat":
@@ -574,6 +627,49 @@ When users ask direct questions like "what's in my food index", "show me my rece
 - Format information clearly and briefly
 - Don't add motivational text or lengthy explanations unless specifically asked for advice
 - For calorie questions: give the number and a brief reason, nothing more
+
+🔍 FOOD INDEX INTERACTION PROTOCOL:
+When users ask about their food index (e.g., "What foods in my food index are high in protein?"):
+
+**1. UNDERSTAND THE QUERY:**
+- Identify the specific criteria (high protein, vegan, low calorie, etc.)
+- Determine if they want a specific count or general exploration
+
+**2. ASK CLARIFYING QUESTIONS (if needed):**
+- "How many foods would you like to see? (max 5 to keep responses focused)"
+- "Are you looking for foods above a certain protein threshold?"
+- "Would you like me to include nutrition info for each food?"
+- "Are you planning meals or just exploring your options?"
+
+**3. PROVIDE INTERACTIVE RESPONSES:**
+- Use **bold**, *italics*, and bullet points for clear formatting
+- Include relevant nutrition data when helpful
+- Offer follow-up suggestions
+- Remember previous answers in the conversation
+
+**4. RESPONSE FORMATTING:**
+- Use **bold** for food names and important numbers
+- Use *italics* for categories and descriptive text
+- Use bullet points (•) for lists
+- Use line breaks for readability
+- Include page breaks (---) for long responses
+- Add relevant emojis for visual appeal
+
+**EXAMPLE FOOD INDEX INTERACTION:**
+User: "What foods in my food index are high in protein?"
+AI: "I'll help you find high-protein foods from your personal food index! 
+
+Quick question: **How many foods would you like to see?** (max 5 for focused results)
+
+Also, what protein level are you targeting? 
+• *High protein*: 15g+ per serving
+• *Very high protein*: 25g+ per serving"
+
+**SESSION HISTORY & CONTEXT AWARENESS:**
+- ALWAYS remember previous questions and answers in the conversation
+- Reference earlier requests: "As we discussed earlier..." or "Building on your previous question..."
+- Maintain context across multiple food index queries
+- Suggest related follow-ups based on conversation history
 
 🤖 SMART OPERATIONS - You can perform these actions by including operation markers:
 
@@ -650,6 +746,17 @@ RESPONSE STYLE:
         if user_context.get("recent_nutrition"):
             nutrition = user_context["recent_nutrition"]
             base_prompt += f"\nRECENT NUTRITION PATTERNS: Average daily calories: {nutrition.get('avg_calories', 'unknown')}, protein: {nutrition.get('avg_protein', 'unknown')}g"
+
+        # Add food index information for food-related queries
+        if user_context.get("food_index_summary"):
+            base_prompt += f"\n\n📋 USER'S PERSONAL FOOD INDEX:\n{user_context['food_index_summary']}"
+            base_prompt += f"\n\n**FOOD INDEX QUERY GUIDELINES:**"
+            base_prompt += f"\n- Use the food index data above to answer questions about user's available foods"
+            base_prompt += f"\n- All food attributes (protein, calories, dietary restrictions, etc.) are available"
+            base_prompt += f"\n- Ask clarifying questions to provide exactly what the user needs"
+            base_prompt += f"\n- Format responses with bullet points, bold text, and clear organization"
+            base_prompt += f"\n- Remember conversation context for follow-up questions"
+            base_prompt += f"\n- Limit food recommendations to max 5 items unless user specifies otherwise"
 
         return base_prompt
 
@@ -1146,7 +1253,7 @@ RESPONSE STYLE:
         """Get AI-generated meal suggestions with enhanced user context"""
         try:
             # Get comprehensive user context
-                                            user_context = await self._get_comprehensive_user_context(user_id)
+                    user_context = await self._get_comprehensive_user_context(user_id)
 
             # Get user's food index if the filter is enabled
             user_food_index = []
@@ -1174,6 +1281,8 @@ MEAL REQUIREMENTS:
 - Allergies: {', '.join(request.allergies) if request.allergies else 'none'}
 - Prep time preference: {request.prep_time_preference or 'moderate'}
 - Main ingredients: {', '.join(request.main_ingredients) if request.main_ingredients else 'flexible'}
+
+SPECIAL REQUESTS: {request.special_requests if request.special_requests else 'None - follow standard meal suggestion guidelines'}
 
 CRITICAL DIETARY COMPLIANCE REQUIREMENTS:
 1. CAREFULLY review the user's dietary restrictions and strictness level above
@@ -1220,7 +1329,7 @@ Create diverse, creative suggestions that match their preferences and goals. For
 ]}}"""
 
             response = self.client.messages.create(
-                model="claude-3-5-sonnet-20241022",
+                model="claude-sonnet-4-20250514",
                 max_tokens=4000,
                 messages=[{"role": "user", "content": prompt}]
             )
@@ -1247,7 +1356,7 @@ Create diverse, creative suggestions that match their preferences and goals. For
     async def get_dashboard_data(self, user_id: str, data_type: str) -> Dict[str, Any]:
         """Get specific dashboard data for the AI dashboard"""
         try:
-                                            user_context = await self._get_comprehensive_user_context(user_id)
+                    user_context = await self._get_comprehensive_user_context(user_id)
 
             if data_type == "coaching":
                 return await self._generate_coaching_insights(user_id, user_context)
@@ -1322,7 +1431,7 @@ Format as JSON:
 }}"""
 
             response = self.client.messages.create(
-                model="claude-3-5-sonnet-20241022",
+                model="claude-sonnet-4-20250514",
                 max_tokens=2000,
                 messages=[{"role": "user", "content": prompt}]
             )
@@ -1377,17 +1486,30 @@ Format as JSON:
                 }
 
             # Add water tracking from actual water logs
+            # Check both today's date and tomorrow's date to handle timezone issues
+            today_str = today.isoformat()
+            tomorrow_str = (today + timedelta(days=1)).isoformat()
+            
             water_logs = list(self.db.water_logs.find({
                 "user_id": user_id,
-                "date": today.isoformat()
+                "date": {"$in": [today_str, tomorrow_str]}
             }))
 
             # Calculate total water from logs
             total_water = sum(log.get("amount", 0) for log in water_logs)
 
-            # Get target from preferences or use default
-            water_target = 8  # Default 8 cups/64 oz
-            if context.get("profile", {}).get("preferences", {}).get("nutrition", {}).get("water_target"):
+            # Get target from goals first, then preferences, then default
+            water_target = 64  # Default 64 fl oz (8 cups)
+            
+            # Check active goals first
+            active_goals = context.get("active_goals", [])
+            for goal in active_goals:
+                if goal.get("nutrition_targets", {}).get("water_target"):
+                    water_target = goal["nutrition_targets"]["water_target"]
+                    break
+            
+            # Fallback to user preferences if not found in goals
+            if water_target == 64 and context.get("profile", {}).get("preferences", {}).get("nutrition", {}).get("water_target"):
                 water_target = context["profile"]["preferences"]["nutrition"]["water_target"]
 
             # Calculate percentage
@@ -1409,7 +1531,7 @@ Format as JSON:
                 "carbs": {"current": 180, "target": 250, "percentage": 72},
                 "fat": {"current": 50, "target": 65, "percentage": 77},
                 "fiber": {"current": 20, "target": 25, "percentage": 80},
-                "water": {"current": 6, "target": 8, "percentage": 75}
+                "water": {"current": 32, "target": 64, "percentage": 50}
             }
 
     async def _generate_predictive_analytics(self, user_id: str, context: Dict[str, Any]) -> Dict[str, Any]:
@@ -1759,6 +1881,7 @@ Format as JSON:
 
     async def _analyze_nutrition_patterns(self, user_id: str) -> Dict[str, Any]:
         """Analyze user's nutrition patterns over time"""
+        
         try:
             # Get recent food logs
             food_logs = await self.food_log_service.get_recent_logs(user_id, days=30)
@@ -1868,6 +1991,28 @@ Format as JSON:
         except Exception as e:
             logger.error(f"Error storing health insights: {e}")
             # Don't raise exception, just log the error
+
+    async def get_ai_response(self, prompt: str, max_tokens: int = 8000) -> str:
+        """
+        Generic AI response method for getting Claude responses
+        """
+        try:
+            response = self.client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=max_tokens,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ]
+            )
+            
+            return response.content[0].text if response.content else ""
+            
+        except Exception as e:
+            logger.error(f"AI response error: {str(e)}")
+            return f"I apologize, but I'm having trouble processing your request right now. Please try again later."
 
 
 # Global instance

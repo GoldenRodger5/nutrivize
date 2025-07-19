@@ -747,7 +747,6 @@ export default function EnhancedShoppingList({
                                           <option value="tbsp">tbsp</option>
                                           <option value="tsp">tsp</option>
                                           <option value="piece">pcs</option>
-                                          <option value="serving">srv</option>
                                         </Select>
                                       </HStack>
                                     ) : (
@@ -922,7 +921,6 @@ export default function EnhancedShoppingList({
                                     <option value="tbsp">tablespoons</option>
                                     <option value="tsp">teaspoons</option>
                                     <option value="piece">pieces</option>
-                                    <option value="serving">servings</option>
                                   </Select>
                                 </HStack>
                               ) : (

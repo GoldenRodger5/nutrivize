@@ -52,7 +52,7 @@ export default function FoodLogModal({ isOpen, onClose, onSuccess }: FoodLogModa
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedFood, setSelectedFood] = useState<FoodItem | null>(null)
   const [amount, setAmount] = useState(1)
-  const [selectedUnit, setSelectedUnit] = useState('serving')
+  const [selectedUnit, setSelectedUnit] = useState('g')
   const [mealType, setMealType] = useState('breakfast')
   const [loading, setLoading] = useState(false)
   const [convertedNutrition, setConvertedNutrition] = useState<any>(null)

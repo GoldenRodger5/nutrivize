@@ -18,7 +18,7 @@
  *    - Provides instant feedback without additional API calls
  */
 
-import { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import {
   Box,
   Container,
@@ -77,6 +77,7 @@ import FoodDetailModal from '../components/FoodDetailModal'
 import MyFoodsModal from '../components/MyFoodsModal'
 import { calculateNutritionForQuantity } from '../utils/unitConversion'
 import { useFoodIndex } from '../contexts/FoodIndexContext'
+import { useUserFavorites } from '../hooks/useUserFavorites'
 
 // Mobile-optimized icons
 const SearchIcon = () => (
@@ -153,6 +154,21 @@ export default function FoodIndex() {
 
   // Add food index context
   const { refreshUserFoods, triggerRefresh } = useFoodIndex()
+  
+  // Use the advanced favorites system
+  const { 
+    favorites: userFavorites, 
+    addFavorite: addToFavorites, 
+    removeFavorite: removeFromFavorites
+  } = useUserFavorites()
+
+  // Transform to Set for backwards compatibility with existing code
+  const favorites = React.useMemo(() => {
+    return new Set(userFavorites.map(fav => fav.food_id))
+  }, [userFavorites])
+
+  // Loading state for individual food items
+  const [favoritesLoading, setFavoritesLoading] = useState<Set<string>>(new Set())
 
   const ITEMS_PER_PAGE = 20
 
@@ -168,10 +184,6 @@ export default function FoodIndex() {
 
   // State for editing food
   const [editingFood, setEditingFood] = useState<FoodItem | null>(null)
-
-  // State for favorites
-  const [favorites, setFavorites] = useState<Set<string>>(new Set())
-  const [favoritesLoading, setFavoritesLoading] = useState<Set<string>>(new Set())
 
   // Form state for adding new food
   const [newFood, setNewFood] = useState({
@@ -281,22 +293,6 @@ export default function FoodIndex() {
       }
     }
     fetchUserPreferences()
-  }, [triggerRefresh])
-
-  // Fetch user favorites
-  useEffect(() => {
-    const fetchFavorites = async () => {
-      try {
-        const response = await api.get('/favorites')
-        const favoriteIds = new Set<string>(response.data.map((fav: any) => String(fav.food_id)))
-        setFavorites(favoriteIds)
-        console.log('✅ Loaded user favorites:', favoriteIds)
-      } catch (error) {
-        console.error('❌ Error fetching favorites:', error)
-        setFavorites(new Set<string>())
-      }
-    }
-    fetchFavorites()
   }, [triggerRefresh])
 
   // Filter foods based on dietary preferences AND advanced filters
@@ -738,13 +734,8 @@ export default function FoodIndex() {
     
     try {
       if (isFavorite) {
-        // Remove from favorites
-        await api.delete(`/favorites/${foodId}`)
-        setFavorites(prev => {
-          const newFavorites = new Set(prev)
-          newFavorites.delete(foodId)
-          return newFavorites
-        })
+        // Remove from favorites using the hook
+        await removeFromFavorites(foodId)
         toast({
           title: 'Removed from Favorites',
           description: `${food.name} has been removed from your favorites.`,
@@ -753,13 +744,12 @@ export default function FoodIndex() {
           isClosable: true,
         })
       } else {
-        // Add to favorites
-        await api.post('/favorites', {
+        // Add to favorites using the hook
+        await addToFavorites({
           food_id: foodId,
-          food_name: food.name,
+          custom_name: food.name,
           category: 'general'
         })
-        setFavorites(prev => new Set(prev).add(foodId))
         toast({
           title: 'Added to Favorites',
           description: `${food.name} has been added to your favorites.`,
@@ -2258,11 +2248,11 @@ export default function FoodIndex() {
             food={selectedFood}
             isOpen={isDetailModalOpen}
             onClose={onDetailModalClose}
-            onLogFood={(food, servings, unit) => {
+            onLogFood={(food, quantity, unit) => {
               setSelectedFood(food)
               setLogEntry({
                 meal_type: 'lunch',
-                servings: servings,
+                servings: quantity,
                 unit: unit,
                 notes: ''
               })

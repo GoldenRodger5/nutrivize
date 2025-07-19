@@ -434,7 +434,7 @@ Return valid JSON only (no additional text):
                                 "instructions": ["step1", "step2", "step3"],
                                 "prep_time": 15,
                                 "cooking_method": "method",
-                                "portion_size": "1 serving",
+                                "portion_size": "1 cup",
                                 "calories": 0,
                                 "protein": 0,
                                 "carbs": 0,
@@ -912,7 +912,7 @@ Return valid JSON only (no additional text):
                 day_meals.append({
                     "meal_type": "breakfast",
                     "food_name": breakfast["name"],
-                    "portion_size": "1 serving",
+                    "portion_size": "1 portion",
                     "calories": breakfast["calories"],
                     "protein": breakfast["protein"],
                     "carbs": breakfast["carbs"],
@@ -927,7 +927,7 @@ Return valid JSON only (no additional text):
                 day_meals.append({
                     "meal_type": "lunch",
                     "food_name": lunch["name"],
-                    "portion_size": "1 serving",
+                    "portion_size": "1 portion",
                     "calories": lunch["calories"],
                     "protein": lunch["protein"],
                     "carbs": lunch["carbs"],
@@ -942,7 +942,7 @@ Return valid JSON only (no additional text):
                 day_meals.append({
                     "meal_type": "dinner",
                     "food_name": dinner["name"],
-                    "portion_size": "1 serving",
+                    "portion_size": "1 portion",
                     "calories": dinner["calories"],
                     "protein": dinner["protein"],
                     "carbs": dinner["carbs"],
@@ -1113,7 +1113,7 @@ Return valid JSON only (no additional text):
         
         return {"recommendations": recommendations.get(meal_type, recommendations["lunch"])}
 
-    async def extract_meal_ingredients(self, meal_name: str, portion_size: str = "1 serving") -> List[Dict[str, Any]]:
+    async def extract_meal_ingredients(self, meal_name: str, portion_size: str = "1 portion") -> List[Dict[str, Any]]:
         """Extract detailed ingredients from a meal name/description using AI"""
         try:
             prompt = f"""
@@ -1227,15 +1227,15 @@ Return valid JSON only (no additional text):
             print(f"Error cleaning JSON: {e}")
             return json_str
 
-    async def generate_response(self, prompt: str) -> str:
+    async def generate_response(self, prompt: str, max_tokens: int = 4000, model: str = "claude-sonnet-4-20250514") -> str:
         """Generate a text response from the AI service using the given prompt"""
         try:
             if not self.client:
                 raise Exception("Anthropic client not initialized - API key missing")
                 
             response = self.client.messages.create(
-                model="claude-sonnet-4-20250514",
-                max_tokens=4000,
+                model=model,
+                max_tokens=max_tokens,
                 messages=[{"role": "user", "content": prompt}]
             )
             

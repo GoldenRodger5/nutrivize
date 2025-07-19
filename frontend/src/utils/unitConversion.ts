@@ -67,11 +67,9 @@ const VOLUME_CONVERSIONS: Record<string, number> = {
   'gallons': 3785.41,
 }
 
-// Piece/count units (no conversion, but standardized)
+// Piece/count units (no conversion, but standardized) - excluding ambiguous "serving"
 const PIECE_UNITS = [
-  'piece', 'pieces', 'item', 'items', 'serving', 'servings', 
-  'slice', 'slices', 'unit', 'units', 'each', 'whole', 'can', 'cans',
-  'bottle', 'bottles', 'package', 'packages', 'pack', 'packs'
+  'piece'
 ]
 
 // Food type to unit preferences mapping
@@ -96,15 +94,15 @@ const FOOD_TYPE_PREFERENCES: FoodTypeUnitPreference[] = [
   
   // Grains & Starches
   { foodType: 'Rice & Grains', preferredUnits: ['cup', 'g', 'oz'], keywords: ['rice', 'quinoa', 'oats', 'cereal', 'grain'] },
-  { foodType: 'Bread & Baked', preferredUnits: ['slice', 'piece', 'oz'], keywords: ['bread', 'bagel', 'muffin', 'roll', 'biscuit'] },
+  { foodType: 'Bread & Baked', preferredUnits: ['piece', 'oz'], keywords: ['bread', 'bagel', 'muffin', 'roll', 'biscuit'] },
   { foodType: 'Pasta & Noodles', preferredUnits: ['cup', 'oz', 'g'], keywords: ['pasta', 'noodles', 'spaghetti', 'macaroni'] },
   
   // Nuts & Seeds
   { foodType: 'Nuts & Seeds', preferredUnits: ['oz', 'cup', 'tbsp'], keywords: ['nuts', 'almonds', 'peanuts', 'seeds', 'cashews', 'walnuts'] },
   
   // Processed Foods
-  { foodType: 'Packaged Foods', preferredUnits: ['serving', 'package', 'piece'], keywords: ['packaged', 'frozen', 'canned', 'boxed'] },
-  { foodType: 'Snacks', preferredUnits: ['serving', 'piece', 'oz'], keywords: ['chips', 'crackers', 'cookies', 'snack'] }
+  { foodType: 'Packaged Foods', preferredUnits: ['piece', 'oz'], keywords: ['packaged', 'frozen', 'canned', 'boxed'] },
+  { foodType: 'Snacks', preferredUnits: ['oz', 'piece'], keywords: ['chips', 'crackers', 'cookies', 'snack'] }
 ]
 
 // All available units organized by category
@@ -175,7 +173,7 @@ export function getSmartUnitSuggestions(foodName: string, servingUnit?: string):
   
   // Add common general units if no specific matches
   if (suggestions.length === 0) {
-    const commonUnits = ['g', 'oz', 'cup', 'piece', 'serving']
+    const commonUnits = ['g', 'oz', 'cup', 'piece', 'medium']
     commonUnits.forEach(unit => {
       const category = getUnitCategory(unit)
       suggestions.push({
@@ -313,7 +311,7 @@ export function getSuggestedUnits(category: 'weight' | 'volume' | 'pieces'): str
     case 'volume':
       return ['ml', 'l', 'cup', 'tbsp', 'tsp', 'fl oz']
     case 'pieces':
-      return ['piece', 'serving', 'slice', 'can', 'package']
+      return ['piece', 'medium', 'slice', 'can', 'package']
     default:
       return []
   }

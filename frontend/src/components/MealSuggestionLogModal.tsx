@@ -28,6 +28,7 @@ import {
 import api from '../utils/api'
 import { getCurrentDateInTimezone } from '../utils/timezone'
 import { calculateNutritionForQuantity, getSmartUnitSuggestions, UnitSuggestion } from '../utils/unitConversion'
+import { getSmartUnitAssignment } from '../utils/smartUnitAssignment'
 import { MealSuggestion } from '../types'
 
 interface MealSuggestionLogModalProps {
@@ -45,8 +46,8 @@ export default function MealSuggestionLogModal({
   suggestion,
   mealType = 'lunch'
 }: MealSuggestionLogModalProps) {
-  const [amount, setAmount] = useState(1)
-  const [unit, setUnit] = useState('serving')
+  const [quantity, setQuantity] = useState(1)
+  const [unit, setUnit] = useState('g')
   const [selectedMealType, setSelectedMealType] = useState(mealType)
   const [notes, setNotes] = useState('')
   const [loading, setLoading] = useState(false)
@@ -67,19 +68,20 @@ export default function MealSuggestionLogModal({
         const recommendedUnit = units.find((u: UnitSuggestion) => u.isRecommended)?.unit || units[0].unit
         setUnit(recommendedUnit)
       } else {
-        // Fallback to common units
-        setAvailableUnits(['serving', 'cup', 'g', 'oz', 'piece'])
+        // Fallback to common units without "serving"
+        setAvailableUnits(['cup', 'g', 'oz', 'piece'])
+        setUnit('g')
       }
       
       // Calculate initial scaled nutrition
-      updateScaledNutrition(amount, unit)
+      updateScaledNutrition(quantity, unit)
     }
   }, [suggestion])
 
   // Update scaled nutrition when amount or unit changes
   useEffect(() => {
-    updateScaledNutrition(amount, unit)
-  }, [amount, unit])
+    updateScaledNutrition(quantity, unit)
+  }, [quantity, unit])
 
   const updateScaledNutrition = (newAmount: number, newUnit: string) => {
     if (!suggestion) return
@@ -89,7 +91,7 @@ export default function MealSuggestionLogModal({
       const scaledNutrition = calculateNutritionForQuantity(
         baseNutrition, 
         1, // base quantity
-        'serving', // base unit
+        'g', // base unit (use grams as default)
         newAmount, 
         newUnit
       )
@@ -139,7 +141,7 @@ export default function MealSuggestionLogModal({
         date: getCurrentDateInTimezone(),
         meal_type: selectedMealType,
         food_name: suggestion.name,
-        amount: amount,
+        quantity: quantity,
         unit: unit,
         nutrition: scaledNutrition,
         notes: notes || `Logged from meal suggestion: ${suggestion.name}`,
@@ -173,8 +175,13 @@ export default function MealSuggestionLogModal({
   }
 
   const handleClose = () => {
-    setAmount(1)
-    setUnit('serving')
+    setQuantity(1)
+    if (suggestion) {
+      const assignment = getSmartUnitAssignment(suggestion.name)
+      setUnit(assignment.defaultUnit)
+    } else {
+      setUnit('g')
+    }
     setSelectedMealType(mealType)
     setNotes('')
     onClose()
@@ -216,10 +223,10 @@ export default function MealSuggestionLogModal({
                   
                   <SimpleGrid columns={2} spacing={4}>
                     <FormControl>
-                      <FormLabel>Amount</FormLabel>
+                      <FormLabel>Quantity</FormLabel>
                       <NumberInput
-                        value={amount}
-                        onChange={(_, value) => setAmount(value || 1)}
+                        value={quantity}
+                        onChange={(_, value) => setQuantity(value || 1)}
                         min={0.1}
                         max={50}
                         step={0.1}
@@ -255,7 +262,7 @@ export default function MealSuggestionLogModal({
             <Card>
               <CardBody>
                 <VStack spacing={4} align="stretch">
-                  <Text fontSize="md" fontWeight="semibold">Nutrition (for {amount} {unit})</Text>
+                  <Text fontSize="md" fontWeight="semibold">Nutrition (for {quantity} {unit})</Text>
                   
                   <SimpleGrid columns={2} spacing={4}>
                     <VStack spacing={2}>

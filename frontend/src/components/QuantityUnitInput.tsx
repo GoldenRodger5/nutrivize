@@ -84,7 +84,7 @@ export default function QuantityUnitInput({
     suggestedUnits.forEach(u => allUnits.add(u))
     allUnits.add(unit)
     
-    const commonUnits = ['g', 'oz', 'cup', 'tbsp', 'tsp', 'ml', 'piece', 'serving']
+    const commonUnits = ['g', 'oz', 'cup', 'tbsp', 'tsp', 'ml', 'piece']
     commonUnits.forEach(u => allUnits.add(u))
     
     return Array.from(allUnits)
