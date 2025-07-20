@@ -1,2 +1,0 @@
-Starting deployment at Thu Jul  3 11:57:24 EDT 2025
-Current directory: /Users/isaacmineo/Main/projects/nutrivize-v2
