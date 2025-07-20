@@ -131,7 +131,7 @@ const NutritionOptimizationSuggestions: React.FC<NutritionOptimizationSuggestion
       }
 
       // Get food logs for the timeframe
-      const foodLogsResponse = await api.get(`/food-logs/?start_date=${startDate.toISOString().split('T')[0]}&end_date=${endDate.toISOString().split('T')[0]}`)
+      const foodLogsResponse = await api.get(`/food-logs/range?start_date=${startDate.toISOString().split('T')[0]}&end_date=${endDate.toISOString().split('T')[0]}`)
       const foodLogs = foodLogsResponse.data || []
 
       // Get user's nutrition targets

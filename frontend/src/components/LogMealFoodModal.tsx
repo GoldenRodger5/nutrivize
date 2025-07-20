@@ -67,6 +67,7 @@ export default function LogMealFoodModal({
   const [amount, setAmount] = useState(1)
   const [unit, setUnit] = useState('g')
   const [selectedMealType, setSelectedMealType] = useState('')
+  const [selectedDate, setSelectedDate] = useState('')
   const [notes, setNotes] = useState('')
   const [loading, setLoading] = useState(false)
   const [nutrition, setNutrition] = useState<NutritionData>({
@@ -125,6 +126,7 @@ export default function LogMealFoodModal({
       setAmount(1)
       setUnit(meal.portion_size ? meal.portion_size.split(' ')[1] || 'serving' : 'serving')
       setSelectedMealType(mealType || 'lunch')
+      setSelectedDate(getCurrentDateInTimezone().split('T')[0])
       setNotes(meal.preparation_notes || '')
       
       // Set base nutrition values
@@ -177,7 +179,7 @@ export default function LogMealFoodModal({
         meal_type: selectedMealType,
         notes,
         nutrition,
-        date: getCurrentDateInTimezone().split('T')[0]
+        date: selectedDate || getCurrentDateInTimezone().split('T')[0]
       }
 
       await api.post('/food-logs/', foodLogData)
@@ -275,6 +277,15 @@ export default function LogMealFoodModal({
                 <option value="dinner">Dinner</option>
                 <option value="snack">Snack</option>
               </Select>
+            </FormControl>
+            
+            <FormControl>
+              <FormLabel>Date</FormLabel>
+              <Input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+              />
             </FormControl>
             
             <FormControl>

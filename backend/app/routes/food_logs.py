@@ -86,11 +86,44 @@ async def get_daily_logs_with_goals(
     current_user: UserResponse = Depends(get_current_user)
 ):
     """Get daily food logs with active goal progress tracking"""
+    import logging
+    log = logging.getLogger(__name__)
+    
     try:
+        log.info(f"🔍 Getting daily logs with goals for user {current_user.uid} on {target_date}")
         daily_data = await food_log_service.get_daily_logs_with_goal_progress(current_user.uid, target_date)
+        log.info(f"✅ Successfully returned daily logs with goals for {target_date}")
         return daily_data
+    except ValueError as ve:
+        log.error(f"❌ Validation error for {current_user.uid} on {target_date}: {ve}")
+        raise HTTPException(status_code=400, detail=f"Invalid data for date {target_date}: {str(ve)}")
+    except KeyError as ke:
+        log.error(f"❌ Missing field error for {current_user.uid} on {target_date}: {ke}")
+        raise HTTPException(status_code=500, detail=f"Missing required field: {str(ke)}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get daily logs with goals: {str(e)}")
+        log.error(f"❌ Unexpected error for {current_user.uid} on {target_date}: {e}")
+        log.exception("Full traceback:")
+        # Return a safe fallback instead of 500 error
+        return {
+            "date": target_date.isoformat(),
+            "food_logs": [],
+            "nutrition_summary": {
+                "calories": 0,
+                "protein": 0,
+                "carbs": 0,
+                "fat": 0,
+                "fiber": 0,
+                "sugar": 0,
+                "sodium": 0
+            },
+            "water_summary": {
+                "current": 0,
+                "target": 64,
+                "percentage": 0
+            },
+            "goal_progress": None,
+            "error": f"Data temporarily unavailable for {target_date}"
+        }
 
 
 @router.get("/range", response_model=List[DailyNutritionSummary])

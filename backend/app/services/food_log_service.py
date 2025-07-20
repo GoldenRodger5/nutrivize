@@ -5,6 +5,7 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime, date
 from bson import ObjectId
 from collections import defaultdict
+import re
 
 
 class FoodLogService:
@@ -24,6 +25,21 @@ class FoodLogService:
         else:
             print("⚠️  FoodLogService initialized without database connection")
     
+    def _parse_amount(self, amount_value: Any) -> float:
+        """Parse amount value, handling both strings and numbers"""
+        if isinstance(amount_value, (int, float)):
+            return float(amount_value)
+        
+        if isinstance(amount_value, str):
+            # Extract numeric part from strings like "200g" or "1.5 cups"
+            match = re.search(r'(\d+\.?\d*)', amount_value)
+            if match:
+                return float(match.group(1))
+            else:
+                return 1.0  # Default fallback
+        
+        return 1.0  # Default fallback for any other type
+    
     async def log_food(self, log_data: FoodLogCreate, user_id: str) -> FoodLogResponse:
         """Log a food entry"""
         food_log = FoodLogEntry(
@@ -40,7 +56,14 @@ class FoodLogService:
         
         return FoodLogResponse(
             id=str(result.inserted_id),
-            **log_data.dict(),
+            date=log_data.date,
+            meal_type=log_data.meal_type,
+            food_id=log_data.food_id,
+            food_name=log_data.food_name,
+            amount=self._parse_amount(log_data.amount),  # Parse amount safely
+            unit=log_data.unit,
+            nutrition=log_data.nutrition,
+            notes=log_data.notes,
             logged_at=food_log.logged_at
         )
     
@@ -72,7 +95,7 @@ class FoodLogService:
                 meal_type=log["meal_type"],
                 food_id=log.get("food_id", ""),  # Handle missing food_id gracefully
                 food_name=log["food_name"],
-                amount=log["amount"],
+                amount=self._parse_amount(log["amount"]),  # Parse amount safely
                 unit=log["unit"],
                 nutrition=log["nutrition"],
                 notes=log.get("notes", ""),
@@ -165,7 +188,7 @@ class FoodLogService:
                 meal_type=log_doc["meal_type"],
                 food_id=log_doc["food_id"],
                 food_name=log_doc["food_name"],
-                amount=log_doc["amount"],
+                amount=self._parse_amount(log_doc["amount"]),  # Parse amount safely
                 unit=log_doc["unit"],
                 nutrition=log_doc["nutrition"],
                 notes=log_doc.get("notes", ""),
@@ -186,18 +209,47 @@ class FoodLogService:
     
     async def get_daily_logs_with_goal_progress(self, user_id: str, target_date: date) -> Dict[str, Any]:
         """Get daily food logs with active goal progress"""
+        import logging
+        logger = logging.getLogger(__name__)
+        
         try:
-            from ..services.goals_service import goals_service
-            from ..services.water_log_service import water_log_service
+            logger.info(f"🔍 Getting daily logs with goals for user {user_id} on {target_date}")
             
-            # Get daily summary
-            daily_summary = await self.get_daily_logs(user_id, target_date)
+            # Get daily summary - wrap in try-catch for specific error handling
+            try:
+                daily_summary = await self.get_daily_logs(user_id, target_date)
+                logger.info(f"✅ Successfully got daily logs: {len(daily_summary.meals)} meals")
+            except Exception as e:
+                logger.error(f"❌ Error getting daily logs for {user_id} on {target_date}: {e}")
+                # Create empty summary as fallback
+                from ..models.food_log import DailyNutritionSummary, NutritionInfo
+                daily_summary = DailyNutritionSummary(
+                    date=target_date,
+                    meals=[],
+                    total_nutrition=NutritionInfo(),
+                    meal_breakdown={}
+                )
             
-            # Get water summary
-            water_summary = await water_log_service.get_daily_water_summary(user_id, target_date)
+            # Get water summary - wrap in try-catch
+            try:
+                from ..services.water_log_service import water_log_service
+                water_summary = await water_log_service.get_daily_water_summary(user_id, target_date)
+                logger.info(f"✅ Successfully got water summary: {water_summary.total_amount}oz")
+            except Exception as e:
+                logger.error(f"❌ Error getting water summary for {user_id} on {target_date}: {e}")
+                # Create fallback water summary
+                from collections import namedtuple
+                WaterSummary = namedtuple('WaterSummary', ['total_amount', 'target_amount', 'percentage'])
+                water_summary = WaterSummary(total_amount=0, target_amount=64, percentage=0)
             
-            # Get active goal nutrition targets
-            goal_targets = await goals_service.get_active_goal_nutrition_targets(user_id)
+            # Get active goal nutrition targets - wrap in try-catch
+            try:
+                from ..services.goals_service import goals_service
+                goal_targets = await goals_service.get_active_goal_nutrition_targets(user_id)
+                logger.info(f"✅ Successfully got goal targets: {bool(goal_targets)}")
+            except Exception as e:
+                logger.error(f"❌ Error getting goal targets for {user_id}: {e}")
+                goal_targets = None
             
             result = {
                 "date": target_date.isoformat(),

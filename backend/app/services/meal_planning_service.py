@@ -244,15 +244,22 @@ class MealPlanningService:
         except Exception as e:
             raise ValueError(f"Failed to get meal plan versions: {str(e)}")
     
-    async def get_meal_plan_by_id(self, user_id: str, plan_id: str) -> Optional[Dict[str, Any]]:
+    def get_meal_plan_by_id(self, user_id: str, plan_id: str) -> Optional[Dict[str, Any]]:
         """Get a specific meal plan by ID"""
+        import logging
+        logger = logging.getLogger(__name__)
+        
         try:
+            logger.info(f"🔍 Looking for meal plan: user_id={user_id}, plan_id={plan_id}")
+            
+            # Use synchronous find_one (not await) since collection is sync
             plan = self.meal_plans_collection.find_one({
                 "user_id": user_id,
                 "plan_id": plan_id
             })
             
             if plan:
+                logger.info(f"✅ Found meal plan: {plan.get('name', 'unnamed')}")
                 plan["id"] = str(plan["_id"])
                 del plan["_id"]
                 
@@ -261,10 +268,20 @@ class MealPlanningService:
                     plan["created_at"] = plan["created_at"].isoformat()
                 if "updated_at" in plan and hasattr(plan["updated_at"], "isoformat"):
                     plan["updated_at"] = plan["updated_at"].isoformat()
+            else:
+                logger.warning(f"❌ Meal plan not found for user_id={user_id}, plan_id={plan_id}")
+                
+                # Check if plan exists for any user
+                any_plan = self.meal_plans_collection.find_one({"plan_id": plan_id})
+                if any_plan:
+                    logger.warning(f"⚠️ Plan exists but for different user: {any_plan.get('user_id')}")
+                else:
+                    logger.warning(f"⚠️ Plan {plan_id} does not exist at all")
             
             return plan
             
         except Exception as e:
+            logger.error(f"❌ Error getting meal plan: {e}")
             return None
     
     async def update_meal_plan(self, user_id: str, plan_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
@@ -304,126 +321,147 @@ class MealPlanningService:
         except Exception as e:
             return False
     
-    async def generate_shopping_list(self, user_id: str, plan_id: str) -> Dict[str, Any]:
-        """Generate shopping list with AI-powered pricing for a meal plan"""
+    async def generate_shopping_list(self, user_id: str, plan_id: str, force_regenerate: bool = False) -> Dict[str, Any]:
+        """Generate shopping list from meal plan food items"""
+        import logging
+        logger = logging.getLogger(__name__)
+        
         try:
-            meal_plan = await self.get_meal_plan_by_id(user_id, plan_id)
+            logger.info(f"🛒 Starting shopping list generation for plan {plan_id}")
+            
+            meal_plan = self.get_meal_plan_by_id(user_id, plan_id)
             if not meal_plan:
                 raise ValueError("Meal plan not found")
             
-            # Aggregate ingredients across all days and meals
-            ingredient_totals = defaultdict(lambda: {"amount": 0, "unit": "", "meals": []})
+            logger.info(f"✅ Found meal plan with {len(meal_plan.get('days', []))} days")
+            logger.info(f"🔍 DEBUG: meal_plan type = {type(meal_plan)}")
+            logger.info(f"🔍 DEBUG: meal_plan content = {str(meal_plan)[:200]}...")
             
-            for day in meal_plan.get("days", []):
-                for meal in day.get("meals", []):
-                    meal_name = meal.get("food_name", "Unknown meal")
+            if not isinstance(meal_plan, dict):
+                raise ValueError(f"Meal plan is not a dictionary, got {type(meal_plan)}")
+            
+            # Aggregate food items from ingredients in all meals
+            food_totals = defaultdict(lambda: {"amount": 0, "unit": "", "meals": []})
+            
+            for day_index, day in enumerate(meal_plan.get("days", [])):
+                logger.info(f"Processing day {day_index}: type={type(day)}")
+                
+                if not isinstance(day, dict):
+                    logger.error(f"❌ Day is not a dict: {type(day)} - {day}")
+                    continue
+                
+                day_meals = day.get("meals", [])
+                logger.info(f"Day meals type: {type(day_meals)}")
+                
+                # Handle different meal structures
+                meals_to_process = []
+                
+                if isinstance(day_meals, list):
+                    # New structure: meals is a list of meal objects
+                    meals_to_process = day_meals
+                    logger.info(f"Processing {len(meals_to_process)} meals from list structure")
+                elif isinstance(day_meals, dict):
+                    # Old structure: meals is a dict with meal_type keys
+                    logger.info(f"Processing meals from dict structure with keys: {list(day_meals.keys())}")
+                    for meal_type in ["breakfast", "lunch", "dinner", "snacks"]:
+                        if meal_type in day_meals and isinstance(day_meals[meal_type], list):
+                            meals_to_process.extend(day_meals[meal_type])
+                
+                # Process each meal and extract ingredients
+                for meal_index, food_item in enumerate(meals_to_process):
+                    logger.info(f"Processing meal {meal_index}: type={type(food_item)}")
                     
-                    # Extract ingredients if available
-                    ingredients = meal.get("ingredients", [])
-                    if not ingredients:
-                        # If no detailed ingredients, add the meal as a single item
-                        ingredients = [{
-                            "name": meal_name,
-                            "amount": 1,
-                            "unit": "serving"
-                        }]
+                    if not isinstance(food_item, dict):
+                        logger.error(f"❌ Food item is not a dict: {type(food_item)} - {food_item}")
+                        continue
+                    
+                    # Extract ingredients from the meal
+                    ingredients = food_item.get("ingredients", [])
+                    meal_type = food_item.get("meal_type", "unknown")
+                    meal_name = food_item.get("food_name", "Unknown meal")
+                    
+                    logger.info(f"Processing meal '{meal_name}' ({meal_type}) with {len(ingredients)} ingredients")
                     
                     for ingredient in ingredients:
-                        name = ingredient.get("name", "")
-                        amount = float(ingredient.get("amount", 1))
-                        unit = ingredient.get("unit", "")
-                        
-                        ingredient_totals[name]["amount"] += amount
-                        ingredient_totals[name]["unit"] = unit
-                        ingredient_totals[name]["meals"].append(meal_name)
+                        if not isinstance(ingredient, dict):
+                            continue
+                            
+                        try:
+                            ingredient_name = ingredient.get("name", "Unknown ingredient")
+                            amount = float(ingredient.get("amount", 1))
+                            unit = ingredient.get("unit", "serving")
+                            
+                            logger.info(f"Adding ingredient: {ingredient_name} - {amount} {unit}")
+                            
+                            # Aggregate quantities for same ingredients
+                            food_totals[ingredient_name]["amount"] += amount
+                            food_totals[ingredient_name]["unit"] = unit  # Keep the last unit
+                            food_totals[ingredient_name]["meals"].append(f"{meal_type.title()}")
+                            
+                        except Exception as ingredient_error:
+                            logger.error(f"❌ Error processing ingredient: {ingredient_error}")
+                            logger.error(f"Ingredient content: {ingredient}")
+                            continue
             
-            # Prepare ingredients for AI pricing
-            ingredients_for_ai = []
-            for name, details in ingredient_totals.items():
-                ingredients_for_ai.append({
-                    "name": name,
+            logger.info(f"✅ Processed {len(food_totals)} unique food items")
+            
+            # Prepare ingredients for pricing
+            ingredients_for_pricing = []
+            for food_name, details in food_totals.items():
+                ingredients_for_pricing.append({
+                    "name": food_name,
                     "amount": details["amount"],
                     "unit": details["unit"]
                 })
             
-            # Get AI-powered pricing
-            pricing_data = await self._get_ai_ingredient_pricing(ingredients_for_ai)
+            # Get AI pricing for ingredients
+            try:
+                pricing_result = await self._get_ai_ingredient_pricing(ingredients_for_pricing)
+                ingredient_prices = pricing_result.get("ingredients", {})
+                total_estimated_cost = pricing_result.get("total_cost", 0)
+                logger.info(f"✅ Got AI pricing for {len(ingredient_prices)} ingredients")
+            except Exception as pricing_error:
+                logger.warning(f"⚠️ AI pricing failed, using fallback: {pricing_error}")
+                pricing_result = self._fallback_pricing(ingredients_for_pricing)
+                ingredient_prices = pricing_result.get("ingredients", {})
+                total_estimated_cost = pricing_result.get("total_cost", 0)
             
-            # Build shopping list with AI pricing and nutrition data
+            # Convert to shopping list format with realistic pricing
             shopping_items = []
-            for ai_ingredient in pricing_data.get("ingredients", []):
-                ingredient_name = ai_ingredient["name"]
-                meals_used = ingredient_totals.get(ingredient_name, {}).get("meals", [])
+            for food_name, details in food_totals.items():
+                # Get price from AI/fallback pricing
+                item_price = 3.99  # Default fallback
+                for price_item in ingredient_prices:
+                    if isinstance(price_item, dict) and price_item.get("name", "").lower() == food_name.lower():
+                        item_price = price_item.get("estimated_cost", 3.99)
+                        break
                 
-                # Try to find nutrition data for this ingredient
-                food_id = None
-                nutrition_data = None
-                
-                try:
-                    from .food_service import food_service
-                    
-                    # Search for the food item by name
-                    search_results = await food_service.search_foods(ingredient_name, limit=1)
-                    
-                    if search_results and len(search_results) > 0:
-                        food_item = search_results[0]
-                        food_id = food_item.get("id")
-                        
-                        # Get nutrition data for the specific amount and unit
-                        nutrition_response = await food_service.get_food_nutrition(
-                            food_id, 
-                            ai_ingredient["amount_needed"], 
-                            ai_ingredient["unit_needed"]
-                        )
-                        nutrition_data = nutrition_response.get("nutrition")
-                        
-                except Exception as e:
-                    print(f"Could not fetch nutrition for {ingredient_name}: {e}")
-                
-                item = {
-                    "item_id": str(uuid.uuid4()),  # Add unique ID for each item
-                    "name": ai_ingredient["name"].title(),
-                    "amount": ai_ingredient["amount_needed"],
-                    "unit": ai_ingredient["unit_needed"],
-                    "estimated_price": ai_ingredient["estimated_cost"],
-                    "store_package_size": ai_ingredient["store_package_size"],
-                    "store_package_price": ai_ingredient["store_package_price"],
-                    "used_in_meals": list(set(meals_used)),
-                    "category": ai_ingredient["category"],
-                    "is_checked": False,  # Default to unchecked
-                    "food_id": food_id,
-                    "nutrition": nutrition_data,
-                    "in_food_index": food_id is not None
-                }
-                
-                shopping_items.append(item)
+                shopping_items.append({
+                    "item": food_name,
+                    "amount": details["amount"],
+                    "unit": details["unit"],
+                    "estimated_cost": round(item_price, 2),
+                    "category": "General",
+                    "in_food_index": True
+                })
             
-            # Sort by category for better organization
-            shopping_items.sort(key=lambda x: (x["category"], x["name"]))
+            # Calculate actual total cost
+            actual_total_cost = sum(item["estimated_cost"] for item in shopping_items)
             
-            # Calculate total cost from individual items
-            total_cost = sum(item["estimated_price"] for item in shopping_items)
-            
-            # Save shopping list
-            shopping_list = {
-                "user_id": user_id,
-                "meal_plan_id": plan_id,
-                "shopping_list_id": str(uuid.uuid4()),
-                "items": shopping_items,
-                "total_estimated_cost": round(total_cost, 2),
-                "generated_at": datetime.utcnow(),
-                "store_location": "New England Average (AI Estimated)",
-                "notes": pricing_data.get("pricing_notes", "AI-powered price estimates based on New England grocery store averages. Actual prices may vary by store, season, and brand.")
+            # Return in expected format
+            result = {
+                "shopping_list": shopping_items,
+                "total_items": len(shopping_items),
+                "estimated_total_cost": round(actual_total_cost, 2),
+                "plan_id": plan_id,
+                "generated_at": datetime.now().isoformat()
             }
             
-            # Save to database
-            result = self.shopping_lists_collection.insert_one(shopping_list)
-            shopping_list["id"] = str(result.inserted_id)
-            del shopping_list["_id"]
-            
-            return shopping_list
+            logger.info(f"✅ Generated shopping list with {len(shopping_items)} items")
+            return result
             
         except Exception as e:
+            logger.error(f"❌ Failed to generate shopping list: {e}")
             raise ValueError(f"Failed to generate shopping list: {str(e)}")
 
     def _clean_ai_json(self, json_text: str) -> str:
@@ -751,308 +789,6 @@ Return only JSON:
             print(f"Error deleting shopping list: {e}")
             return False
 
-    async def generate_shopping_list(self, user_id: str, plan_id: str, force_regenerate: bool = False) -> Dict[str, Any]:
-        """Generate shopping list with AI-powered pricing for a meal plan"""
-        try:
-            # Check for cached shopping list first (unless forced to regenerate)
-            if not force_regenerate:
-                cached_list = await self.get_cached_shopping_list(user_id, plan_id, max_age_hours=24)
-                if cached_list:
-                    print(f"✅ Using cached shopping list from {cached_list['generated_at']}")
-                    return cached_list
-            
-            print("🔄 Generating new shopping list...")
-            meal_plan = await self.get_meal_plan_by_id(user_id, plan_id)
-            if not meal_plan:
-                raise ValueError("Meal plan not found")
-            
-            # Check if a recent cached shopping list exists
-            cached_list = await self.get_cached_shopping_list(user_id, plan_id)
-            if cached_list and not force_regenerate:
-                print("Using cached shopping list")
-                return cached_list
-            
-            # Aggregate ingredients across all days and meals
-            ingredient_totals = defaultdict(lambda: {"amount": 0, "unit": "", "meals": []})
-            
-            for day in meal_plan.get("days", []):
-                for meal in day.get("meals", []):
-                    meal_name = meal.get("food_name", "Unknown meal")
-                    
-                    # Extract ingredients if available
-                    ingredients = meal.get("ingredients", [])
-                    if not ingredients:
-                        # If no detailed ingredients, add the meal as a single item
-                        ingredients = [{
-                            "name": meal_name,
-                            "amount": 1,
-                            "unit": "serving"
-                        }]
-                    
-                    for ingredient in ingredients:
-                        name = ingredient.get("name", "")
-                        amount = float(ingredient.get("amount", 1))
-                        unit = ingredient.get("unit", "")
-                        
-                        ingredient_totals[name]["amount"] += amount
-                        ingredient_totals[name]["unit"] = unit
-                        ingredient_totals[name]["meals"].append(meal_name)
-            
-            # Prepare ingredients for AI pricing
-            ingredients_for_ai = []
-            for name, details in ingredient_totals.items():
-                ingredients_for_ai.append({
-                    "name": name,
-                    "amount": details["amount"],
-                    "unit": details["unit"]
-                })
-            
-            # Get AI-powered pricing
-            pricing_data = await self._get_ai_ingredient_pricing(ingredients_for_ai)
-            
-            # Build shopping list with AI pricing
-            shopping_items = []
-            for index, ai_ingredient in enumerate(pricing_data.get("ingredients", [])):
-                ingredient_name = ai_ingredient["name"]
-                meals_used = ingredient_totals.get(ingredient_name, {}).get("meals", [])
-                
-                item = {
-                    "item_id": str(uuid.uuid4()),  # Add unique item ID
-                    "name": ai_ingredient["name"].title(),
-                    "amount": ai_ingredient["amount_needed"],
-                    "unit": ai_ingredient["unit_needed"],
-                    "estimated_price": ai_ingredient["estimated_cost"],
-                    "store_package_size": ai_ingredient["store_package_size"],
-                    "store_package_price": ai_ingredient["store_package_price"],
-                    "used_in_meals": list(set(meals_used)),
-                    "category": ai_ingredient["category"],
-                    "is_checked": False,  # Add checkbox functionality
-                    "food_id": None  # For linking to nutrition data
-                }
-                
-                shopping_items.append(item)
-            
-            # Sort by category for better organization
-            shopping_items.sort(key=lambda x: (x["category"], x["name"]))
-            
-            # Calculate total cost from individual items
-            total_cost = sum(item["estimated_price"] for item in shopping_items)
-            
-            # Save shopping list
-            shopping_list = {
-                "user_id": user_id,
-                "meal_plan_id": plan_id,
-                "shopping_list_id": str(uuid.uuid4()),
-                "items": shopping_items,
-                "total_estimated_cost": round(total_cost, 2),
-                "generated_at": datetime.utcnow(),
-                "store_location": "New England Average (AI Estimated)",
-                "notes": pricing_data.get("pricing_notes", "AI-powered price estimates based on New England grocery store averages. Actual prices may vary by store, season, and brand.")
-            }
-            
-            # Save to database
-            result = self.shopping_lists_collection.insert_one(shopping_list)
-            shopping_list["id"] = str(result.inserted_id)
-            del shopping_list["_id"]
-            
-            return shopping_list
-            
-        except Exception as e:
-            raise ValueError(f"Failed to generate shopping list: {str(e)}")
     
-    async def update_shopping_list(self, user_id: str, shopping_list_id: str, update_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """Update a complete shopping list"""
-        try:
-            # Find the shopping list
-            shopping_list = self.shopping_lists_collection.find_one({
-                "user_id": user_id,
-                "shopping_list_id": shopping_list_id
-            })
-            
-            if not shopping_list:
-                return None
-            
-            # Prepare update data
-            update_fields = {}
-            if "items" in update_data:
-                # Add item IDs if not present and update is_checked status
-                for item in update_data["items"]:
-                    if "item_id" not in item:
-                        item["item_id"] = str(uuid.uuid4())
-                    # Set default values for missing fields
-                    if "is_checked" not in item:
-                        item["is_checked"] = False
-                    if "estimated_price" not in item or item["estimated_price"] is None:
-                        item["estimated_price"] = 0.0
-                    # Ensure other optional fields have defaults
-                    if "store_package_size" not in item:
-                        item["store_package_size"] = None
-                    if "store_package_price" not in item or item["store_package_price"] is None:
-                        item["store_package_price"] = 0.0
-                    if "category" not in item:
-                        item["category"] = "other"
-                    if "used_in_meals" not in item:
-                        item["used_in_meals"] = []
-                    if "food_id" not in item:
-                        item["food_id"] = None
-                update_fields["items"] = update_data["items"]
-                
-                # Recalculate total cost with safe float conversion
-                total_cost = 0.0
-                for item in update_data["items"]:
-                    price = item.get("estimated_price", 0.0)
-                    if price is not None:
-                        total_cost += float(price)
-                update_fields["total_estimated_cost"] = round(total_cost, 2)
-            
-            if "notes" in update_data:
-                update_fields["notes"] = update_data["notes"]
-            
-            update_fields["updated_at"] = datetime.utcnow()
-            
-            # Update the shopping list
-            result = self.shopping_lists_collection.update_one(
-                {"user_id": user_id, "shopping_list_id": shopping_list_id},
-                {"$set": update_fields}
-            )
-            
-            if result.modified_count == 0:
-                return None
-            
-            # Return updated shopping list
-            updated_list = self.shopping_lists_collection.find_one({
-                "user_id": user_id,
-                "shopping_list_id": shopping_list_id
-            })
-            
-            if updated_list:
-                updated_list["id"] = str(updated_list["_id"])
-                del updated_list["_id"]
-            
-            return updated_list
-            
-        except Exception as e:
-            raise ValueError(f"Failed to update shopping list: {str(e)}")
-
-    async def update_shopping_list_item(self, user_id: str, shopping_list_id: str, item_id: str, update_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """Update a specific item in a shopping list"""
-        try:
-            # Find the shopping list
-            shopping_list = self.shopping_lists_collection.find_one({
-                "user_id": user_id,
-                "shopping_list_id": shopping_list_id
-            })
-            
-            if not shopping_list:
-                return None
-            
-            # Find and update the specific item
-            items = shopping_list.get("items", [])
-            item_found = False
-            
-            for item in items:
-                if item.get("item_id") == item_id:
-                    # Update the item fields
-                    if "is_checked" in update_data:
-                        item["is_checked"] = update_data["is_checked"]
-                    if "amount" in update_data:
-                        item["amount"] = update_data["amount"]
-                    if "notes" in update_data:
-                        item["notes"] = update_data["notes"]
-                    
-                    item["updated_at"] = datetime.utcnow().isoformat()
-                    item_found = True
-                    break
-            
-            if not item_found:
-                return None
-            
-            # Update the shopping list in database
-            result = self.shopping_lists_collection.update_one(
-                {"user_id": user_id, "shopping_list_id": shopping_list_id},
-                {"$set": {"items": items, "updated_at": datetime.utcnow()}}
-            )
-            
-            if result.modified_count == 0:
-                return None
-            
-            # Return the updated item
-            for item in items:
-                if item.get("item_id") == item_id:
-                    return item
-                    
-            return None
-            
-        except Exception as e:
-            raise ValueError(f"Failed to update shopping list item: {str(e)}")
-
-    async def get_shopping_item_nutrition(self, user_id: str, shopping_list_id: str, item_id: str) -> Optional[Dict[str, Any]]:
-        """Get nutrition information for a shopping list item"""
-        try:
-            # Find the shopping list
-            shopping_list = self.shopping_lists_collection.find_one({
-                "user_id": user_id,
-                "shopping_list_id": shopping_list_id
-            })
-            
-            if not shopping_list:
-                return None
-            
-            # Find the specific item
-            items = shopping_list.get("items", [])
-            target_item = None
-            
-            for item in items:
-                if item.get("item_id") == item_id:
-                    target_item = item
-                    break
-            
-            if not target_item:
-                return None
-            
-            # Try to get nutrition data from food service
-            try:
-                from .food_service import food_service
-                
-                # Search for the food item by name
-                search_results = await food_service.search_foods(target_item["name"], limit=1)
-                
-                if search_results and len(search_results) > 0:
-                    food_item = search_results[0]
-                    return {
-                        "item_name": target_item["name"],
-                        "amount": target_item["amount"],
-                        "unit": target_item["unit"],
-                        "nutrition": food_item.get("nutrition", {}),
-                        "food_id": food_item.get("id"),
-                        "food_name": food_item.get("name"),
-                        "used_in_meals": target_item.get("used_in_meals", [])
-                    }
-                else:
-                    # Return basic info if no nutrition data found
-                    return {
-                        "item_name": target_item["name"],
-                        "amount": target_item["amount"],
-                        "unit": target_item["unit"],
-                        "nutrition": None,
-                        "message": "Nutrition data not available for this item",
-                        "used_in_meals": target_item.get("used_in_meals", [])
-                    }
-                    
-            except Exception as nutrition_error:
-                print(f"Error fetching nutrition data: {nutrition_error}")
-                return {
-                    "item_name": target_item["name"],
-                    "amount": target_item["amount"],
-                    "unit": target_item["unit"],
-                    "nutrition": None,
-                    "error": "Could not fetch nutrition data",
-                    "used_in_meals": target_item.get("used_in_meals", [])
-                }
-            
-        except Exception as e:
-            raise ValueError(f"Failed to get nutrition data: {str(e)}")
-
-
 # Global meal planning service instance
 meal_planning_service = MealPlanningService()

@@ -125,6 +125,8 @@ interface MealPlan {
   calories_per_day?: number
   name?: string
   title?: string
+  start_date?: string
+  is_active?: boolean
 }
 
 // Remove unused interface - ShoppingList type is imported from types.ts
@@ -422,65 +424,83 @@ const MealPlans: React.FC = () => {
   const generateShoppingList = async (planId: string, forceRegenerate: boolean = false) => {
     try {
       setIsLoading(true)
+      let shoppingData = null
+      let isFromCache = false
       
       // First try to get cached shopping list (unless force regenerating)
       if (!forceRegenerate) {
         try {
+          console.log('Checking for cached shopping list...')
           const cachedResponse = await api.get(`/meal-planning/plans/${planId}/shopping-list`)
-          const shoppingData = cachedResponse.data
-          setShoppingListData(shoppingData)
-          setCurrentShoppingPlanId(planId)
-          onShoppingOpen()
-          
-          toast({
-            title: 'Shopping List Loaded',
-            description: `Cached shopping list loaded with ${shoppingData.items?.length || 0} items. Total estimated cost: $${shoppingData.total_estimated_cost || 0}`,
-            status: 'success',
-            duration: 3000,
-            isClosable: true
-          })
-          return
-        } catch (cachedError) {
+          shoppingData = cachedResponse.data
+          isFromCache = true
+          console.log('Found cached shopping list:', shoppingData)
+        } catch (cachedError: any) {
           // If no cached version, continue to generate new one
-          console.log('No cached shopping list found, generating new one...')
+          console.log('No cached shopping list found, will generate new one...', cachedError.response?.status)
         }
       }
       
-      // Generate new shopping list
-      try {
-        const response = await api.post(`/meal-planning/plans/${planId}/shopping-list`, {
-          force_regenerate: forceRegenerate
-        })
-        
-        // The backend returns the shopping list directly with an 'items' array
-        const shoppingData = response.data
-        setShoppingListData(shoppingData)
-        setCurrentShoppingPlanId(planId)
-        onShoppingOpen()
-      } catch (error: any) {
-        console.error('Error generating shopping list:', error)
-        toast({
-          title: 'Error Generating Shopping List',
-          description: error.response?.data?.detail || 'Failed to generate shopping list. The meal plan may no longer exist.',
-          status: 'error',
-          duration: 5000,
-          isClosable: true
-        })
-        return
+      // Generate new shopping list if no cached version or force regenerating
+      if (!shoppingData || forceRegenerate) {
+        try {
+          console.log('Generating new shopping list...')
+          const response = await api.post(`/meal-planning/plans/${planId}/shopping-list`, {
+            force_regenerate: forceRegenerate
+          })
+          
+          shoppingData = response.data
+          isFromCache = false
+          console.log('Generated new shopping list:', shoppingData)
+        } catch (error: any) {
+          console.error('Error generating shopping list:', error)
+          toast({
+            title: 'Error Generating Shopping List',
+            description: error.response?.data?.detail || 'Failed to generate shopping list. The meal plan may no longer exist.',
+            status: 'error',
+            duration: 5000,
+            isClosable: true
+          })
+          return
+        }
       }
       
-      toast({
-        title: forceRegenerate ? 'Shopping List Regenerated' : 'Shopping List Generated',
-        description: `Your shopping list has been ${forceRegenerate ? 'regenerated' : 'created'} with ${shoppingListData?.items?.length || 0} items. Total estimated cost: $${shoppingListData?.total_estimated_cost || 0}`,
-        status: 'success',
-        duration: 3000,
-        isClosable: true
-      })
+      // Set the shopping list data and open modal
+      if (shoppingData) {
+        // Transform API response to match expected format
+        const transformedItems = (shoppingData.shopping_list || shoppingData.items || []).map((item: any) => ({
+          ...item,
+          name: item.name || item.item, // Map 'item' field to 'name'
+          estimated_price: item.estimated_price || item.estimated_cost, // Map 'estimated_cost' to 'estimated_price'
+          is_checked: item.is_checked || false // Ensure is_checked is set
+        }))
+        
+        const transformedData = {
+          ...shoppingData,
+          items: transformedItems
+        }
+        
+        setShoppingListData(transformedData)
+        setCurrentShoppingPlanId(planId)
+        onShoppingOpen()
+        
+        // Show appropriate success message
+        const itemCount = transformedItems.length
+        const totalCost = shoppingData.estimated_total_cost || shoppingData.total_estimated_cost || 0
+        
+        toast({
+          title: isFromCache ? 'Shopping List Loaded' : (forceRegenerate ? 'Shopping List Regenerated' : 'Shopping List Generated'),
+          description: `Shopping list ${isFromCache ? 'loaded from cache' : (forceRegenerate ? 'regenerated' : 'created')} with ${itemCount} items. Total estimated cost: $${totalCost.toFixed(2)}`,
+          status: 'success',
+          duration: 3000,
+          isClosable: true
+        })
+      }
     } catch (err: any) {
-      console.error('Error generating shopping list:', err)
+      console.error('Error with shopping list:', err)
       toast({
         title: 'Error',
-        description: 'Failed to generate shopping list',
+        description: 'Failed to load or generate shopping list',
         status: 'error',
         duration: 5000,
         isClosable: true
@@ -750,17 +770,20 @@ const MealPlans: React.FC = () => {
 
     // Recalculate nutrition based on ingredients if nutrition data is available
     if (updatedMeal.meal.ingredients.some(ing => ing.calories || ing.protein || ing.carbs || ing.fat)) {
-      const totalNutrition = updatedMeal.meal.ingredients.reduce((total, ingredient) => ({
-        calories: total.calories + (ingredient.calories || 0),
-        protein: total.protein + (ingredient.protein || 0),
-        carbs: total.carbs + (ingredient.carbs || 0),
-        fat: total.fat + (ingredient.fat || 0)
-      }), { calories: 0, protein: 0, carbs: 0, fat: 0 })
+      const totalNutrition = updatedMeal.meal.ingredients.reduce((total, ingredient) => {
+        const amount = ingredient.amount || 1;
+        return {
+          calories: total.calories + ((ingredient.calories || 0) * amount),
+          protein: total.protein + ((ingredient.protein || 0) * amount),
+          carbs: total.carbs + ((ingredient.carbs || 0) * amount),
+          fat: total.fat + ((ingredient.fat || 0) * amount)
+        }
+      }, { calories: 0, protein: 0, carbs: 0, fat: 0 })
 
-      updatedMeal.meal.calories = totalNutrition.calories
-      updatedMeal.meal.protein = totalNutrition.protein
-      updatedMeal.meal.carbs = totalNutrition.carbs
-      updatedMeal.meal.fat = totalNutrition.fat
+      updatedMeal.meal.calories = Math.round(totalNutrition.calories * 100) / 100
+      updatedMeal.meal.protein = Math.round(totalNutrition.protein * 100) / 100
+      updatedMeal.meal.carbs = Math.round(totalNutrition.carbs * 100) / 100
+      updatedMeal.meal.fat = Math.round(totalNutrition.fat * 100) / 100
     }
 
     setEditingMeal(updatedMeal)
@@ -795,17 +818,20 @@ const MealPlans: React.FC = () => {
       updatedMeal.meal.ingredients.splice(index, 1)
 
       // Recalculate nutrition
-      const totalNutrition = updatedMeal.meal.ingredients.reduce((total, ingredient) => ({
-        calories: total.calories + (ingredient.calories || 0),
-        protein: total.protein + (ingredient.protein || 0),
-        carbs: total.carbs + (ingredient.carbs || 0),
-        fat: total.fat + (ingredient.fat || 0)
-      }), { calories: 0, protein: 0, carbs: 0, fat: 0 })
+      const totalNutrition = updatedMeal.meal.ingredients.reduce((total, ingredient) => {
+        const amount = ingredient.amount || 1;
+        return {
+          calories: total.calories + ((ingredient.calories || 0) * amount),
+          protein: total.protein + ((ingredient.protein || 0) * amount),
+          carbs: total.carbs + ((ingredient.carbs || 0) * amount),
+          fat: total.fat + ((ingredient.fat || 0) * amount)
+        }
+      }, { calories: 0, protein: 0, carbs: 0, fat: 0 })
 
-      updatedMeal.meal.calories = totalNutrition.calories
-      updatedMeal.meal.protein = totalNutrition.protein
-      updatedMeal.meal.carbs = totalNutrition.carbs
-      updatedMeal.meal.fat = totalNutrition.fat
+      updatedMeal.meal.calories = Math.round(totalNutrition.calories * 100) / 100
+      updatedMeal.meal.protein = Math.round(totalNutrition.protein * 100) / 100
+      updatedMeal.meal.carbs = Math.round(totalNutrition.carbs * 100) / 100
+      updatedMeal.meal.fat = Math.round(totalNutrition.fat * 100) / 100
 
       setEditingMeal(updatedMeal)
     }
@@ -956,7 +982,26 @@ const MealPlans: React.FC = () => {
   // Note: saveSingleMealLog function removed as it was unused
 
   // Helper function to format dates
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | null | undefined, dayIndex: number = 0, startDate?: string) => {
+    if (!dateString) {
+      // If no date but we have start_date, calculate the date for this day
+      if (startDate) {
+        try {
+          const date = new Date(startDate)
+          date.setDate(date.getDate() + dayIndex)
+          return date.toLocaleDateString('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          })
+        } catch (error) {
+          return 'Invalid date'
+        }
+      }
+      return 'Date not set'
+    }
+    
     try {
       const date = new Date(dateString)
       return date.toLocaleDateString('en-US', { 
@@ -1548,7 +1593,7 @@ const MealPlans: React.FC = () => {
                           <Box flex="1" textAlign="left">
                             <HStack justify="space-between">
                               <Text fontWeight="bold">
-                                {formatDate(day.date)}
+                                {formatDate(day.date, dayIndex, selectedPlan.start_date)}
                               </Text>
                               <Badge colorScheme="blue">
                                 {Math.round(day.total_nutrition?.calories || 0)} cal
@@ -1882,18 +1927,22 @@ const MealPlans: React.FC = () => {
                             
                             <SimpleGrid columns={{ base: 2, md: 4 }} spacing={3} w="full">
                               <FormControl>
-                                <FormLabel fontSize="xs">Calories</FormLabel>
+                                <FormLabel fontSize="xs">Calories (per {ingredient.unit})</FormLabel>
                                 <NumberInput
                                   value={ingredient.calories || 0}
                                   onChange={(_, num) => updateIngredient(idx, 'calories', num || 0)}
                                   size="sm"
                                   min={0}
+                                  step={0.1}
                                 >
                                   <NumberInputField />
                                 </NumberInput>
+                                <Text fontSize="xs" color="blue.600">
+                                  Total: {Math.round((ingredient.calories || 0) * (ingredient.amount || 1) * 100) / 100}
+                                </Text>
                               </FormControl>
                               <FormControl>
-                                <FormLabel fontSize="xs">Protein (g)</FormLabel>
+                                <FormLabel fontSize="xs">Protein (g per {ingredient.unit})</FormLabel>
                                 <NumberInput
                                   value={ingredient.protein || 0}
                                   onChange={(_, num) => updateIngredient(idx, 'protein', num || 0)}
@@ -1903,9 +1952,12 @@ const MealPlans: React.FC = () => {
                                 >
                                   <NumberInputField />
                                 </NumberInput>
+                                <Text fontSize="xs" color="blue.600">
+                                  Total: {Math.round((ingredient.protein || 0) * (ingredient.amount || 1) * 100) / 100}g
+                                </Text>
                               </FormControl>
                               <FormControl>
-                                <FormLabel fontSize="xs">Carbs (g)</FormLabel>
+                                <FormLabel fontSize="xs">Carbs (g per {ingredient.unit})</FormLabel>
                                 <NumberInput
                                   value={ingredient.carbs || 0}
                                   onChange={(_, num) => updateIngredient(idx, 'carbs', num || 0)}
@@ -1915,9 +1967,12 @@ const MealPlans: React.FC = () => {
                                 >
                                   <NumberInputField />
                                 </NumberInput>
+                                <Text fontSize="xs" color="blue.600">
+                                  Total: {Math.round((ingredient.carbs || 0) * (ingredient.amount || 1) * 100) / 100}g
+                                </Text>
                               </FormControl>
                               <FormControl>
-                                <FormLabel fontSize="xs">Fat (g)</FormLabel>
+                                <FormLabel fontSize="xs">Fat (g per {ingredient.unit})</FormLabel>
                                 <NumberInput
                                   value={ingredient.fat || 0}
                                   onChange={(_, num) => updateIngredient(idx, 'fat', num || 0)}
@@ -1927,6 +1982,9 @@ const MealPlans: React.FC = () => {
                                 >
                                   <NumberInputField />
                                 </NumberInput>
+                                <Text fontSize="xs" color="blue.600">
+                                  Total: {Math.round((ingredient.fat || 0) * (ingredient.amount || 1) * 100) / 100}g
+                                </Text>
                               </FormControl>
                             </SimpleGrid>
                             
@@ -1948,23 +2006,23 @@ const MealPlans: React.FC = () => {
 
                   <Card bg="gray.50">
                     <CardBody>
-                      <Text fontWeight="bold" mb={2}>Updated Nutrition:</Text>
+                      <Text fontWeight="bold" mb={2}>Updated Nutrition (Total for All Ingredients):</Text>
                       <SimpleGrid columns={4} spacing={3}>
                         <Stat size="sm">
                           <StatLabel>Calories</StatLabel>
-                          <StatNumber>{Math.round(editingMeal.meal.calories)}</StatNumber>
+                          <StatNumber>{Math.round(editingMeal.meal.calories * 100) / 100}</StatNumber>
                         </Stat>
                         <Stat size="sm">
                           <StatLabel>Protein</StatLabel>
-                          <StatNumber>{Math.round(editingMeal.meal.protein)}g</StatNumber>
+                          <StatNumber>{Math.round(editingMeal.meal.protein * 100) / 100}g</StatNumber>
                         </Stat>
                         <Stat size="sm">
                           <StatLabel>Carbs</StatLabel>
-                          <StatNumber>{Math.round(editingMeal.meal.carbs)}g</StatNumber>
+                          <StatNumber>{Math.round(editingMeal.meal.carbs * 100) / 100}g</StatNumber>
                         </Stat>
                         <Stat size="sm">
                           <StatLabel>Fat</StatLabel>
-                          <StatNumber>{Math.round(editingMeal.meal.fat)}g</StatNumber>
+                          <StatNumber>{Math.round(editingMeal.meal.fat * 100) / 100}g</StatNumber>
                         </Stat>
                       </SimpleGrid>
                     </CardBody>

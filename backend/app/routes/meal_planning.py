@@ -609,9 +609,14 @@ async def generate_shopping_list(
     current_user: UserResponse = Depends(get_current_user)
 ):
     """Generate shopping list with New England pricing for a meal plan"""
+    import logging
+    logger = logging.getLogger(__name__)
+    
     try:
         user_id = current_user.uid
         force_regenerate = request.force_regenerate if request else False
+        
+        logger.info(f"🛒 Generating shopping list for plan {plan_id}, user {user_id}, force_regenerate={force_regenerate}")
         
         shopping_list = await meal_planning_service.generate_shopping_list(
             user_id, 
@@ -619,9 +624,18 @@ async def generate_shopping_list(
             force_regenerate=force_regenerate
         )
         
+        logger.info(f"✅ Successfully generated shopping list for plan {plan_id}")
         return shopping_list
         
+    except ValueError as ve:
+        logger.error(f"❌ Validation error generating shopping list for plan {plan_id}: {ve}")
+        raise HTTPException(status_code=400, detail=f"Invalid meal plan data: {str(ve)}")
+    except KeyError as ke:
+        logger.error(f"❌ Missing field error in shopping list for plan {plan_id}: {ke}")
+        raise HTTPException(status_code=500, detail=f"Missing required field in meal plan: {str(ke)}")
     except Exception as e:
+        logger.error(f"❌ Failed to generate shopping list for plan {plan_id}: {e}")
+        logger.exception("Full shopping list error traceback:")
         raise HTTPException(status_code=500, detail=f"Failed to generate shopping list: {str(e)}")
 
 @router.get("/plans/{plan_id}/shopping-list")

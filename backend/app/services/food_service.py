@@ -144,9 +144,17 @@ class FoodService:
             return FoodItemResponse(
                 id=str(food_doc["_id"]),
                 name=food_doc["name"],
-                serving_size=food_doc["serving_size"],
-                serving_unit=food_doc["serving_unit"],
-                nutrition=food_doc["nutrition"],
+                serving_size=food_doc.get("serving_size", 1.0),
+                serving_unit=food_doc.get("serving_unit", "serving"),
+                nutrition=food_doc.get("nutrition", {
+                    "calories": 0,
+                    "protein": 0,
+                    "carbs": 0,
+                    "fat": 0,
+                    "fiber": 0,
+                    "sugar": 0,
+                    "sodium": 0
+                }),
                 source=food_doc.get("source", "user"),
                 barcode=food_doc.get("barcode"),
                 dietary_attributes=food_doc.get("dietary_attributes")
@@ -186,9 +194,17 @@ class FoodService:
             results.append(FoodItemResponse(
                 id=str(food_doc["_id"]),
                 name=food_doc["name"],
-                serving_size=food_doc["serving_size"],
-                serving_unit=food_doc["serving_unit"],
-                nutrition=food_doc["nutrition"],
+                serving_size=food_doc.get("serving_size", 1.0),
+                serving_unit=food_doc.get("serving_unit", "serving"),
+                nutrition=food_doc.get("nutrition", {
+                    "calories": 0,
+                    "protein": 0,
+                    "carbs": 0,
+                    "fat": 0,
+                    "fiber": 0,
+                    "sugar": 0,
+                    "sodium": 0
+                }),
                 source=food_doc.get("source", "user"),
                 barcode=food_doc.get("barcode"),
                 dietary_attributes=food_doc.get("dietary_attributes")
@@ -315,9 +331,17 @@ class FoodService:
             results.append(FoodItemResponse(
                 id=str(food_doc["_id"]),
                 name=food_doc["name"],
-                serving_size=food_doc["serving_size"],
-                serving_unit=food_doc["serving_unit"],
-                nutrition=food_doc["nutrition"],
+                serving_size=food_doc.get("serving_size", 1.0),
+                serving_unit=food_doc.get("serving_unit", "serving"),
+                nutrition=food_doc.get("nutrition", {
+                    "calories": 0,
+                    "protein": 0,
+                    "carbs": 0,
+                    "fat": 0,
+                    "fiber": 0,
+                    "sugar": 0,
+                    "sodium": 0
+                }),
                 source=food_doc.get("source", "user"),
                 barcode=food_doc.get("barcode"),
                 dietary_attributes=food_doc.get("dietary_attributes")

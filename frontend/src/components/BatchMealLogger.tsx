@@ -84,8 +84,20 @@ const BatchMealLogger: React.FC<BatchMealLoggerProps> = ({
   const toast = useToast()
 
   useEffect(() => {
+    console.log('BatchMealLogger useEffect triggered with mealPlan:', mealPlan)
     if (mealPlan) {
-      initializeFromMealPlan()
+      try {
+        initializeFromMealPlan()
+      } catch (error) {
+        console.error('Error initializing from meal plan:', error)
+        toast({
+          title: 'Error Loading Meal Plan',
+          description: 'There was an issue loading the meal plan data. Please try again.',
+          status: 'error',
+          duration: 5000,
+          isClosable: true
+        })
+      }
     }
   }, [mealPlan])
 
@@ -95,47 +107,72 @@ const BatchMealLogger: React.FC<BatchMealLoggerProps> = ({
     const items: BatchMealItem[] = []
     
     mealPlan.days.forEach((day: any, dayIndex: number) => {
+      console.log('Processing day:', dayIndex, 'Day data:', day)
+      
+      // Handle different possible data structures for meals
+      let mealsToProcess: any[] = []
+      
       if (day.meals) {
-        day.meals.forEach((meal: any, mealIndex: number) => {
-          if (meal.ingredients && meal.ingredients.length > 0) {
-            // Add ingredients as separate items
-            meal.ingredients.forEach((ingredient: any, ingIndex: number) => {
-              items.push({
-                id: `${dayIndex}-${mealIndex}-${ingIndex}`,
-                name: ingredient.name,
-                calories: ingredient.calories || 0,
-                protein: ingredient.protein || 0,
-                carbs: ingredient.carbs || 0,
-                fat: ingredient.fat || 0,
-                fiber: ingredient.fiber || 0,
-                quantity: ingredient.amount || 1,
-                unit: ingredient.unit || 'serving',
-                selected: false,
-                meal_type: meal.meal_type || 'lunch',
-                food_id: ingredient.food_id
+        if (Array.isArray(day.meals)) {
+          // meals is already an array
+          mealsToProcess = day.meals
+        } else if (typeof day.meals === 'object') {
+          // meals is an object with meal types as keys
+          Object.entries(day.meals).forEach(([mealType, mealsList]: [string, any]) => {
+            if (Array.isArray(mealsList)) {
+              mealsList.forEach((meal: any) => {
+                mealsToProcess.push({
+                  ...meal,
+                  meal_type: mealType
+                })
               })
-            })
-          } else {
-            // Add meal as single item
+            }
+          })
+        }
+      }
+      
+      console.log('Meals to process for day', dayIndex, ':', mealsToProcess)
+      
+      mealsToProcess.forEach((meal: any, mealIndex: number) => {
+        if (meal.ingredients && meal.ingredients.length > 0) {
+          // Add ingredients as separate items
+          meal.ingredients.forEach((ingredient: any, ingIndex: number) => {
             items.push({
-              id: `${dayIndex}-${mealIndex}`,
-              name: meal.food_name,
-              calories: meal.calories || 0,
-              protein: meal.protein || 0,
-              carbs: meal.carbs || 0,
-              fat: meal.fat || 0,
-              fiber: meal.fiber || 0,
-              quantity: 1,
-              unit: meal.portion_size || 'serving',
+              id: `${dayIndex}-${mealIndex}-${ingIndex}`,
+              name: ingredient.name,
+              calories: ingredient.calories || 0,
+              protein: ingredient.protein || 0,
+              carbs: ingredient.carbs || 0,
+              fat: ingredient.fat || 0,
+              fiber: ingredient.fiber || 0,
+              quantity: ingredient.amount || 1,
+              unit: ingredient.unit || 'serving',
               selected: false,
               meal_type: meal.meal_type || 'lunch',
-              food_id: meal.food_id
+              food_id: ingredient.food_id
             })
-          }
-        })
-      }
+          })
+        } else {
+          // Add meal as single item
+          items.push({
+            id: `${dayIndex}-${mealIndex}`,
+            name: meal.food_name || meal.name || 'Unknown meal',
+            calories: meal.calories || 0,
+            protein: meal.protein || 0,
+            carbs: meal.carbs || 0,
+            fat: meal.fat || 0,
+            fiber: meal.fiber || 0,
+            quantity: 1,
+            unit: meal.portion_size || 'serving',
+            selected: false,
+            meal_type: meal.meal_type || 'lunch',
+            food_id: meal.food_id
+          })
+        }
+      })
     })
 
+    console.log('Generated batch items:', items)
     setBatchItems(items)
   }
 

@@ -81,6 +81,29 @@ class GoalsService:
                 except (ValueError, TypeError):
                     end_date = None
             
+            # Handle goal_type - convert 'general' to 'maintenance' or use default
+            goal_type = goal.get("goal_type", "maintenance")
+            if goal_type == "general":
+                goal_type = "maintenance"
+            # Validate goal_type is one of the allowed values
+            allowed_goal_types = ["weight_loss", "weight_gain", "maintenance", "muscle_gain"]
+            if goal_type not in allowed_goal_types:
+                goal_type = "maintenance"
+            
+            # Handle weight_target - ensure it has required fields or set to None
+            weight_target = goal.get("weight_target")
+            if weight_target and isinstance(weight_target, dict):
+                # Check if it has all required fields
+                required_weight_fields = ['current_weight', 'target_weight', 'weekly_rate']
+                if all(field in weight_target and weight_target[field] is not None for field in required_weight_fields):
+                    # Valid weight target - keep as is
+                    pass
+                else:
+                    # Invalid or incomplete weight target
+                    weight_target = None
+            else:
+                weight_target = None
+
             # Handle nutrition targets - make sure it's properly structured or None
             nutrition_targets = goal.get("nutrition_targets")
             if nutrition_targets and isinstance(nutrition_targets, dict):
@@ -98,11 +121,11 @@ class GoalsService:
             goal_responses.append(GoalResponse(
                 id=str(goal["_id"]),
                 title=goal.get("title", "Untitled Goal"),
-                goal_type=goal.get("goal_type", "maintenance"),
+                goal_type=goal_type,
                 start_date=start_date,
                 end_date=end_date,
                 active=goal.get("active", False),
-                weight_target=goal.get("weight_target"),
+                weight_target=weight_target,
                 nutrition_targets=nutrition_targets,
                 created_at=goal.get("created_at", datetime.utcnow())
             ))
@@ -128,16 +151,39 @@ class GoalsService:
         if isinstance(end_date, str):
             end_date = datetime.fromisoformat(end_date).date()
         
+        # Handle goal_type - convert 'general' to 'maintenance' or use default
+        goal_type = goal.get("goal_type", "maintenance")
+        if goal_type == "general":
+            goal_type = "maintenance"
+        # Validate goal_type is one of the allowed values
+        allowed_goal_types = ["weight_loss", "weight_gain", "maintenance", "muscle_gain"]
+        if goal_type not in allowed_goal_types:
+            goal_type = "maintenance"
+        
+        # Handle weight_target - ensure it has required fields or set to None
+        weight_target = goal.get("weight_target")
+        if weight_target and isinstance(weight_target, dict):
+            # Check if it has all required fields
+            required_weight_fields = ['current_weight', 'target_weight', 'weekly_rate']
+            if all(field in weight_target and weight_target[field] is not None for field in required_weight_fields):
+                # Valid weight target - keep as is
+                pass
+            else:
+                # Invalid or incomplete weight target
+                weight_target = None
+        else:
+            weight_target = None
+        
         return GoalResponse(
             id=str(goal["_id"]),
-            title=goal["title"],
-            goal_type=goal["goal_type"],
+            title=goal.get("title", "Untitled Goal"),
+            goal_type=goal_type,
             start_date=start_date,
             end_date=end_date,
-            active=goal["active"],
-            weight_target=goal.get("weight_target"),
-            nutrition_targets=goal["nutrition_targets"],
-            created_at=goal["created_at"]
+            active=goal.get("active", False),
+            weight_target=weight_target,
+            nutrition_targets=goal.get("nutrition_targets"),
+            created_at=goal.get("created_at", datetime.utcnow())
         )
     
     async def update_goal(self, goal_id: str, updates: dict, user_id: str) -> Optional[GoalResponse]:
@@ -163,16 +209,39 @@ class GoalsService:
         if isinstance(end_date, str):
             end_date = datetime.fromisoformat(end_date).date()
         
+        # Handle goal_type - convert 'general' to 'maintenance' or use default
+        goal_type = updated_goal.get("goal_type", "maintenance")
+        if goal_type == "general":
+            goal_type = "maintenance"
+        # Validate goal_type is one of the allowed values
+        allowed_goal_types = ["weight_loss", "weight_gain", "maintenance", "muscle_gain"]
+        if goal_type not in allowed_goal_types:
+            goal_type = "maintenance"
+        
+        # Handle weight_target - ensure it has required fields or set to None
+        weight_target = updated_goal.get("weight_target")
+        if weight_target and isinstance(weight_target, dict):
+            # Check if it has all required fields
+            required_weight_fields = ['current_weight', 'target_weight', 'weekly_rate']
+            if all(field in weight_target and weight_target[field] is not None for field in required_weight_fields):
+                # Valid weight target - keep as is
+                pass
+            else:
+                # Invalid or incomplete weight target
+                weight_target = None
+        else:
+            weight_target = None
+        
         return GoalResponse(
             id=str(updated_goal["_id"]),
-            title=updated_goal["title"],
-            goal_type=updated_goal["goal_type"],
+            title=updated_goal.get("title", "Untitled Goal"),
+            goal_type=goal_type,
             start_date=start_date,
             end_date=end_date,
-            active=updated_goal["active"],
-            weight_target=updated_goal.get("weight_target"),
-            nutrition_targets=updated_goal["nutrition_targets"],
-            created_at=updated_goal["created_at"]
+            active=updated_goal.get("active", False),
+            weight_target=weight_target,
+            nutrition_targets=updated_goal.get("nutrition_targets"),
+            created_at=updated_goal.get("created_at", datetime.utcnow())
         )
     
     async def delete_goal(self, goal_id: str, user_id: str) -> bool:
@@ -264,18 +333,23 @@ class GoalsService:
     
     async def get_active_goal_nutrition_targets(self, user_id: str) -> Optional[Dict[str, Any]]:
         """Get nutrition targets from the active goal"""
-        active_goal = await self.get_active_goal(user_id)
-        
-        if not active_goal or not active_goal.nutrition_targets:
+        try:
+            active_goal = await self.get_active_goal(user_id)
+            
+            if not active_goal or not active_goal.nutrition_targets:
+                return None
+            
+            return {
+                "calories": active_goal.nutrition_targets.calories,
+                "protein": active_goal.nutrition_targets.protein,
+                "carbs": active_goal.nutrition_targets.carbs,
+                "fat": active_goal.nutrition_targets.fat,
+                "fiber": getattr(active_goal.nutrition_targets, 'fiber', None)
+            }
+        except Exception as e:
+            # Log the error but don't fail - return None for graceful degradation
+            print(f"Error getting active goal nutrition targets for user {user_id}: {e}")
             return None
-        
-        return {
-            "calories": active_goal.nutrition_targets.calories,
-            "protein": active_goal.nutrition_targets.protein,
-            "carbs": active_goal.nutrition_targets.carbs,
-            "fat": active_goal.nutrition_targets.fat,
-            "fiber": active_goal.nutrition_targets.fiber if hasattr(active_goal.nutrition_targets, 'fiber') else None
-        }
 
     async def get_active_goal_preferences(self, user_id: str) -> Dict[str, Any]:
         """Get goal context and preferences for AI enhancement"""
