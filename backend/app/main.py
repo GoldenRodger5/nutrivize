@@ -13,23 +13,17 @@ logger = logging.getLogger("nutrivize")
 # Import routes safely
 from .routes import auth, foods, food_logs, ai, meal_planning, preferences, goals, weight_logs, water_logs, nutrition_labels, dietary, ai_dashboard, restaurant_ai, ai_health, food_stats, user_favorites, user_foods
 
-# Try to import analytics routes, but use the hotfix if there's an error
+# Import analytics routes
 try:
     from .routes import analytics
     logger.info("Successfully imported analytics routes")
 except Exception as e:
     logger.error(f"Error importing analytics routes: {str(e)}")
-    try:
-        # Try to import the hotfix version
-        from .routes import analytics_hotfix as analytics
-        logger.info("Using analytics hotfix routes")
-    except Exception as e2:
-        logger.error(f"Error importing analytics hotfix: {str(e2)}")
-        # Create a minimal version in memory
-        from fastapi import APIRouter
-        analytics = type('Module', (), {})
-        analytics.router = APIRouter(prefix="/analytics", tags=["analytics"])
-        logger.warning("Using minimal analytics routes")
+    # Create a minimal version in memory
+    from fastapi import APIRouter
+    analytics = type('Module', (), {})
+    analytics.router = APIRouter(prefix="/analytics", tags=["analytics"])
+    logger.warning("Using minimal analytics routes")
 
 from .core.config import db_manager
 from .core.firebase import firebase_manager
