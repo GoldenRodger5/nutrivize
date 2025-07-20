@@ -8,8 +8,7 @@ A comprehensive nutrition tracking and meal planning application built with Fast
 nutrivize-v2/
 ├── backend/                 # FastAPI backend application
 │   ├── app/                # Main application code
-│   ├── backups/            # Backup files and utilities
-│   └── frontend/           # Built frontend files for deployment
+│   └── backups/            # Backup files and utilities
 ├── frontend/               # React frontend application
 │   ├── src/               # Source code
 │   └── backups/           # Frontend backup files
