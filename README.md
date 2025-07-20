@@ -42,8 +42,10 @@ All documentation is organized in the `docs/` folder:
 ## 🔧 Configuration
 
 Environment variables are managed in:
-- `backend/.env` - Backend configuration
-- `frontend/.env` - Frontend configuration
+- `backend/.env` - Production configuration (Render)
+- `backend/.env.local` - Local development configuration
+- `frontend/.env` - Frontend development configuration  
+- `frontend/.env.production` - Frontend production configuration (Render)
 
 ## 🧪 Scripts
 
