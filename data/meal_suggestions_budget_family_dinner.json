@@ -1,0 +1,308 @@
+{
+  "suggestions": [
+    {
+      "name": "Cheesy Beef & Rice Skillet",
+      "description": "A one-pan comfort meal with seasoned ground beef, rice, and melted cheese that kids love",
+      "ingredients": [
+        {
+          "name": "ground beef (80/20)",
+          "amount": 80.0,
+          "unit": "g",
+          "calories": 210.0,
+          "protein": 18.0,
+          "carbs": 0.0,
+          "fat": 15.0
+        },
+        {
+          "name": "white rice (cooked)",
+          "amount": 120.0,
+          "unit": "g",
+          "calories": 130.0,
+          "protein": 3.0,
+          "carbs": 28.0,
+          "fat": 0.0
+        },
+        {
+          "name": "cheddar cheese (shredded)",
+          "amount": 30.0,
+          "unit": "g",
+          "calories": 120.0,
+          "protein": 7.0,
+          "carbs": 1.0,
+          "fat": 10.0
+        },
+        {
+          "name": "frozen mixed vegetables",
+          "amount": 60.0,
+          "unit": "g",
+          "calories": 35.0,
+          "protein": 2.0,
+          "carbs": 7.0,
+          "fat": 0.0
+        },
+        {
+          "name": "onion powder",
+          "amount": 2.0,
+          "unit": "g",
+          "calories": 8.0,
+          "protein": 0.0,
+          "carbs": 2.0,
+          "fat": 0.0
+        },
+        {
+          "name": "garlic powder",
+          "amount": 1.0,
+          "unit": "g",
+          "calories": 3.0,
+          "protein": 0.0,
+          "carbs": 1.0,
+          "fat": 0.0
+        },
+        {
+          "name": "beef broth",
+          "amount": 60.0,
+          "unit": "ml",
+          "calories": 3.0,
+          "protein": 1.0,
+          "carbs": 0.0,
+          "fat": 0.0
+        },
+        {
+          "name": "vegetable oil",
+          "amount": 5.0,
+          "unit": "ml",
+          "calories": 41.0,
+          "protein": 0.0,
+          "carbs": 0.0,
+          "fat": 5.0
+        }
+      ],
+      "instructions": [
+        "Heat oil in a large skillet over medium heat",
+        "Brown the ground beef, breaking it up as it cooks (5-6 minutes)",
+        "Add onion powder and garlic powder, stir for 30 seconds",
+        "Add cooked rice, frozen vegetables, and beef broth",
+        "Stir everything together and cook for 3-4 minutes until heated through",
+        "Top with shredded cheese and cover until melted (2 minutes)",
+        "Serve hot"
+      ],
+      "prep_time": 20,
+      "nutrition": {
+        "calories": 550.0,
+        "protein": 31.0,
+        "carbs": 39.0,
+        "fat": 30.0
+      }
+    },
+    {
+      "name": "Beef & Rice Stuffed Bell Peppers",
+      "description": "Colorful bell peppers stuffed with seasoned beef and rice mixture - fun presentation for kids",
+      "ingredients": [
+        {
+          "name": "ground beef (80/20)",
+          "amount": 75.0,
+          "unit": "g",
+          "calories": 196.0,
+          "protein": 17.0,
+          "carbs": 0.0,
+          "fat": 14.0
+        },
+        {
+          "name": "white rice (cooked)",
+          "amount": 100.0,
+          "unit": "g",
+          "calories": 108.0,
+          "protein": 2.0,
+          "carbs": 23.0,
+          "fat": 0.0
+        },
+        {
+          "name": "bell pepper (large)",
+          "amount": 150.0,
+          "unit": "g",
+          "calories": 45.0,
+          "protein": 1.0,
+          "carbs": 11.0,
+          "fat": 0.0
+        },
+        {
+          "name": "tomato sauce",
+          "amount": 60.0,
+          "unit": "ml",
+          "calories": 18.0,
+          "protein": 1.0,
+          "carbs": 4.0,
+          "fat": 0.0
+        },
+        {
+          "name": "mozzarella cheese (shredded)",
+          "amount": 25.0,
+          "unit": "g",
+          "calories": 85.0,
+          "protein": 6.0,
+          "carbs": 1.0,
+          "fat": 6.0
+        },
+        {
+          "name": "corn kernels (frozen)",
+          "amount": 40.0,
+          "unit": "g",
+          "calories": 35.0,
+          "protein": 1.0,
+          "carbs": 8.0,
+          "fat": 0.0
+        },
+        {
+          "name": "italian seasoning",
+          "amount": 1.0,
+          "unit": "g",
+          "calories": 3.0,
+          "protein": 0.0,
+          "carbs": 1.0,
+          "fat": 0.0
+        },
+        {
+          "name": "vegetable oil",
+          "amount": 5.0,
+          "unit": "ml",
+          "calories": 41.0,
+          "protein": 0.0,
+          "carbs": 0.0,
+          "fat": 5.0
+        },
+        {
+          "name": "salt",
+          "amount": 1.0,
+          "unit": "g",
+          "calories": 0.0,
+          "protein": 0.0,
+          "carbs": 0.0,
+          "fat": 0.0
+        }
+      ],
+      "instructions": [
+        "Preheat oven to 375\u00b0F (190\u00b0C)",
+        "Cut tops off bell peppers and remove seeds and membranes",
+        "Heat oil in a pan and brown ground beef (5 minutes)",
+        "Add cooked rice, corn, tomato sauce, Italian seasoning, and salt",
+        "Mix well and cook for 2-3 minutes",
+        "Stuff peppers with beef and rice mixture",
+        "Place in baking dish with a little water at bottom",
+        "Cover with foil and bake 25-30 minutes",
+        "Top with cheese and bake uncovered 5 more minutes"
+      ],
+      "prep_time": 25,
+      "nutrition": {
+        "calories": 531.0,
+        "protein": 28.0,
+        "carbs": 48.0,
+        "fat": 25.0
+      }
+    },
+    {
+      "name": "Beef Fried Rice Bowl",
+      "description": "Kid-friendly Asian-inspired fried rice with ground beef, scrambled eggs, and simple seasonings",
+      "ingredients": [
+        {
+          "name": "ground beef (80/20)",
+          "amount": 70.0,
+          "unit": "g",
+          "calories": 183.0,
+          "protein": 16.0,
+          "carbs": 0.0,
+          "fat": 13.0
+        },
+        {
+          "name": "white rice (cooked, day-old preferred)",
+          "amount": 130.0,
+          "unit": "g",
+          "calories": 140.0,
+          "protein": 3.0,
+          "carbs": 30.0,
+          "fat": 0.0
+        },
+        {
+          "name": "eggs (beaten)",
+          "amount": 50.0,
+          "unit": "g",
+          "calories": 78.0,
+          "protein": 6.0,
+          "carbs": 1.0,
+          "fat": 5.0
+        },
+        {
+          "name": "frozen peas and carrots",
+          "amount": 50.0,
+          "unit": "g",
+          "calories": 25.0,
+          "protein": 2.0,
+          "carbs": 5.0,
+          "fat": 0.0
+        },
+        {
+          "name": "soy sauce (low sodium)",
+          "amount": 15.0,
+          "unit": "ml",
+          "calories": 8.0,
+          "protein": 1.0,
+          "carbs": 1.0,
+          "fat": 0.0
+        },
+        {
+          "name": "green onions (chopped)",
+          "amount": 15.0,
+          "unit": "g",
+          "calories": 5.0,
+          "protein": 0.0,
+          "carbs": 1.0,
+          "fat": 0.0
+        },
+        {
+          "name": "vegetable oil",
+          "amount": 10.0,
+          "unit": "ml",
+          "calories": 82.0,
+          "protein": 0.0,
+          "carbs": 0.0,
+          "fat": 9.0
+        },
+        {
+          "name": "garlic powder",
+          "amount": 1.0,
+          "unit": "g",
+          "calories": 3.0,
+          "protein": 0.0,
+          "carbs": 1.0,
+          "fat": 0.0
+        },
+        {
+          "name": "sesame oil",
+          "amount": 2.0,
+          "unit": "ml",
+          "calories": 16.0,
+          "protein": 0.0,
+          "carbs": 0.0,
+          "fat": 2.0
+        }
+      ],
+      "instructions": [
+        "Heat half the vegetable oil in a large skillet or wok over medium-high heat",
+        "Scramble the eggs until just set, remove and set aside",
+        "Add remaining oil and brown the ground beef (4-5 minutes)",
+        "Add garlic powder and cook 30 seconds",
+        "Add day-old rice, breaking up any clumps",
+        "Stir in frozen peas and carrots",
+        "Add soy sauce and toss everything together (3-4 minutes)",
+        "Return eggs to pan and gently fold in",
+        "Drizzle with sesame oil and top with green onions"
+      ],
+      "prep_time": 18,
+      "nutrition": {
+        "calories": 540.0,
+        "protein": 28.0,
+        "carbs": 39.0,
+        "fat": 29.0
+      }
+    }
+  ]
+}

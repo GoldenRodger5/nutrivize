@@ -1,0 +1,464 @@
+{
+  "analysis": {
+    "total_foods": 30,
+    "foods_with_dietary_data": 30,
+    "foods_with_restrictions": 30,
+    "foods_with_allergens": 8,
+    "foods_with_categories": 29,
+    "restriction_counts": {
+      "vegetarian": 25,
+      "vegan": 19,
+      "pescatarian": 7,
+      "flexitarian": 5,
+      "halal": 26,
+      "kosher": 22,
+      "jain": 13,
+      "gluten-free": 25,
+      "dairy-free": 24,
+      "paleo": 19,
+      "low-sodium": 10,
+      "whole-foods": 20,
+      "high-protein": 7,
+      "high-fiber": 5,
+      "heart-healthy": 16,
+      "anti-inflammatory": 16,
+      "low-sugar": 16,
+      "low-carb": 10,
+      "keto": 4
+    },
+    "allergen_counts": {
+      "nuts": 2,
+      "dairy": 2,
+      "eggs": 1,
+      "sesame": 1,
+      "fish": 1,
+      "wheat": 1
+    },
+    "category_counts": {
+      "condiment": 5,
+      "processed": 11,
+      "nuts": 2,
+      "fruit": 3,
+      "vegetable": 5,
+      "grain": 5,
+      "dairy": 2,
+      "meat": 2,
+      "legume": 2,
+      "seafood": 1,
+      "dessert": 2,
+      "beverage": 1
+    },
+    "foods_missing_data": [],
+    "foods_with_data": [
+      {
+        "name": "",
+        "id": "686412d0079ea91f3c6fbfb1",
+        "source": "user",
+        "restrictions": [
+          "vegetarian",
+          "vegan",
+          "pescatarian",
+          "flexitarian",
+          "halal",
+          "kosher",
+          "jain",
+          "gluten-free",
+          "dairy-free",
+          "paleo",
+          "low-sodium",
+          "whole-foods"
+        ],
+        "allergens": [],
+        "categories": [
+          "condiment"
+        ]
+      },
+      {
+        "name": "",
+        "id": "686412d9079ea91f3c6fbfb2",
+        "source": "user",
+        "restrictions": [
+          "high-protein",
+          "high-fiber"
+        ],
+        "allergens": [],
+        "categories": [
+          "processed"
+        ]
+      },
+      {
+        "name": "Almond Butter",
+        "id": "6862a8ad76a7d2de93ccc19a",
+        "source": "user",
+        "restrictions": [
+          "vegetarian",
+          "vegan",
+          "gluten-free",
+          "dairy-free",
+          "halal",
+          "kosher",
+          "paleo",
+          "whole-foods",
+          "heart-healthy",
+          "anti-inflammatory"
+        ],
+        "allergens": [
+          "nuts"
+        ],
+        "categories": [
+          "nuts",
+          "condiment"
+        ]
+      },
+      {
+        "name": "Almonds",
+        "id": "6862a8ad76a7d2de93ccc1a7",
+        "source": "user",
+        "restrictions": [
+          "vegetarian",
+          "vegan",
+          "gluten-free",
+          "dairy-free",
+          "halal",
+          "kosher",
+          "paleo",
+          "low-sugar",
+          "whole-foods",
+          "heart-healthy",
+          "anti-inflammatory"
+        ],
+        "allergens": [
+          "nuts"
+        ],
+        "categories": [
+          "nuts"
+        ]
+      },
+      {
+        "name": "Apple (Medium)",
+        "id": "6862a8ad76a7d2de93ccc1a8",
+        "source": "user",
+        "restrictions": [
+          "vegetarian",
+          "vegan",
+          "pescatarian",
+          "flexitarian",
+          "halal",
+          "kosher",
+          "jain",
+          "gluten-free",
+          "dairy-free",
+          "paleo",
+          "whole-foods",
+          "heart-healthy",
+          "anti-inflammatory"
+        ],
+        "allergens": [],
+        "categories": [
+          "fruit"
+        ]
+      },
+      {
+        "name": "Avocado",
+        "id": "6862a8ad76a7d2de93ccc19d",
+        "source": "user",
+        "restrictions": [
+          "vegetarian",
+          "vegan",
+          "gluten-free",
+          "dairy-free",
+          "halal",
+          "kosher",
+          "jain",
+          "paleo",
+          "whole-foods",
+          "heart-healthy",
+          "anti-inflammatory",
+          "high-fiber"
+        ],
+        "allergens": [],
+        "categories": [
+          "fruit"
+        ]
+      },
+      {
+        "name": "Bell Peppers (Mixed)",
+        "id": "6862a8ad76a7d2de93ccc1a6",
+        "source": "user",
+        "restrictions": [
+          "vegetarian",
+          "vegan",
+          "gluten-free",
+          "dairy-free",
+          "halal",
+          "kosher",
+          "jain",
+          "paleo",
+          "low-sodium",
+          "low-carb",
+          "low-sugar",
+          "whole-foods",
+          "heart-healthy",
+          "anti-inflammatory"
+        ],
+        "allergens": [],
+        "categories": [
+          "vegetable"
+        ]
+      },
+      {
+        "name": "Blueberries",
+        "id": "6862a8ad76a7d2de93ccc198",
+        "source": "user",
+        "restrictions": [
+          "vegetarian",
+          "vegan",
+          "pescatarian",
+          "flexitarian",
+          "halal",
+          "kosher",
+          "jain",
+          "gluten-free",
+          "dairy-free",
+          "paleo",
+          "low-sugar",
+          "whole-foods",
+          "heart-healthy",
+          "anti-inflammatory"
+        ],
+        "allergens": [],
+        "categories": [
+          "fruit"
+        ]
+      },
+      {
+        "name": "Broccoli (Steamed)",
+        "id": "6862a8ad76a7d2de93ccc1a4",
+        "source": "user",
+        "restrictions": [
+          "vegetarian",
+          "vegan",
+          "gluten-free",
+          "dairy-free",
+          "halal",
+          "kosher",
+          "jain",
+          "paleo",
+          "low-sodium",
+          "low-carb",
+          "low-sugar",
+          "whole-foods",
+          "heart-healthy",
+          "anti-inflammatory"
+        ],
+        "allergens": [],
+        "categories": [
+          "vegetable"
+        ]
+      },
+      {
+        "name": "Brown Rice (Cooked)",
+        "id": "6862a8ad76a7d2de93ccc1a1",
+        "source": "user",
+        "restrictions": [
+          "vegetarian",
+          "vegan",
+          "gluten-free",
+          "dairy-free",
+          "halal",
+          "kosher",
+          "jain",
+          "paleo",
+          "whole-foods",
+          "heart-healthy",
+          "anti-inflammatory"
+        ],
+        "allergens": [],
+        "categories": [
+          "grain"
+        ]
+      }
+    ],
+    "missing_data_count": 0
+  },
+  "sample_foods": [
+    {
+      "id": "686412d0079ea91f3c6fbfb1",
+      "name": "",
+      "serving_size": 1.0,
+      "serving_unit": "Tbsp",
+      "nutrition": {
+        "calories": 60.0,
+        "protein": 0.0,
+        "carbs": 17.0,
+        "fat": 0.0,
+        "fiber": 0.0,
+        "sugar": 17.0,
+        "sodium": 0.0
+      },
+      "source": "user",
+      "barcode": null,
+      "dietary_attributes": {
+        "dietary_restrictions": [
+          "vegetarian",
+          "vegan",
+          "pescatarian",
+          "flexitarian",
+          "halal",
+          "kosher",
+          "jain",
+          "gluten-free",
+          "dairy-free",
+          "paleo",
+          "low-sodium",
+          "whole-foods"
+        ],
+        "allergens": [],
+        "food_categories": [
+          "condiment"
+        ]
+      }
+    },
+    {
+      "id": "686412d9079ea91f3c6fbfb2",
+      "name": "",
+      "serving_size": 1.0,
+      "serving_unit": "Cup",
+      "nutrition": {
+        "calories": 280.0,
+        "protein": 15.0,
+        "carbs": 34.0,
+        "fat": 9.0,
+        "fiber": 4.0,
+        "sugar": 6.0,
+        "sodium": 850.0
+      },
+      "source": "user",
+      "barcode": null,
+      "dietary_attributes": {
+        "dietary_restrictions": [
+          "high-protein",
+          "high-fiber"
+        ],
+        "allergens": [],
+        "food_categories": [
+          "processed"
+        ]
+      }
+    },
+    {
+      "id": "6862a8ad76a7d2de93ccc19a",
+      "name": "Almond Butter",
+      "serving_size": 2.0,
+      "serving_unit": "tbsp",
+      "nutrition": {
+        "calories": 196.0,
+        "protein": 7.0,
+        "carbs": 7.0,
+        "fat": 18.0,
+        "fiber": 4.0,
+        "sugar": 2.0,
+        "sodium": 0.0
+      },
+      "source": "user",
+      "barcode": null,
+      "dietary_attributes": {
+        "dietary_restrictions": [
+          "vegetarian",
+          "vegan",
+          "gluten-free",
+          "dairy-free",
+          "halal",
+          "kosher",
+          "paleo",
+          "whole-foods",
+          "heart-healthy",
+          "anti-inflammatory"
+        ],
+        "allergens": [
+          "nuts"
+        ],
+        "food_categories": [
+          "nuts",
+          "condiment"
+        ]
+      }
+    },
+    {
+      "id": "6862a8ad76a7d2de93ccc1a7",
+      "name": "Almonds",
+      "serving_size": 1.0,
+      "serving_unit": "oz",
+      "nutrition": {
+        "calories": 164.0,
+        "protein": 6.0,
+        "carbs": 6.0,
+        "fat": 14.0,
+        "fiber": 4.0,
+        "sugar": 1.0,
+        "sodium": 0.0
+      },
+      "source": "user",
+      "barcode": null,
+      "dietary_attributes": {
+        "dietary_restrictions": [
+          "vegetarian",
+          "vegan",
+          "gluten-free",
+          "dairy-free",
+          "halal",
+          "kosher",
+          "paleo",
+          "low-sugar",
+          "whole-foods",
+          "heart-healthy",
+          "anti-inflammatory"
+        ],
+        "allergens": [
+          "nuts"
+        ],
+        "food_categories": [
+          "nuts"
+        ]
+      }
+    },
+    {
+      "id": "6862a8ad76a7d2de93ccc1a8",
+      "name": "Apple (Medium)",
+      "serving_size": 1.0,
+      "serving_unit": "medium",
+      "nutrition": {
+        "calories": 95.0,
+        "protein": 0.0,
+        "carbs": 25.0,
+        "fat": 0.0,
+        "fiber": 4.0,
+        "sugar": 19.0,
+        "sodium": 2.0
+      },
+      "source": "user",
+      "barcode": null,
+      "dietary_attributes": {
+        "dietary_restrictions": [
+          "vegetarian",
+          "vegan",
+          "pescatarian",
+          "flexitarian",
+          "halal",
+          "kosher",
+          "jain",
+          "gluten-free",
+          "dairy-free",
+          "paleo",
+          "whole-foods",
+          "heart-healthy",
+          "anti-inflammatory"
+        ],
+        "allergens": [],
+        "food_categories": [
+          "fruit"
+        ]
+      }
+    }
+  ]
+}

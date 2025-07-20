@@ -1,0 +1,185 @@
+{
+  "user_id": "GME7nGpJQRc2v9T057vJ4oyqAJN2",
+  "plan_id": "night_shift_2024_001",
+  "version": 1,
+  "name": "Night Shift Schedule",
+  "title": "Night Shift Schedule",
+  "description": "Tailored to your health goals and preferences",
+  "days": [
+    {
+      "day": 1,
+      "date": "2024-01-15",
+      "theme": "Energizing Start Monday",
+      "meals": [
+        {
+          "meal_type": "breakfast",
+          "food_name": "Energizing Steak and Eggs",
+          "description": "High-protein meal to fuel your night shift",
+          "ingredients": [
+            {
+              "name": "sirloin steak",
+              "amount": 200,
+              "unit": "g"
+            },
+            {
+              "name": "eggs",
+              "amount": 2,
+              "unit": "large"
+            },
+            {
+              "name": "butter",
+              "amount": 15,
+              "unit": "g"
+            },
+            {
+              "name": "spinach",
+              "amount": 100,
+              "unit": "g"
+            },
+            {
+              "name": "avocado",
+              "amount": 80,
+              "unit": "g"
+            }
+          ],
+          "instructions": [
+            "Season steak with salt and pepper",
+            "Heat pan over medium-high heat with 10g butter",
+            "Cook steak 3-4 minutes per side for medium-rare",
+            "Remove steak and rest for 5 minutes",
+            "In same pan, add spinach and cook until wilted",
+            "Fry eggs in remaining 5g butter",
+            "Slice avocado and serve alongside"
+          ],
+          "prep_time": 15,
+          "cooking_method": "pan-fried",
+          "portion_size": "1 serving",
+          "calories": 920,
+          "protein": 72,
+          "carbs": 8,
+          "fat": 68,
+          "fiber": 6,
+          "goal_alignment": "High protein and fat for sustained energy during night shift, minimal carbs for ketosis"
+        },
+        {
+          "meal_type": "lunch",
+          "food_name": "Chicken Caesar Salad Bowl",
+          "description": "Quick energizing meal for your 2am break",
+          "ingredients": [
+            {
+              "name": "grilled chicken breast",
+              "amount": 150,
+              "unit": "g"
+            },
+            {
+              "name": "romaine lettuce",
+              "amount": 150,
+              "unit": "g"
+            },
+            {
+              "name": "parmesan cheese",
+              "amount": 30,
+              "unit": "g"
+            },
+            {
+              "name": "olive oil",
+              "amount": 20,
+              "unit": "ml"
+            },
+            {
+              "name": "lemon juice",
+              "amount": 10,
+              "unit": "ml"
+            }
+          ],
+          "instructions": [
+            "Chop romaine lettuce into bite-sized pieces",
+            "Slice pre-cooked chicken breast",
+            "Whisk olive oil with lemon juice and salt",
+            "Toss lettuce with dressing",
+            "Top with chicken and grated parmesan"
+          ],
+          "prep_time": 10,
+          "cooking_method": "no-cook assembly",
+          "portion_size": "1 serving",
+          "calories": 650,
+          "protein": 48,
+          "carbs": 12,
+          "fat": 45,
+          "fiber": 4,
+          "goal_alignment": "Moderate portion for sustained energy without heaviness during work hours"
+        },
+        {
+          "meal_type": "dinner",
+          "food_name": "Sleep-Promoting Salmon Bowl",
+          "description": "Light meal with omega-3s to promote better sleep",
+          "ingredients": [
+            {
+              "name": "salmon fillet",
+              "amount": 120,
+              "unit": "g"
+            },
+            {
+              "name": "cucumber",
+              "amount": 100,
+              "unit": "g"
+            },
+            {
+              "name": "cherry tomatoes",
+              "amount": 100,
+              "unit": "g"
+            },
+            {
+              "name": "olive oil",
+              "amount": 15,
+              "unit": "ml"
+            },
+            {
+              "name": "almonds",
+              "amount": 30,
+              "unit": "g"
+            }
+          ],
+          "instructions": [
+            "Preheat oven to 400\u00b0F (200\u00b0C)",
+            "Brush salmon with 5ml olive oil, season with salt",
+            "Bake salmon for 12-15 minutes until flaky",
+            "Dice cucumber and halve cherry tomatoes",
+            "Toss vegetables with remaining olive oil",
+            "Serve salmon over vegetables, top with almonds"
+          ],
+          "prep_time": 20,
+          "cooking_method": "baked",
+          "portion_size": "1 serving",
+          "calories": 530,
+          "protein": 40,
+          "carbs": 10,
+          "fat": 37,
+          "fiber": 5,
+          "goal_alignment": "Light, omega-3 rich meal that promotes sleep quality after night shift"
+        }
+      ],
+      "total_nutrition": {
+        "calories": 2100,
+        "protein": 160,
+        "carbs": 30,
+        "fat": 150,
+        "fiber": 15
+      },
+      "day_notes": "Meals timed for night shift schedule: energizing breakfast at 6pm, moderate lunch at 2am, light dinner at 10am to promote sleep"
+    }
+  ],
+  "total_days": 1,
+  "dietary_restrictions": [],
+  "target_nutrition": {},
+  "created_at": "2025-07-14T13:51:01.975679+00:00",
+  "updated_at": "2025-07-14T13:51:01.975679+00:00",
+  "is_active": false,
+  "is_current_version": true,
+  "parent_version": null,
+  "tags": [],
+  "variety_score": "Good variety across protein sources (beef, chicken, salmon) and cooking methods (pan-fried, no-cook, baked) within low-carb constraints",
+  "goal_alignment": "Perfectly calibrated for night shift workers with high-energy meals before and during work, sleep-promoting lighter meal afterward. Maintains strict low-carb macros for weight loss while ensuring adequate protein for satiety.",
+  "shopping_tips": "Buy pre-cooked chicken breast to save time during breaks. Prep vegetables in advance and store in containers. Keep shelf-stable items like nuts and canned salmon as backup options for busy nights.",
+  "_id": "68750b45b21a11359bb7944c"
+}
