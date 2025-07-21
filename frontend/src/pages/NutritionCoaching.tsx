@@ -1,5 +1,5 @@
 import { Container, VStack, Heading, Text, useColorModeValue } from '@chakra-ui/react'
-import PersonalizedNutritionCoaching from '../components/PersonalizedNutritionCoaching'
+import PersonalizedNutritionCoaching from '../components/nutrition/PersonalizedNutritionCoaching'
 
 export default function NutritionCoachingPage() {
   const textColor = useColorModeValue('gray.600', 'gray.300')

@@ -1,4 +1,4 @@
-import ManualMealPlanner from "../components/ManualMealPlanner";
+import ManualMealPlanner from '../components/food/ManualMealPlanner'
 
 export default function ManualMealPlannerPage() {
   return <ManualMealPlanner />;

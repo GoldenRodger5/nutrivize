@@ -22,8 +22,8 @@ import {
 } from '@chakra-ui/react'
 import api from '../utils/api'
 import { FoodItem } from '../types'
-import QuickLogging from '../components/QuickLogging'
-import FoodRecommendations from '../components/FoodRecommendations'
+import QuickLogging from '../components/food/QuickLogging'
+import FoodRecommendations from '../components/food/FoodRecommendations'
 
 export default function FoodLog() {
   const [foods, setFoods] = useState<FoodItem[]>([])

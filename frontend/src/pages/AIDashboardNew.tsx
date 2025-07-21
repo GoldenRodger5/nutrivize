@@ -50,13 +50,13 @@ import { useAICoaching, useSmartNutrition, useHealthScore } from '../hooks/useAI
 import { useEnhancedHealthScore } from '../hooks/useEnhancedAIHealth'
 
 // Import modals - fix import syntax
-import TodaysNutritionDetailModal from '../components/TodaysNutritionDetailModal'
-import WaterLogModal from '../components/WaterLogModal'
-import WeightLogModal from '../components/WeightLogModal'
-import FoodLogModal from '../components/FoodLogModal'
+import TodaysNutritionDetailModal from '../components/nutrition/TodaysNutritionDetailModal'
+import WaterLogModal from '../components/nutrition/WaterLogModal'
+import WeightLogModal from '../components/nutrition/WeightLogModal'
+import FoodLogModal from '../components/food/FoodLogModal'
 
 // Import AI components
-import { AIResponseFormatter } from '../components/AIResponseFormatter'
+import { AIResponseFormatter } from '../components/dashboard/AIResponseFormatter'
 
 const MotionBox = motion(Box)
 

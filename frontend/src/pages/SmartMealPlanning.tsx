@@ -30,8 +30,8 @@ import {
 } from '@chakra-ui/react'
 import { ChevronDownIcon, ChevronUpIcon } from '@chakra-ui/icons'
 import { FoodItem } from '../types'
-import DietaryProfileBuilder from '../components/DietaryProfileBuilder'
-import SmartMealAnalysis from '../components/SmartMealAnalysis'
+import DietaryProfileBuilder from '../components/food/DietaryProfileBuilder'
+import SmartMealAnalysis from '../components/food/SmartMealAnalysis'
 import api from '../utils/api'
 
 // Backend API interfaces
