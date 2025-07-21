@@ -51,7 +51,7 @@ import { AddIcon, ViewIcon, DeleteIcon, EditIcon } from '@chakra-ui/icons'
 import { MdCheckCircle, MdSchedule, MdRestaurant, MdShoppingCart } from 'react-icons/md'
 import api from '../utils/api'
 import { getCurrentDateInTimezone, getUserTimezone } from '../utils/timezone'
-import MacroDistributionSlider from '../components/MacroDistributionSlider'
+import MacroDistributionSlider from '../components/ui/MacroDistributionSlider'
 
 // TypeScript interfaces
 interface NutritionInfo {

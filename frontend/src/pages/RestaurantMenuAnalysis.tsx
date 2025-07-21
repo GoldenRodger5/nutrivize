@@ -1,5 +1,5 @@
 import { Container, VStack, Heading, Text, useColorModeValue } from '@chakra-ui/react'
-import RestaurantMenuAnalyzer from '../components/RestaurantMenuAnalyzer'
+import RestaurantMenuAnalyzer from '../components/food/RestaurantMenuAnalyzer'
 
 export default function RestaurantMenuAnalysisPage() {
   const textColor = useColorModeValue('gray.600', 'gray.300')

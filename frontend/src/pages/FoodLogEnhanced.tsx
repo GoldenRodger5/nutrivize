@@ -50,8 +50,8 @@ import {
 import { useAppState } from '../contexts/AppStateContext'
 import { FoodItem, NutritionInfo } from '../types'
 import api from '../utils/api'
-import WeeklyView from '../components/WeeklyView'
-import NumberInputField from '../components/NumberInputField'
+import WeeklyView from '../components/ui/WeeklyView'
+import NumberInputField from '../components/ui/NumberInputField'
 
 // Define types for different food sources
 interface FavoriteFood {

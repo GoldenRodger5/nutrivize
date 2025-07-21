@@ -1,5 +1,5 @@
 import { Container, VStack, Heading, Text, useColorModeValue } from '@chakra-ui/react'
-import AIHealthInsights from '../components/AIHealthInsights'
+import AIHealthInsights from '../components/dashboard/AIHealthInsights'
 
 export default function HealthInsightsPage() {
   const textColor = useColorModeValue('gray.600', 'gray.300')

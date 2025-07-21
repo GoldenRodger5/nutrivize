@@ -22,9 +22,9 @@ import {
   Divider
 } from '@chakra-ui/react'
 import { FoodItem } from '../types'
-import DietaryProfileBuilder from '../components/DietaryProfileBuilder'
-import SmartMealPlanner from '../components/SmartMealPlanner'
-import SmartMealAnalysis from '../components/SmartMealAnalysis'
+import DietaryProfileBuilder from '../components/food/DietaryProfileBuilder'
+import SmartMealPlanner from '../components/food/SmartMealPlanner'
+import SmartMealAnalysis from '../components/food/SmartMealAnalysis'
 import api from '../utils/api'
 
 interface UserProfile {

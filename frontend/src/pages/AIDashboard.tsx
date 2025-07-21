@@ -45,13 +45,13 @@ import { useEnhancedHealthScore, useProgressAnalytics } from '../hooks/useEnhanc
 import { useTodayActivity } from '../hooks/useTodayActivity'
 import { useWeeklyProgress } from '../hooks/useWeeklyProgress'
 import { useNutritionStreak } from '../hooks/useNutritionStreak'
-import TodaysNutritionDetailModal from '../components/TodaysNutritionDetailModal'
-import ErrorBoundary from '../components/ErrorBoundary'
-import WaterLogModal from '../components/WaterLogModal'
-import WeightLogModal from '../components/WeightLogModal'
-import FoodLogModal from '../components/FoodLogModal'
-import NutritionLabelScanner from '../components/NutritionLabelScanner'
-import AIResponseFormatter from '../components/AIResponseFormatter'
+import TodaysNutritionDetailModal from '../components/nutrition/TodaysNutritionDetailModal'
+import ErrorBoundary from '../components/ui/ErrorBoundary'
+import WaterLogModal from '../components/nutrition/WaterLogModal'
+import WeightLogModal from '../components/nutrition/WeightLogModal'
+import FoodLogModal from '../components/food/FoodLogModal'
+import NutritionLabelScanner from '../components/nutrition/NutritionLabelScanner'
+import AIResponseFormatter from '../components/dashboard/AIResponseFormatter'
 
 const MotionCard = motion(Card)
 const MotionBox = motion(Box)

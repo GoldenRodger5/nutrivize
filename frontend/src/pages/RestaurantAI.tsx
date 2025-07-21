@@ -58,7 +58,7 @@ import {
   FiSave 
 } from 'react-icons/fi'
 import api from '../utils/api'
-import AIResponseFormatter from '../components/AIResponseFormatter'
+import AIResponseFormatter from '../components/dashboard/AIResponseFormatter'
 
 // Types for restaurant menu analysis
 interface MenuAnalysisRequest {

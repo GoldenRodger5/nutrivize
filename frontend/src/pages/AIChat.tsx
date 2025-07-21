@@ -27,7 +27,7 @@ import {
 import { AddIcon, DeleteIcon, CopyIcon } from '@chakra-ui/icons'
 import { ChatMessage } from '../types'
 import api from '../utils/api'
-import AIResponseFormatter from '../components/AIResponseFormatter'
+import AIResponseFormatter from '../components/dashboard/AIResponseFormatter'
 import { useFoodIndex } from '../contexts/FoodIndexContext'
 
 // Quick prompt suggestions for mobile

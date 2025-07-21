@@ -3,9 +3,9 @@ import { ChakraProvider, Box, Spinner, Center } from '@chakra-ui/react'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { AppStateProvider } from './contexts/AppStateContext'
 import { FoodIndexProvider } from './contexts/FoodIndexContext'
-import LoginPage from './components/LoginPage'
-import MainLayout from './components/MainLayout'
-import ErrorBoundary from './components/ErrorBoundary'
+import LoginPage from './components/auth/LoginPage'
+import MainLayout from './components/ui/MainLayout'
+import ErrorBoundary from './components/ui/ErrorBoundary'
 
 // Protected Route component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {

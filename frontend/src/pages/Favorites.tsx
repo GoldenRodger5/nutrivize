@@ -1,5 +1,5 @@
 // Favorites Page
-import FavoriteManagement from '../components/FavoriteManagement'
+import FavoriteManagement from '../components/food/FavoriteManagement'
 
 const FavoritesPage = () => {
   return <FavoriteManagement />
