@@ -1,43 +1,78 @@
-# Nutrivize V2 - Complete Nutrition Tracking Platform
+# 📚 Nutrivize V2 - Documentation Hub
 
-A modern, full-stack nutrition tracking application with AI-powered features, meal planning, and comprehensive goal management.
+Complete documentation for the modern, full-stack nutrition tracking application with AI-powered features.
 
-## 🌟 Features
+## 🎯 **Documentation Overview**
 
-### **Core Functionality**
-- **User Authentication** - Secure Firebase Auth with JWT tokens
-- **Food Logging** - Track meals with detailed nutrition breakdown
-- **Food Database** - Comprehensive searchable food index with custom food creation
-- **Goal Management** - Set and track nutrition/weight goals with automatic target calculation
-- **AI Assistant** - Conversational nutrition advice and meal recommendations
-- **Meal Planning** - AI-generated meal plans with shopping lists and cost estimation
-- **Analytics** - Visual insights and progress tracking
-- **User Preferences** - Comprehensive dietary restrictions and preference management
+This documentation provides comprehensive technical information for developers, covering system architecture, API specifications, security patterns, deployment procedures, and component implementations.
 
-### **Advanced Features**
-- **Meal Plan Versioning** - Version control for meal plans with history
-- **Shopping List Generation** - Automatic shopping lists with AI-powered price estimates
-- **Goal Progress Integration** - Real-time goal progress in food logs
-- **Single Active Goal** - Enforce one active goal with automatic deactivation
-- **AI Context Awareness** - AI responses consider user preferences and active goals
-- **Comprehensive Settings** - Dietary restrictions, allergens, cuisine preferences
+### **Quick Navigation**
+- 🚀 **[Get Started](#quick-start)** - Set up development environment
+- 🏗️ **[Architecture](#core-documentation)** - Understand the system design
+- 🔐 **[Security](#core-documentation)** - Authentication and data protection
+- 🗄️ **[Database](#core-documentation)** - MongoDB schemas and patterns
+- 🌐 **[Deployment](#core-documentation)** - Production deployment guide
+- 📡 **[API Reference](API_REFERENCE.md)** - Complete API documentation
+- 🧩 **[Components](FEATURES_COMPONENTS.md)** - Frontend architecture and features
 
-## 🛠 Tech Stack
+## 📖 Documentation Structure
 
-### Backend
-- **FastAPI** - Modern Python web framework with automatic OpenAPI docs
-- **MongoDB** - NoSQL database for flexible data storage
-- **Firebase Admin** - Authentication verification and user management
-- **Anthropic Claude** - Advanced AI for nutrition advice and meal planning
-- **Pydantic** - Data validation and serialization
+### 🏗️ **Architecture & System Design**
+- [**Architecture Overview**](ARCHITECTURE_OVERVIEW.md) - Complete system architecture and technology stack
+- [**Database Schema**](DATABASE_SCHEMA.md) - MongoDB collections and data relationships
+- [**Security & Authentication**](SECURITY_AUTH.md) - Firebase auth and security implementation
+- [**Deployment & Environment**](DEPLOYMENT_ENV.md) - Setup, deployment, and environment configuration
 
-### Frontend
-- **React 18** - Modern React with hooks and concurrent features
-- **TypeScript** - Full type safety and enhanced developer experience
-- **Vite** - Lightning-fast build tool and dev server
-- **Chakra UI** - Comprehensive component library with accessibility
-- **React Router** - Client-side routing with protected routes
-- **Axios** - HTTP client with interceptors and automatic token refresh
+### 🚀 **Core Functionalities**
+- [**🤖 AI-Powered Features**](functionalities/AI_FEATURES.md) - AI dashboard, chat assistant, meal planning, and smart insights
+- [**🍽️ Food Logging & Management**](functionalities/FOOD_LOGGING.md) - Food search, logging, favorites, barcode scanning, and meal tracking
+- [**📊 Analytics & Progress Tracking**](functionalities/ANALYTICS_TRACKING.md) - Progress tracking, advanced analytics, goal management, and reporting
+- [**🔐 User Authentication & Management**](functionalities/USER_AUTH_MANAGEMENT.md) - Registration, authentication, profile management, and security
+- [**🍽️ Meal Planning & Recipe Management**](functionalities/MEAL_PLANNING_RECIPES.md) - AI meal planning, recipe management, shopping lists, and meal prep
+- [**💧 Water Tracking & Hydration**](functionalities/WATER_TRACKING.md) - Smart water tracking, hydration goals, intelligent reminders, and analytics
+
+### 🔧 **Technical Documentation**
+- [**API Endpoints**](API_ENDPOINTS.md) - Complete backend API documentation
+- [**Frontend Components**](FRONTEND_COMPONENTS.md) - React component structure and usage
+- [**Features & Components**](FEATURES_COMPONENTS.md) - Detailed feature descriptions and implementations
+
+### 📊 **Project Information**
+- [**Version History**](VERSION_HISTORY.md) - Release notes and version tracking
+
+## � **Quick Start**
+
+### **Development Environment Setup**
+```bash
+# Clone and start development environment
+git clone <repository-url>
+cd nutrivize-v2
+./scripts/development/start-nutrivize.sh
+
+# Services will be available at:
+# Frontend: http://localhost:5173
+# Backend:  http://localhost:8000
+# API Docs: http://localhost:8000/docs
+```
+
+### **Authentication Testing**
+```bash
+# Get authentication token for API testing
+curl -s -X POST "http://localhost:8000/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "isaacmineo@gmail.com",
+    "password": "Buddydog41"
+  }'
+```
+
+## 🛠️ **Technology Stack Summary**
+
+### **Core Technologies**
+- **Backend**: FastAPI (Python 3.11+) with MongoDB Atlas
+- **Frontend**: React 18 (TypeScript) with Chakra UI
+- **Authentication**: Firebase Authentication with JWT tokens
+- **AI Engine**: Anthropic Claude API for meal planning and insights
+- **Deployment**: Render.com (Frontend + Backend)
 
 ## 📁 Project Structure
 

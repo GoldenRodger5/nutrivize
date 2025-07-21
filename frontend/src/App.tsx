@@ -1,11 +1,27 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
-import { ChakraProvider, Box, Spinner, Center } from '@chakra-ui/react'
+import { ChakraProvider, Box, Spinner, Center, extendTheme } from '@chakra-ui/react'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { ColorModeProvider } from './contexts/ColorModeContext'
 import { AppStateProvider } from './contexts/AppStateContext'
 import { FoodIndexProvider } from './contexts/FoodIndexContext'
 import LoginPage from './components/auth/LoginPage'
 import MainLayout from './components/ui/MainLayout'
 import ErrorBoundary from './components/ui/ErrorBoundary'
+
+// Extend the theme to include custom colors, fonts, etc
+const theme = extendTheme({
+  config: {
+    initialColorMode: 'light',
+    useSystemColorMode: false,
+  },
+  styles: {
+    global: (props: any) => ({
+      body: {
+        bg: props.colorMode === 'dark' ? 'gray.800' : 'linear-gradient(135deg, #f6f9fc 0%, #e9f4f9 100%)',
+      },
+    }),
+  },
+})
 
 // Protected Route component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -39,7 +55,7 @@ function AppLayout() {
   }
 
   return (
-    <Box minH="100vh" bg="linear-gradient(135deg, #f6f9fc 0%, #e9f4f9 100%)">
+    <Box minH="100vh">
       <Routes>
         <Route
           path="/login"
@@ -49,11 +65,13 @@ function AppLayout() {
           path="/*"
           element={
             <ProtectedRoute>
-              <AppStateProvider>
-                <FoodIndexProvider>
-                  <MainLayout />
-                </FoodIndexProvider>
-              </AppStateProvider>
+              <ColorModeProvider>
+                <AppStateProvider>
+                  <FoodIndexProvider>
+                    <MainLayout />
+                  </FoodIndexProvider>
+                </AppStateProvider>
+              </ColorModeProvider>
             </ProtectedRoute>
           }
         />
@@ -64,7 +82,7 @@ function AppLayout() {
 
 function App() {
   return (
-    <ChakraProvider>
+    <ChakraProvider theme={theme}>
       <ErrorBoundary>
         <AuthProvider>
           <Router

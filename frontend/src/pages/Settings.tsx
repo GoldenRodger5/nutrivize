@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   Box,
   Container,
@@ -34,17 +34,24 @@ import {
   Wrap,
   WrapItem,
   Textarea,
+  Avatar,
 } from '@chakra-ui/react'
+import { EditIcon } from '@chakra-ui/icons'
 import api from '../utils/api'
 import { useAuth } from '../contexts/AuthContext'
+import { useColorModeContext } from '../contexts/ColorModeContext'
 import { saveTimezonePreference } from '../utils/timezone'
 import { useFoodIndex } from '../contexts/FoodIndexContext'
 
 export default function Settings() {
   const { user } = useAuth()
+  const { colorMode, setColorMode } = useColorModeContext()
   const { triggerRefresh } = useFoodIndex()
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const toast = useToast()
   const isMobile = useBreakpointValue({ base: true, md: false })
 
@@ -69,6 +76,7 @@ export default function Settings() {
   const [userProfile, setUserProfile] = useState({
     name: '',
     about_me: '',
+    profile_photo: '',
   })
 
   const [sessionHistory, setSessionHistory] = useState<any[]>([])
@@ -139,6 +147,157 @@ export default function Settings() {
       })
     }
     setSaving(false)
+  }
+
+  const exportToCSV = async () => {
+    setExporting(true)
+    try {
+      const response = await api.get('/preferences/export', {
+        responseType: 'blob'
+      })
+      
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([response.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `nutrivize-data-${new Date().toISOString().split('T')[0]}.csv`)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+      
+      toast({
+        title: 'Export Successful',
+        description: 'Your data has been downloaded as CSV.',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      })
+    } catch (error) {
+      console.error('Error exporting data:', error)
+      toast({
+        title: 'Export Error',
+        description: 'Failed to export data. Please try again.',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      })
+    }
+    setExporting(false)
+  }
+
+  const exportToPDF = async () => {
+    setExporting(true)
+    try {
+      // For now, we'll export the same data but with different filename
+      // In future, we can add a separate PDF endpoint
+      const response = await api.get('/preferences/export', {
+        responseType: 'blob'
+      })
+      
+      const url = window.URL.createObjectURL(new Blob([response.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `nutrivize-preferences-${new Date().toISOString().split('T')[0]}.json`)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+      
+      toast({
+        title: 'Export Successful',
+        description: 'Your preferences have been downloaded.',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      })
+    } catch (error) {
+      console.error('Error exporting data:', error)
+      toast({
+        title: 'Export Error',
+        description: 'Failed to export data. Please try again.',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      })
+    }
+    setExporting(false)
+  }
+
+  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: 'Invalid File',
+        description: 'Please select an image file.',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      })
+      return
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: 'File Too Large',
+        description: 'Please select an image smaller than 5MB.',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      })
+      return
+    }
+
+    setUploadingPhoto(true)
+    try {
+      // Convert to base64 for simple storage
+      const reader = new FileReader()
+      reader.onload = async (e) => {
+        const base64 = e.target?.result as string
+        
+        try {
+          await api.put('/users/profile', {
+            ...userProfile,
+            profile_photo: base64
+          })
+          
+          setUserProfile(prev => ({ ...prev, profile_photo: base64 }))
+          
+          toast({
+            title: 'Photo Updated',
+            description: 'Your profile photo has been updated.',
+            status: 'success',
+            duration: 3000,
+            isClosable: true,
+          })
+        } catch (error) {
+          console.error('Error uploading photo:', error)
+          toast({
+            title: 'Upload Error',
+            description: 'Failed to upload photo. Please try again.',
+            status: 'error',
+            duration: 3000,
+            isClosable: true,
+          })
+        }
+        setUploadingPhoto(false)
+      }
+      reader.readAsDataURL(file)
+    } catch (error) {
+      console.error('Error processing photo:', error)
+      toast({
+        title: 'Processing Error',
+        description: 'Failed to process photo. Please try again.',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      })
+      setUploadingPhoto(false)
+    }
   }
 
   const saveNutritionPreferences = async () => {
@@ -282,6 +441,42 @@ export default function Settings() {
                   <Text fontWeight="medium" fontSize={isMobile ? "sm" : "md"}>Account Type:</Text>
                   <Badge colorScheme="green" fontSize={isMobile ? "xs" : "sm"}>Premium</Badge>
                 </HStack>
+                
+                <Divider />
+                
+                {/* Profile Photo Section */}
+                <VStack spacing={4}>
+                  <Heading size="sm">Profile Photo</Heading>
+                  <HStack spacing={4} align="center">
+                    <Avatar 
+                      size="xl" 
+                      src={userProfile.profile_photo} 
+                      name={userProfile.name}
+                    />
+                    <VStack spacing={2}>
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handlePhotoUpload}
+                        accept="image/*"
+                        style={{ display: 'none' }}
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        leftIcon={<EditIcon />}
+                        onClick={() => fileInputRef.current?.click()}
+                        isLoading={uploadingPhoto}
+                        loadingText="Uploading..."
+                      >
+                        Change Photo
+                      </Button>
+                      <Text fontSize="xs" color="gray.500" textAlign="center">
+                        Max 5MB, JPG/PNG
+                      </Text>
+                    </VStack>
+                  </HStack>
+                </VStack>
                 
                 <Divider />
                 
@@ -445,13 +640,12 @@ export default function Settings() {
                     <FormControl>
                       <FormLabel fontSize="sm">Theme</FormLabel>
                       <Select
-                        value={nutritionPrefs.theme}
-                        onChange={(e) => setNutritionPrefs(prev => ({ ...prev, theme: e.target.value }))}
+                        value={colorMode}
+                        onChange={(e) => setColorMode(e.target.value as 'light' | 'dark')}
                         size="sm"
                       >
                         <option value="light">Light</option>
                         <option value="dark">Dark</option>
-                        <option value="auto">Auto</option>
                       </Select>
                     </FormControl>
 
@@ -826,17 +1020,11 @@ export default function Settings() {
                           <FormControl>
                             <FormLabel>Theme</FormLabel>
                             <Select
-                              value={nutritionPrefs.theme}
-                              onChange={(e) =>
-                                setNutritionPrefs({
-                                  ...nutritionPrefs,
-                                  theme: e.target.value,
-                                })
-                              }
+                              value={colorMode}
+                              onChange={(e) => setColorMode(e.target.value as 'light' | 'dark')}
                             >
                               <option value="light">Light</option>
                               <option value="dark">Dark</option>
-                              <option value="auto">Auto</option>
                             </Select>
                           </FormControl>
                         </HStack>
@@ -1049,16 +1237,23 @@ export default function Settings() {
                           Download your nutrition data and food logs.
                         </Text>
                         <HStack>
-                          <Button variant="outline" isDisabled>
+                          <Button 
+                            variant="outline" 
+                            onClick={exportToCSV}
+                            isLoading={exporting}
+                            loadingText="Exporting..."
+                          >
                             Export to CSV
                           </Button>
-                          <Button variant="outline" isDisabled>
-                            Export to PDF
+                          <Button 
+                            variant="outline" 
+                            onClick={exportToPDF}
+                            isLoading={exporting}
+                            loadingText="Exporting..."
+                          >
+                            Export Preferences
                           </Button>
                         </HStack>
-                        <Badge colorScheme="blue" alignSelf="start">
-                          Coming Soon
-                        </Badge>
                       </VStack>
                     </CardBody>
                   </Card>

@@ -1,6 +1,27 @@
 # Nutrivize V2 🍎
 
-A comprehensive nutrition tracking and meal planning application built with FastAPI (backend) and React (frontend).
+A comprehensive## 📚 **Documentation**
+
+Complete technical documentation is available in the `docs/` directory:
+
+### **Core Documentation**
+- **[📖 Documentation Hub](docs/README.md)** - Complete documentation overview and navigation
+- **[🏗️ Architecture Overview](docs/ARCHITECTURE_OVERVIEW.md)** - High-level system design and technology stack
+- **[🗄️ Database Schema](docs/DATABASE_SCHEMA.md)** - MongoDB collections, schemas, and indexing strategy
+- **[🔐 Security & Authentication](docs/SECURITY_AUTH.md)** - Firebase auth, JWT tokens, and security patterns
+- **[🚀 Deployment Guide](docs/DEPLOYMENT_ENV.md)** - Local setup and production deployment procedures
+
+### **Feature Documentation**
+- **[🤖 AI-Powered Features](docs/functionalities/AI_FEATURES.md)** - AI dashboard, chat assistant, meal planning, and smart insights
+- **[🍽️ Food Logging & Management](docs/functionalities/FOOD_LOGGING.md)** - Food search, logging, favorites, and meal tracking
+- **[📊 Analytics & Progress Tracking](docs/functionalities/ANALYTICS_TRACKING.md)** - Progress tracking, advanced analytics, and reporting
+- **[🔐 User Authentication & Management](docs/functionalities/USER_AUTH_MANAGEMENT.md)** - Registration, authentication, and profile management
+- **[🍽️ Meal Planning & Recipe Management](docs/functionalities/MEAL_PLANNING_RECIPES.md)** - AI meal planning, recipe management, and shopping lists
+- **[💧 Water Tracking & Hydration](docs/functionalities/WATER_TRACKING.md)** - Smart water tracking, goals, and analytics
+
+### **API & Frontend**
+- **[📡 API Reference](docs/API_REFERENCE.md)** - Complete documentation for all 80+ API endpoints
+- **[⚛️ Features & Components](docs/FEATURES_COMPONENTS.md)** - Frontend architecture and component documentationcking and meal planning application built with FastAPI (backend) and React (frontend).
 
 ## 📁 Project Structure
 
@@ -32,14 +53,20 @@ nutrivize-v2/
 ./scripts/deploy.sh
 ```
 
-## 📖 Documentation
+## � **Documentation**
 
-All documentation is organized in the `docs/` folder:
-- [Documentation Index](docs/README.md) - Complete documentation overview
-- [Deployment Guide](docs/deployment/DEPLOYMENT_GUIDE.md) - Deployment instructions
-- [API Documentation](docs/ANALYTICS_README.md) - API reference
-- [Feature Guides](docs/features/) - Feature-specific documentation
-- [Completion Logs](docs/completion-logs/) - Historical implementation records
+Complete technical documentation is available in the `docs/` directory:
+
+### **Core Documentation**
+- **[Documentation Hub](docs/README.md)** - Complete documentation overview and navigation
+- **[Architecture Overview](docs/ARCHITECTURE_OVERVIEW.md)** - High-level system design and technology stack
+- **[Database Schema](docs/DATABASE_SCHEMA.md)** - MongoDB collections, schemas, and indexing strategy
+- **[Security & Authentication](docs/SECURITY_AUTH.md)** - Firebase auth, JWT tokens, and security patterns
+- **[Deployment Guide](docs/DEPLOYMENT_ENV.md)** - Local setup and production deployment procedures
+
+### **API & Frontend**
+- **[API Reference](docs/API_REFERENCE.md)** - Complete documentation for all 80+ API endpoints
+- **[Features & Components](docs/FEATURES_COMPONENTS.md)** - Frontend architecture and component documentation
 
 ## 🔧 Configuration
 

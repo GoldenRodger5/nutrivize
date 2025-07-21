@@ -123,5 +123,21 @@
         // Show install button or trigger install flow
       });
     </script>
+    
+    <!-- Chakra UI Color Mode Script -->
+    <script>
+      (function() {
+        try {
+          var mode = localStorage.getItem('chakra-ui-color-mode');
+          if (mode === 'dark') {
+            document.documentElement.style.colorScheme = 'dark';
+            document.body.style.backgroundColor = '#1A202C';
+          } else {
+            document.documentElement.style.colorScheme = 'light';
+            document.body.style.backgroundColor = '#ffffff';
+          }
+        } catch (e) {}
+      })();
+    </script>
   </body>
 </html>
