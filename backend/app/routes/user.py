@@ -315,3 +315,21 @@ async def cleanup_recent_foods(
     except Exception as e:
         logger.error(f"Error cleaning up recent foods: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to cleanup recent foods")
+
+
+@router.get("/favorite-foods")
+async def get_favorite_foods(
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Get user's favorite foods - Alias for /favorites endpoint"""
+    try:
+        from ..services.user_favorites_service import user_favorites_service
+        
+        # Get user's favorite foods
+        favorites = await user_favorites_service.get_user_favorites(current_user.uid)
+        
+        return {"favorites": favorites}
+        
+    except Exception as e:
+        logger.error(f"Error getting favorite foods: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to get favorite foods")

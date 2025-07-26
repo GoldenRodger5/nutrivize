@@ -1,4 +1,5 @@
 from ..core.config import get_database
+from ..core.redis_client import redis_client
 from ..models.user import UserResponse
 from typing import Dict, List, Any, Optional
 from datetime import datetime, date, timedelta
@@ -322,12 +323,20 @@ class MealPlanningService:
             return False
     
     async def generate_shopping_list(self, user_id: str, plan_id: str, force_regenerate: bool = False) -> Dict[str, Any]:
-        """Generate shopping list from meal plan food items"""
+        """Generate shopping list from meal plan food items with Redis caching"""
         import logging
         logger = logging.getLogger(__name__)
         
         try:
             logger.info(f"🛒 Starting shopping list generation for plan {plan_id}")
+            
+            # Check Redis cache first (unless force regenerating)
+            cache_key = f"shopping_list:{plan_id}"
+            if not force_regenerate and redis_client.is_connected():
+                cached_list = redis_client.get_shopping_list(plan_id)
+                if cached_list:
+                    logger.info(f"✅ Found cached shopping list for plan {plan_id}")
+                    return cached_list
             
             meal_plan = self.get_meal_plan_by_id(user_id, plan_id)
             if not meal_plan:
@@ -456,6 +465,11 @@ class MealPlanningService:
                 "plan_id": plan_id,
                 "generated_at": datetime.now().isoformat()
             }
+            
+            # Cache the result in Redis for 6 hours
+            if redis_client.is_connected():
+                redis_client.cache_shopping_list(plan_id, result, timedelta(hours=6))
+                logger.info(f"✅ Cached shopping list for plan {plan_id}")
             
             logger.info(f"✅ Generated shopping list with {len(shopping_items)} items")
             return result
@@ -735,8 +749,15 @@ Return only JSON:
             raise ValueError(f"Failed to get shopping lists: {str(e)}")
     
     async def get_cached_shopping_list(self, user_id: str, plan_id: str, max_age_hours: int = 24) -> Optional[Dict[str, Any]]:
-        """Get cached shopping list if it exists and is not too old"""
+        """Get cached shopping list from Redis first, then fallback to database"""
         try:
+            # First check Redis cache
+            if redis_client.is_connected():
+                cached_list = redis_client.get_shopping_list(plan_id)
+                if cached_list:
+                    return cached_list
+            
+            # Fallback to database
             # Calculate cutoff time for cache expiration
             cutoff_time = datetime.utcnow() - timedelta(hours=max_age_hours)
             
@@ -750,6 +771,11 @@ Return only JSON:
             if shopping_list:
                 shopping_list["id"] = str(shopping_list["_id"])
                 del shopping_list["_id"]
+                
+                # Cache in Redis for future requests
+                if redis_client.is_connected():
+                    redis_client.cache_shopping_list(plan_id, shopping_list, timedelta(hours=6))
+                
                 return shopping_list
             
             return None
@@ -778,16 +804,123 @@ Return only JSON:
             return []
     
     async def delete_shopping_list(self, user_id: str, shopping_list_id: str) -> bool:
-        """Delete a specific shopping list"""
+        """Delete a specific shopping list and clear Redis cache"""
         try:
+            # First get the shopping list to find the meal_plan_id for cache invalidation
+            shopping_list = self.shopping_lists_collection.find_one({
+                "user_id": user_id,
+                "shopping_list_id": shopping_list_id
+            })
+            
             result = self.shopping_lists_collection.delete_one({
                 "user_id": user_id,
                 "shopping_list_id": shopping_list_id
             })
+            
+            # Clear Redis cache if the shopping list had a meal_plan_id
+            if result.deleted_count > 0 and shopping_list and redis_client.is_connected():
+                meal_plan_id = shopping_list.get("meal_plan_id")
+                if meal_plan_id:
+                    redis_client.delete(f"shopping_list:{meal_plan_id}")
+            
             return result.deleted_count > 0
         except Exception as e:
             print(f"Error deleting shopping list: {e}")
             return False
+
+    async def update_shopping_list(self, user_id: str, shopping_list_id: str, update_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Update an entire shopping list and clear Redis cache"""
+        try:
+            # First get the shopping list to find meal_plan_id for cache invalidation
+            shopping_list = self.shopping_lists_collection.find_one({
+                "user_id": user_id,
+                "shopping_list_id": shopping_list_id
+            })
+            
+            if not shopping_list:
+                return None
+            
+            # Update the shopping list
+            update_data["updated_at"] = datetime.utcnow()
+            
+            result = self.shopping_lists_collection.update_one(
+                {"user_id": user_id, "shopping_list_id": shopping_list_id},
+                {"$set": update_data}
+            )
+            
+            if result.modified_count > 0:
+                # Clear Redis cache
+                if redis_client.is_connected():
+                    meal_plan_id = shopping_list.get("meal_plan_id")
+                    if meal_plan_id:
+                        redis_client.delete(f"shopping_list:{meal_plan_id}")
+                
+                # Return updated shopping list
+                updated_list = self.shopping_lists_collection.find_one({
+                    "user_id": user_id,
+                    "shopping_list_id": shopping_list_id
+                })
+                
+                if updated_list:
+                    updated_list["id"] = str(updated_list["_id"])
+                    del updated_list["_id"]
+                    return updated_list
+            
+            return None
+        except Exception as e:
+            print(f"Error updating shopping list: {e}")
+            return None
+
+    async def update_shopping_list_item(self, user_id: str, shopping_list_id: str, item_id: str, update_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Update a specific item in a shopping list and clear Redis cache"""
+        try:
+            # First get the shopping list to find meal_plan_id for cache invalidation
+            shopping_list = self.shopping_lists_collection.find_one({
+                "user_id": user_id,
+                "shopping_list_id": shopping_list_id
+            })
+            
+            if not shopping_list:
+                return None
+            
+            # Update the specific item in the items array
+            update_data["updated_at"] = datetime.utcnow().isoformat()
+            
+            result = self.shopping_lists_collection.update_one(
+                {
+                    "user_id": user_id,
+                    "shopping_list_id": shopping_list_id,
+                    "items.item_id": item_id
+                },
+                {"$set": {f"items.$.{key}": value for key, value in update_data.items()}}
+            )
+            
+            if result.modified_count > 0:
+                # Clear Redis cache
+                if redis_client.is_connected():
+                    meal_plan_id = shopping_list.get("meal_plan_id")
+                    if meal_plan_id:
+                        redis_client.delete(f"shopping_list:{meal_plan_id}")
+                
+                # Return updated shopping list
+                updated_list = self.shopping_lists_collection.find_one({
+                    "user_id": user_id,
+                    "shopping_list_id": shopping_list_id
+                })
+                
+                if updated_list:
+                    updated_list["id"] = str(updated_list["_id"])
+                    del updated_list["_id"]
+                    
+                    # Find and return the updated item
+                    for item in updated_list.get("items", []):
+                        if item.get("item_id") == item_id:
+                            return item
+            
+            return None
+        except Exception as e:
+            print(f"Error updating shopping list item: {e}")
+            return None
 
     
 # Global meal planning service instance

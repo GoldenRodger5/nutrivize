@@ -1,6 +1,10 @@
 from ..core.config import get_database
-from ..models.food import FoodItem, FoodItemCreate, FoodItemResponse, FoodSearch, NutritionInfo, DietaryAttributes
-from typing import List, Optional
+from ..core.redis_client import redis_client
+from ..models.food import FoodItem, FoodItemCreate, FoodItemResponse, FoodSearch, DietaryAttributes
+from ..models.user import UserResponse
+from ..services.ai_service import AIService
+from typing import List, Optional, Dict, Any
+from datetime import datetime, timedelta
 from bson import ObjectId
 import re
 import logging
@@ -118,6 +122,10 @@ class FoodService:
         food_dict.pop("created_by", None)  # Remove created_by field
         
         result = self.food_collection.insert_one(food_dict)
+        
+        # Invalidate user's food index cache since we added a new food
+        if redis_client.is_connected():
+            redis_client.delete(f"food_index:{user_id}")
         
         return FoodItemResponse(
             id=str(result.inserted_id),
@@ -350,9 +358,16 @@ class FoodService:
         return results
 
     async def get_user_food_index(self, user_id: str) -> List[dict]:
-        """Get all foods from user's personal food index"""
+        """Get all foods from user's personal food index with Redis caching"""
         if not self._check_database_available():
             return []
+        
+        # Try to get from Redis cache first
+        cache_key = f"food_index:{user_id}"
+        if redis_client.is_connected():
+            cached_data = redis_client.get(cache_key)
+            if cached_data:
+                return cached_data
         
         try:
             # Get all user foods
@@ -369,6 +384,10 @@ class FoodService:
                     "nutrition": food_doc["nutrition"],
                     "source": food_doc.get("source", "user")
                 })
+            
+            # Cache the result for 2 hours (food index changes when user adds foods)
+            if redis_client.is_connected():
+                redis_client.set(cache_key, food_index, timedelta(hours=2))
             
             return food_index
         except Exception as e:

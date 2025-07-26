@@ -480,6 +480,11 @@ const MealPlans: React.FC = () => {
           items: transformedItems
         }
         
+        console.log('Original shopping data:', shoppingData)
+        console.log('Transformed data:', transformedData)
+        console.log('Total cost in original:', shoppingData.total_estimated_cost)
+        console.log('Total cost in transformed:', transformedData.total_estimated_cost)
+        
         setShoppingListData(transformedData)
         setCurrentShoppingPlanId(planId)
         onShoppingOpen()

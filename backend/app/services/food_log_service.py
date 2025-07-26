@@ -1,8 +1,9 @@
 from ..core.config import get_database
+from ..core.redis_client import redis_client
 from ..models.food_log import FoodLogEntry, FoodLogCreate, FoodLogResponse, DailyNutritionSummary
 from ..models.food import NutritionInfo
 from typing import List, Optional, Dict, Any
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from bson import ObjectId
 from collections import defaultdict
 import re
@@ -41,7 +42,7 @@ class FoodLogService:
         return 1.0  # Default fallback for any other type
     
     async def log_food(self, log_data: FoodLogCreate, user_id: str) -> FoodLogResponse:
-        """Log a food entry"""
+        """Log a food entry and invalidate cache"""
         food_log = FoodLogEntry(
             user_id=user_id,
             **log_data.dict()
@@ -53,6 +54,11 @@ class FoodLogService:
             log_dict['date'] = log_dict['date'].isoformat()
         
         result = self.food_logs_collection.insert_one(log_dict)
+        
+        # Invalidate cache for this date
+        if redis_client.is_connected():
+            date_str = log_data.date.isoformat() if isinstance(log_data.date, date) else log_data.date
+            redis_client.delete(f"food_logs:{user_id}:{date_str}")
         
         return FoodLogResponse(
             id=str(result.inserted_id),
@@ -68,9 +74,15 @@ class FoodLogService:
         )
     
     async def get_daily_logs(self, user_id: str, target_date: date) -> DailyNutritionSummary:
-        """Get all food logs for a specific date"""
-        # Convert date to string for MongoDB comparison (since we store dates as strings)
+        """Get all food logs for a specific date with Redis caching"""
+        # Convert date to string for caching and MongoDB comparison
         target_date_str = target_date.isoformat() if isinstance(target_date, date) else target_date
+        
+        # Try to get from Redis cache first
+        if redis_client.is_connected():
+            cached_data = redis_client.get_food_logs(user_id, target_date_str)
+            if cached_data:
+                return DailyNutritionSummary(**cached_data)
         
         logs = list(self.food_logs_collection.find({
             "user_id": user_id,
@@ -121,12 +133,20 @@ class FoodLogService:
             meal_breakdown[meal_type].fat += nutrition.get("fat", 0)
             meal_breakdown[meal_type].fiber += nutrition.get("fiber", 0)
         
-        return DailyNutritionSummary(
+        result = DailyNutritionSummary(
             date=target_date,
             total_nutrition=total_nutrition,
             meals=meal_entries,
             meal_breakdown=dict(meal_breakdown)
         )
+        
+        # Cache the result in Redis for 30 minutes
+        if redis_client.is_connected():
+            # Convert to dict for caching
+            cache_data = result.dict()
+            redis_client.cache_food_logs(user_id, target_date_str, cache_data, timedelta(minutes=30))
+        
+        return result
     
     async def get_date_range_logs(self, user_id: str, start_date: date, end_date: date) -> List[DailyNutritionSummary]:
         """Get food logs for a date range"""
@@ -167,8 +187,13 @@ class FoodLogService:
             return []  # Return empty list instead of failing
     
     async def update_food_log(self, log_id: str, updates: dict, user_id: str) -> Optional[FoodLogResponse]:
-        """Update a food log entry"""
+        """Update a food log entry and invalidate cache"""
         try:
+            # First get the original entry to know which date to invalidate
+            log_doc = self.food_logs_collection.find_one({"_id": ObjectId(log_id), "user_id": user_id})
+            if not log_doc:
+                return None
+            
             result = self.food_logs_collection.update_one(
                 {"_id": ObjectId(log_id), "user_id": user_id},
                 {"$set": updates}
@@ -177,33 +202,55 @@ class FoodLogService:
             if result.modified_count == 0:
                 return None
             
+            # Invalidate cache for the date
+            if redis_client.is_connected():
+                date_str = log_doc["date"]
+                if not isinstance(date_str, str):
+                    date_str = date_str.isoformat()
+                redis_client.delete(f"food_logs:{user_id}:{date_str}")
+            
             # Get updated entry
-            log_doc = self.food_logs_collection.find_one({"_id": ObjectId(log_id)})
-            if not log_doc:
+            updated_log_doc = self.food_logs_collection.find_one({"_id": ObjectId(log_id)})
+            if not updated_log_doc:
                 return None
             
             return FoodLogResponse(
-                id=str(log_doc["_id"]),
-                date=log_doc["date"],
-                meal_type=log_doc["meal_type"],
-                food_id=log_doc["food_id"],
-                food_name=log_doc["food_name"],
-                amount=self._parse_amount(log_doc["amount"]),  # Parse amount safely
-                unit=log_doc["unit"],
-                nutrition=log_doc["nutrition"],
-                notes=log_doc.get("notes", ""),
-                logged_at=log_doc["logged_at"]
+                id=str(updated_log_doc["_id"]),
+                date=updated_log_doc["date"],
+                meal_type=updated_log_doc["meal_type"],
+                food_id=updated_log_doc["food_id"],
+                food_name=updated_log_doc["food_name"],
+                amount=self._parse_amount(updated_log_doc["amount"]),  # Parse amount safely
+                unit=updated_log_doc["unit"],
+                nutrition=updated_log_doc["nutrition"],
+                notes=updated_log_doc.get("notes", ""),
+                logged_at=updated_log_doc["logged_at"]
             )
         except:
             return None
     
     async def delete_food_log(self, log_id: str, user_id: str) -> bool:
-        """Delete a food log entry"""
+        """Delete a food log entry and invalidate cache"""
         try:
+            # First get the entry to know which date to invalidate
+            log_doc = self.food_logs_collection.find_one({"_id": ObjectId(log_id), "user_id": user_id})
+            if not log_doc:
+                return False
+            
             result = self.food_logs_collection.delete_one(
                 {"_id": ObjectId(log_id), "user_id": user_id}
             )
-            return result.deleted_count > 0
+            
+            success = result.deleted_count > 0
+            
+            # Invalidate cache for the date if delete was successful
+            if success and redis_client.is_connected():
+                date_str = log_doc["date"]
+                if not isinstance(date_str, str):
+                    date_str = date_str.isoformat()
+                redis_client.delete(f"food_logs:{user_id}:{date_str}")
+            
+            return success
         except:
             return False
     

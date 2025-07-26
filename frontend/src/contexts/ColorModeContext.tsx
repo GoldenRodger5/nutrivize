@@ -21,7 +21,7 @@ export const ColorModeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       if (user) {
         try {
           const response = await api.get('/preferences')
-          const userTheme = response.data.preferences?.theme || 'light'
+          const userTheme = response.data.app?.theme || 'light'
           if (userTheme !== colorMode) {
             setColorMode(userTheme as 'light' | 'dark')
           }
@@ -32,7 +32,7 @@ export const ColorModeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
 
     loadThemePreference()
-  }, [user, colorMode, setColorMode])
+  }, [user, setColorMode]) // Remove colorMode from dependencies to avoid infinite loop
 
   // Save theme preference when it changes
   const handleToggleColorMode = async () => {
@@ -41,7 +41,7 @@ export const ColorModeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (user) {
       try {
         await api.put('/preferences', {
-          preferences: {
+          app: {
             theme: newMode
           }
         })
@@ -57,7 +57,7 @@ export const ColorModeProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     if (user) {
       try {
         await api.put('/preferences', {
-          preferences: {
+          app: {
             theme: mode
           }
         })

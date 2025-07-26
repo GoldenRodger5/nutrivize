@@ -35,6 +35,7 @@ class AppPreferences(BaseModel):
     units: Optional[str] = "metric"  # metric, imperial
     language: Optional[str] = "en"
     timezone: Optional[str] = None
+    theme: Optional[str] = "light"  # light, dark
     notifications_enabled: Optional[bool] = True
     meal_reminders: Optional[bool] = True
     weekly_insights: Optional[bool] = True

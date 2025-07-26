@@ -8,7 +8,7 @@ import base64
 import json
 import os
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Dict, Optional, Any
 from pydantic import BaseModel
 import requests
@@ -21,6 +21,7 @@ import openai
 from .ai_service import AIService
 from .ocr_service import ocr_service
 from ..core.config import get_database
+from ..core.redis_client import redis_client
 
 logger = logging.getLogger(__name__)
 
@@ -130,6 +131,13 @@ class RestaurantAIService:
             if self.collection is not None:
                 await self._save_analysis(result)
             
+            # Invalidate user analyses cache since we added a new analysis
+            if redis_client.is_connected():
+                # Clear user analyses cache patterns
+                cache_patterns = [f"user_analyses:{user_id}:*"]
+                for pattern in cache_patterns:
+                    redis_client.flush_pattern(pattern)
+            
             return result
             
         except Exception as e:
@@ -137,8 +145,15 @@ class RestaurantAIService:
             raise Exception(f"Failed to analyze menu: {str(e)}")
     
     async def get_user_analyses(self, user_id: str, limit: int = 20) -> List[MenuAnalysisResult]:
-        """Get user's previous menu analyses"""
+        """Get user's previous menu analyses with Redis caching"""
         try:
+            # Try to get from Redis cache first
+            cache_key = f"user_analyses:{user_id}:{limit}"
+            if redis_client.is_connected():
+                cached_data = redis_client.get(cache_key)
+                if cached_data:
+                    return [MenuAnalysisResult(**analysis) for analysis in cached_data]
+            
             if self.collection is None:
                 return []
             
@@ -146,17 +161,30 @@ class RestaurantAIService:
                 {"user_id": user_id}
             ).sort("created_at", -1).limit(limit))
             
-            return [
+            result = [
                 MenuAnalysisResult(**analysis) for analysis in analyses
             ]
+            
+            # Cache the result for 1 hour
+            if redis_client.is_connected() and result:
+                redis_client.set(cache_key, [analysis.dict() for analysis in result], timedelta(hours=1))
+            
+            return result
             
         except Exception as e:
             logger.error(f"Error getting user analyses: {e}")
             return []
     
     async def get_analysis_by_id(self, analysis_id: str, user_id: str) -> Optional[MenuAnalysisResult]:
-        """Get a specific analysis by ID"""
+        """Get a specific analysis by ID with Redis caching"""
         try:
+            # Try to get from Redis cache first
+            cache_key = f"menu_analysis:{user_id}:{analysis_id}"
+            if redis_client.is_connected():
+                cached_data = redis_client.get(cache_key)
+                if cached_data:
+                    return MenuAnalysisResult(**cached_data)
+            
             if self.collection is None:
                 return None
             
@@ -166,7 +194,13 @@ class RestaurantAIService:
             })
             
             if analysis:
-                return MenuAnalysisResult(**analysis)
+                result = MenuAnalysisResult(**analysis)
+                
+                # Cache the result for 6 hours (analyses don't change)
+                if redis_client.is_connected():
+                    redis_client.set(cache_key, result.dict(), timedelta(hours=6))
+                
+                return result
             return None
             
         except Exception as e:
