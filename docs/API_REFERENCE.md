@@ -31,10 +31,12 @@ Health Check: /health
 - **Authentication**: JWT Bearer tokens (Firebase)
 - **Content Type**: `application/json`
 - **Response Format**: JSON with consistent structure
-- **Error Format**: Standard HTTP status codes with detailed messages
-- **Rate Limiting**: 100 requests/minute per user (configurable)
+- **Error Format**: Enhanced error handling with request tracking
+- **Rate Limiting**: 120 requests/minute with 20 burst allowance
+- **Security**: Multi-layer security headers and validation
+- **Monitoring**: Health checks with service status reporting
 
-### **Standard Response Structure**
+### **Enhanced Response Structure**
 ```typescript
 // Success Response
 interface APIResponse<T> {
@@ -48,6 +50,28 @@ interface APIResponse<T> {
     has_more?: boolean
   }
 }
+
+// Enhanced Error Response (Production v2.0)
+interface ErrorResponse {
+  error: true
+  error_code: string          // VALIDATION_ERROR, UNAUTHORIZED, etc.
+  message: string             // User-friendly error message
+  timestamp: string           // ISO timestamp
+  details: object             // Additional error context
+  request_id: string          // Unique request identifier for tracking
+}
+```
+
+### **Security Headers**
+All API responses include enhanced security headers:
+```
+X-Request-ID: <unique-request-id>
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+X-XSS-Protection: 1; mode=block
+Referrer-Policy: strict-origin-when-cross-origin
+Content-Security-Policy: default-src 'none'; frame-ancestors 'none';
+```
 
 // Error Response
 interface APIError {
@@ -69,22 +93,48 @@ All API endpoints (except `/auth/`) require a valid JWT token in the Authorizati
 Authorization: Bearer <firebase_jwt_token>
 ```
 
-### **Authentication Endpoints**
+### **System Endpoints**
 
-#### **Health Check**
+#### **Enhanced Health Check (Production v2.0)**
 ```http
 GET /health
 ```
-**Description**: Check API health status  
+**Description**: Comprehensive system health monitoring with service status  
 **Authentication**: None required  
 **Response**:
 ```json
 {
   "status": "healthy",
   "version": "2.0.0",
-  "timestamp": "2025-01-20T10:30:00Z"
+  "timestamp": "2025-07-27T01:25:16.411173",
+  "services": {
+    "api": "up",
+    "database": "up", 
+    "redis": "up"
+  }
 }
 ```
+
+**Error Response (Service Unavailable)**:
+```json
+{
+  "error": true,
+  "error_code": "SERVICE_UNAVAILABLE",
+  "message": "Service temporarily unavailable",
+  "timestamp": "2025-07-27T01:25:16.411173",
+  "details": {},
+  "request_id": "13ebeae7-7f38-4df3-8cde-fc52989fa142"
+}
+```
+
+**Features**:
+- Real-time database connectivity check
+- Redis cache status monitoring
+- Service dependency verification
+- Monitoring tool integration ready
+- Request ID tracking for debugging
+
+### **Authentication Endpoints**
 
 #### **Token Validation**
 ```http
@@ -1264,6 +1314,10 @@ Authorization: Bearer <jwt_token>
 
 ## ⚠️ **Error Handling**
 
+### **Enhanced Error Handling (Production v2.0)**
+
+The API now features comprehensive error handling with structured responses and request tracking for better debugging and monitoring.
+
 ### **Standard HTTP Status Codes**
 - `200` - Success
 - `201` - Created successfully
@@ -1274,53 +1328,79 @@ Authorization: Bearer <jwt_token>
 - `422` - Unprocessable entity (validation failed)
 - `429` - Too many requests (rate limited)
 - `500` - Internal server error
+- `503` - Service unavailable (health check failure)
 
-### **Error Response Format**
+### **Enhanced Error Response Format**
 ```json
 {
-  "detail": "Food with ID '507f1f77bcf86cd799439999' not found",
-  "status_code": 404,
-  "timestamp": "2025-01-20T10:30:00Z",
-  "path": "/foods/507f1f77bcf86cd799439999",
-  "error_type": "NotFoundError"
+  "error": true,
+  "error_code": "VALIDATION_ERROR",
+  "message": "Validation failed for food item creation",
+  "timestamp": "2025-07-27T01:27:49.136460",
+  "details": {
+    "field_errors": [
+      {
+        "field": "nutrition.calories",
+        "message": "Calories must be between 0 and 10000",
+        "value": -100
+      }
+    ]
+  },
+  "request_id": "81ac49de-2c1c-438b-a650-58dbbdc5b384"
 }
 ```
 
-### **Validation Error Format**
+### **Error Code Classifications**
+- `VALIDATION_ERROR` - Input validation failures
+- `UNAUTHORIZED` - Authentication failures
+- `FORBIDDEN` - Authorization/permission failures
+- `NOT_FOUND` - Resource not found
+- `RATE_LIMIT_EXCEEDED` - Rate limiting violations
+- `DATABASE_ERROR` - Database operation failures
+- `EXTERNAL_SERVICE_ERROR` - Third-party service failures
+- `BUSINESS_LOGIC_ERROR` - Business rule violations
+- `SERVICE_UNAVAILABLE` - Health check failures
+
+### **Authentication Error Example**
 ```json
 {
-  "detail": [
-    {
-      "loc": ["body", "nutrition", "calories"],
-      "msg": "ensure this value is greater than 0",
-      "type": "value_error.number.not_gt",
-      "ctx": {"limit_value": 0}
-    }
-  ],
-  "status_code": 422,
-  "timestamp": "2025-01-20T10:30:00Z",
-  "path": "/food-logs/",
-  "error_type": "ValidationError"
+  "error": true,
+  "error_code": "UNAUTHORIZED",
+  "message": "Authorization header required",
+  "timestamp": "2025-07-27T01:28:44.456184",
+  "details": {},
+  "request_id": "ac1d6fc9-95b1-4ca8-9398-ab595888598d"
 }
 ```
+
+### **Request Tracking**
+Every API response includes a unique `request_id` for:
+- **Error debugging**: Track specific failed requests
+- **Performance monitoring**: Correlate logs across services
+- **Support requests**: Reference specific API calls
 
 ### **Common Error Scenarios**
 1. **Authentication Errors**: Invalid or expired JWT tokens
-2. **Validation Errors**: Missing required fields or invalid data types
+2. **Validation Errors**: Enhanced field validation with detailed messages
 3. **Resource Not Found**: Requesting non-existent resources
 4. **Permission Errors**: Attempting to access other users' data
-5. **Rate Limiting**: Exceeding API request limits
+5. **Rate Limiting**: Exceeding API request limits (with burst allowance)
 6. **External Service Errors**: AI API or database connection issues
+7. **Service Health**: Health check failures for monitoring
 
 ---
 
 ## 🚦 **Rate Limiting**
 
+### **Enhanced Rate Limiting (Production v2.0)**
+
+The API now features intelligent rate limiting with burst allowance and proper HTTP headers.
+
 ### **Current Limits**
-- **General Endpoints**: 100 requests per minute per user
-- **AI Endpoints**: 20 requests per minute per user
-- **Upload Endpoints**: 10 requests per minute per user
-- **Analytics Endpoints**: 50 requests per minute per user
+- **General Endpoints**: 120 requests per minute with 20 burst allowance
+- **AI Endpoints**: 30 requests per minute per user
+- **Upload Endpoints**: 15 requests per minute per user
+- **Analytics Endpoints**: 60 requests per minute per user
 
 ### **Rate Limit Headers**
 ```http

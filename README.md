@@ -1,15 +1,96 @@
 # Nutrivize V2 🍎
 
-A comprehensive## 📚 **Documentation**
+A comprehensive nutrition tracking and meal planning application built with FastAPI (backend) and React (frontend), featuring **enterprise-grade production security and monitoring**.
+
+## � **Production Features (v2.0)**
+
+✅ **Enterprise Security Suite**
+- Multi-layer security headers (XSS, CSRF, Frame protection)
+- Rate limiting with burst allowance (120 req/min + 20 burst)
+- Request size limits and content validation
+- Enhanced authentication and authorization
+
+✅ **Monitoring & Reliability**
+- Production health check endpoint with service status
+- Request tracking with unique IDs for debugging
+- Structured error handling with custom exception hierarchy
+- Performance logging and metrics collection
+
+✅ **Enhanced Validation & Caching**
+- Comprehensive input validation with field constraints
+- Redis caching with smart TTL strategies
+- Input sanitization and data cleaning
+- Production-safe error responses
+
+## 📁 Project Structure
+
+```
+nutrivize-v2/
+├── backend/                 # FastAPI backend with production enhancements
+│   ├── app/
+│   │   ├── core/           # Enhanced security, error handling, caching
+│   │   ├── models/         # Pydantic models with comprehensive validation
+│   │   ├── routes/         # API endpoints with error tracking
+│   │   └── services/       # Business logic with exception handling
+│   └── backups/            # Backup files and utilities
+├── frontend/               # React frontend application
+│   ├── src/               # Source code
+│   └── backups/           # Frontend backup files
+├── scripts/               # Deployment and utility scripts
+├── docs/                  # Enhanced documentation with production guides
+├── data/                  # Sample data and meal plans
+└── nutrition_labels/      # Nutrition label assets
+```
+
+## 🚀 Quick Start
+
+### Development
+```bash
+# Start the enhanced development environment
+./start-nutrivize.sh
+
+# API available at: http://localhost:8000
+# Frontend available at: http://localhost:5173
+# Health check: http://localhost:8000/health
+# API docs: http://localhost:8000/docs
+```
+
+### Production Monitoring
+```bash
+# Check API health and service status
+curl http://localhost:8000/health
+
+# Expected response:
+{
+  "status": "healthy",
+  "version": "2.0.0", 
+  "timestamp": "2025-07-27T01:25:16.411173",
+  "services": {
+    "api": "up",
+    "database": "up",
+    "redis": "up"
+  }
+}
+```
+```bash
+# Deploy to production
+./scripts/deploy.sh
+```
+
+## 📚 **Documentation**
 
 Complete technical documentation is available in the `docs/` directory:
 
 ### **Core Documentation**
 - **[📖 Documentation Hub](docs/README.md)** - Complete documentation overview and navigation
-- **[🏗️ Architecture Overview](docs/ARCHITECTURE_OVERVIEW.md)** - High-level system design and technology stack
+- **[🏗️ Architecture Overview](docs/ARCHITECTURE_OVERVIEW.md)** - Enhanced system design with production features
 - **[🗄️ Database Schema](docs/DATABASE_SCHEMA.md)** - MongoDB collections, schemas, and indexing strategy
-- **[🔐 Security & Authentication](docs/SECURITY_AUTH.md)** - Firebase auth, JWT tokens, and security patterns
-- **[🚀 Deployment Guide](docs/DEPLOYMENT_ENV.md)** - Local setup and production deployment procedures
+- **[🔐 Security & Authentication](docs/SECURITY_AUTH.md)** - Enhanced security with multi-layer protection
+- **[🚀 Deployment Guide](docs/DEPLOYMENT_ENV.md)** - Production deployment with monitoring setup
+
+### **Production Documentation (v2.0)**
+- **[📊 Production Testing Results](docs/PRODUCTION_TESTING_RESULTS.md)** - Live testing of production features
+- **[🛡️ Production Improvements](docs/PRODUCTION_IMPROVEMENTS.md)** - Comprehensive security and reliability enhancements
 
 ### **Feature Documentation**
 - **[🤖 AI-Powered Features](docs/functionalities/AI_FEATURES.md)** - AI dashboard, chat assistant, meal planning, and smart insights
@@ -20,53 +101,8 @@ Complete technical documentation is available in the `docs/` directory:
 - **[💧 Water Tracking & Hydration](docs/functionalities/WATER_TRACKING.md)** - Smart water tracking, goals, and analytics
 
 ### **API & Frontend**
-- **[📡 API Reference](docs/API_REFERENCE.md)** - Complete documentation for all 80+ API endpoints
-- **[⚛️ Features & Components](docs/FEATURES_COMPONENTS.md)** - Frontend architecture and component documentationcking and meal planning application built with FastAPI (backend) and React (frontend).
-
-## 📁 Project Structure
-
-```
-nutrivize-v2/
-├── backend/                 # FastAPI backend application
-│   ├── app/                # Main application code
-│   └── backups/            # Backup files and utilities
-├── frontend/               # React frontend application
-│   ├── src/               # Source code
-│   └── backups/           # Frontend backup files
-├── scripts/               # Deployment and utility scripts
-├── docs/                  # Documentation and guides
-├── data/                  # Sample data and meal plans
-└── nutrition_labels/      # Nutrition label assets
-```
-
-## 🚀 Quick Start
-
-### Development
-```bash
-# Start the development environment
-./scripts/start-nutrivize.sh
-```
-
-### Deployment
-```bash
-# Deploy to production
-./scripts/deploy.sh
-```
-
-## � **Documentation**
-
-Complete technical documentation is available in the `docs/` directory:
-
-### **Core Documentation**
-- **[Documentation Hub](docs/README.md)** - Complete documentation overview and navigation
-- **[Architecture Overview](docs/ARCHITECTURE_OVERVIEW.md)** - High-level system design and technology stack
-- **[Database Schema](docs/DATABASE_SCHEMA.md)** - MongoDB collections, schemas, and indexing strategy
-- **[Security & Authentication](docs/SECURITY_AUTH.md)** - Firebase auth, JWT tokens, and security patterns
-- **[Deployment Guide](docs/DEPLOYMENT_ENV.md)** - Local setup and production deployment procedures
-
-### **API & Frontend**
-- **[API Reference](docs/API_REFERENCE.md)** - Complete documentation for all 80+ API endpoints
-- **[Features & Components](docs/FEATURES_COMPONENTS.md)** - Frontend architecture and component documentation
+- **[📡 API Reference](docs/API_REFERENCE.md)** - Complete documentation with enhanced error handling
+- **[⚛️ Features & Components](docs/FEATURES_COMPONENTS.md)** - Frontend architecture and component documentation
 
 ## 🔧 Configuration
 

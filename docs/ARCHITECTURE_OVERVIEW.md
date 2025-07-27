@@ -28,13 +28,41 @@ Nutrivize V2 is a **modern full-stack nutrition tracking application** that comb
 
 ### **Core Technologies**
 ```yaml
-Backend Framework: FastAPI (Python 3.11+)
+Backend Framework: FastAPI (Python 3.11+) with Production Enhancements
 Frontend Framework: React 18 (TypeScript)
 Database: MongoDB Atlas (Cloud NoSQL)
+Cache Layer: Redis Cloud (High-performance caching)
 Authentication: Firebase Authentication
 AI Engine: Anthropic Claude API
 Build Tool: Vite (Frontend), Uvicorn (Backend)
 Deployment: Render.com (Frontend + Backend)
+```
+
+### **Production Features (v2.0)**
+```yaml
+Security:
+  - Multi-layer security headers (XSS, CSRF, Frame protection)
+  - Rate limiting with burst allowance (120 req/min + 20 burst)
+  - Request size limits (10MB max)
+  - Content Security Policy enforcement
+
+Error Handling:
+  - Structured error responses with request tracking
+  - Custom exception hierarchy (8 specialized types)
+  - Request ID correlation for debugging
+  - Enhanced validation with field constraints
+
+Monitoring:
+  - Health check endpoint with service status
+  - Request/response logging with performance metrics
+  - Database and Redis connectivity monitoring
+  - Production-ready error tracking
+
+Performance:
+  - Redis caching with smart TTL strategies
+  - Optimized middleware stack ordering
+  - Input validation and sanitization
+  - Database connection pooling
 ```
 
 ### **Key Libraries & Services**
@@ -129,7 +157,10 @@ backend/app/
 │   ├── config.py          # Environment and database configuration
 │   ├── firebase.py        # Firebase authentication setup
 │   ├── database.py        # MongoDB connection management
-│   └── middleware.py      # CORS, logging, and security middleware
+│   ├── redis_client.py    # Redis caching with smart TTL strategies
+│   ├── security.py        # Production security middleware suite
+│   ├── error_handling.py  # Enhanced error handling and logging
+│   └── exceptions.py      # Custom exception hierarchy (8 types)
 ├── routes/                 # API endpoint definitions (17 modules)
 │   ├── auth.py            # User authentication and registration
 │   ├── foods.py           # Food database search and management
@@ -275,6 +306,47 @@ frontend/src/
 ---
 
 ## 🔄 **Data Flow Patterns**
+
+### **Enhanced Request Processing Pipeline (Production v2.0)**
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant MW as Middleware Stack
+    participant BE as Backend
+    participant DB as MongoDB
+    participant R as Redis
+
+    C->>MW: HTTP Request
+    MW->>MW: 1. Error Handling Setup
+    MW->>MW: 2. Request Size Check (10MB)
+    MW->>MW: 3. Security Headers
+    MW->>MW: 4. Request Logging + ID
+    MW->>MW: 5. Rate Limiting Check
+    MW->>MW: 6. CORS Validation
+    
+    MW->>BE: Processed Request
+    BE->>R: Check Cache First
+    R-->>BE: Cache Hit/Miss
+    
+    alt Cache Miss
+        BE->>DB: Database Query
+        DB-->>BE: Data Response
+        BE->>R: Cache Result
+    end
+    
+    BE-->>MW: Response + Request ID
+    MW-->>C: Enhanced Response
+```
+
+### **Middleware Stack Order (Optimized)**
+```yaml
+1. ErrorHandlingMiddleware     # Catch all exceptions
+2. RequestSizeLimitMiddleware  # Early payload rejection
+3. SecurityHeadersMiddleware   # Security headers injection
+4. RequestLoggingMiddleware    # Request tracking + performance
+5. RateLimitMiddleware         # Traffic control with burst
+6. CORSMiddleware              # Cross-origin validation
+```
 
 ### **User Authentication Flow**
 ```mermaid

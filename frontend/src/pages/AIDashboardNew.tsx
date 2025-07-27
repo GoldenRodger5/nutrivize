@@ -48,6 +48,7 @@ import { useNavigate } from 'react-router-dom'
 // Import hooks - correct paths
 import { useAICoaching, useSmartNutrition, useHealthScore } from '../hooks/useAIDashboard'
 import { useEnhancedHealthScore } from '../hooks/useEnhancedAIHealth'
+import { useUserPreferences } from '../hooks/useUserPreferences'
 
 // Import modals - fix import syntax
 import TodaysNutritionDetailModal from '../components/nutrition/TodaysNutritionDetailModal'
@@ -408,6 +409,7 @@ export default function AIDashboardNew() {
   // All hooks at the top level - no conditional calls
   const navigate = useNavigate()
   const isMobile = useBreakpointValue({ base: true, md: false })
+  const { preferences } = useUserPreferences()
   
   // Loading state
   const [initialLoading, setInitialLoading] = useState(true)
@@ -482,6 +484,23 @@ export default function AIDashboardNew() {
               <Text fontSize={isMobile ? "sm" : "md"} color="gray.600">
                 Here's your health overview for today
               </Text>
+              {preferences?.dietary && (
+                <HStack spacing={2} mt={1}>
+                  <Text fontSize="xs" color="gray.500">
+                    Profile:
+                  </Text>
+                  {preferences.dietary.dietary_restrictions?.slice(0, 2).map(restriction => (
+                    <Badge key={restriction} size="sm" colorScheme="green" fontSize="xs">
+                      {restriction}
+                    </Badge>
+                  ))}
+                  {preferences.dietary.cooking_skill_level && (
+                    <Badge size="sm" colorScheme="blue" fontSize="xs">
+                      {preferences.dietary.cooking_skill_level} cook
+                    </Badge>
+                  )}
+                </HStack>
+              )}
             </VStack>
           </HStack>
         </MotionBox>

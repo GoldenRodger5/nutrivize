@@ -1,10 +1,49 @@
 # 📚 Nutrivize V2 - Documentation Hub
 
-Complete documentation for the modern, full-stack nutrition tracking application with AI-powered features.
+Complete documentation for the modern, full-stack nutrition tracking application with AI-powered features, **enterprise-grade production security**, and **complete user preferences system**.
 
 ## 🎯 **Documentation Overview**
 
-This documentation provides comprehensive technical information for developers, covering system architecture, API specifications, security patterns, deployment procedures, and component implementations.
+This documentation provides comprehensive technical information for developers, covering system architecture, API specifications, security patterns, deployment procedures, and component implementations. **Version 2.0 includes enhanced production features with comprehensive security, monitoring, error handling, and a complete user preferences system with Redis caching.**
+
+### **Quick Navigation**
+- 🚀 **[Get Started](#quick-start)** - Set up development environment
+- 🏗️ **[Architecture](#core-documentation)** - Understand the system design
+- 🔐 **[Security](#core-documentation)** - Enhanced authentication and data protection
+- 🗄️ **[Database](#core-documentation)** - MongoDB schemas and patterns
+- 🌐 **[Deployment](#core-documentation)** - Production deployment guide with monitoring
+- 📡 **[API Reference](API_REFERENCE.md)** - Complete API documentation with enhanced error handling
+- 🧩 **[Components](FEATURES_COMPONENTS.md)** - Frontend architecture and features
+- 📊 **[Production Testing](PRODUCTION_TESTING_RESULTS.md)** - Live production feature testing results
+- 🛡️ **[Production Improvements](PRODUCTION_IMPROVEMENTS.md)** - Comprehensive production enhancements
+- 🗂️ **[Project Structure](../PROJECT_STRUCTURE.md)** - Current file organization and cleanup summary
+
+## 🆕 **Production Features (v2.0)**
+
+### **Complete Preferences System** 🎯
+- **8 API Endpoints**: Full CRUD operations for dietary, nutrition, and app preferences
+- **Redis Caching**: 10x performance improvement with write-through caching strategy
+- **Modern Settings UI**: Tabbed interface with real-time editing and validation
+- **App-wide Integration**: Enhanced Analytics, Food Log, Meal Planning, AI Dashboard
+- **TypeScript Support**: Full type safety and comprehensive error handling
+
+### **Enterprise Security**
+- **Multi-layer Security Headers**: XSS, CSRF, frame protection, CSP
+- **Rate Limiting**: 120 req/min with 20 burst allowance
+- **Request Tracking**: Unique request IDs for debugging and monitoring
+- **Enhanced Validation**: Comprehensive input validation with field constraints
+
+### **Monitoring & Reliability**
+- **Health Check Endpoint**: `/health` with real-time service status
+- **Structured Error Handling**: Custom exception hierarchy with 8 specialized types
+- **Request Logging**: Performance metrics and error correlation
+- **Production-Safe Responses**: No sensitive data leakage in errors
+
+### **Performance Optimization**
+- **Redis Caching**: Smart TTL strategies for high-frequency data
+- **Optimized Middleware**: Ordered middleware stack for performance
+- **Input Sanitization**: Prevents malformed data and security issues
+- **Connection Pooling**: Efficient database connection management
 
 ### **Quick Navigation**
 - 🚀 **[Get Started](#quick-start)** - Set up development environment

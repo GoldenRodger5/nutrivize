@@ -33,6 +33,7 @@ class MealSuggestionRequest(BaseModel):
     main_ingredients: Optional[List[str]] = []  # Up to 3 main ingredients to focus on
     use_food_index_only: Optional[bool] = False
     special_requests: Optional[str] = ""  # Custom user instructions for meal suggestions
+    cuisine_preference: Optional[str] = None  # Specific cuisine type (e.g., "Italian", "Asian", "Mexican")
 
 
 class Ingredient(BaseModel):

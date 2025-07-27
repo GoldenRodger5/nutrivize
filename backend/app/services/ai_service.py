@@ -91,7 +91,6 @@ Guidelines:
 VARIETY REQUIREMENTS:
 - Use DIFFERENT cooking methods (grilled, steamed, roasted, raw, sautéed, etc.)
 - Include DIFFERENT protein sources (plant-based, seafood, poultry, etc.)
-- Vary cuisines and flavor profiles (Mediterranean, Asian, Mexican, American, etc.)
 - Mix preparation styles (one-pot meals, salads, hearty dishes, light options)
 - Ensure each suggestion is UNIQUE and creative
 
@@ -153,21 +152,29 @@ USER CONTEXT:"""
                 prompt += f"\n- MANDATORY: These ingredients must appear in the ingredients list of every suggestion"
                 prompt += f"\n- MANDATORY: Do not suggest meals that don't include ALL specified main ingredients"
             
+            # Add cuisine preference enforcement - CRITICAL REQUIREMENT
+            if request.cuisine_preference:
+                prompt += f"\n- CRITICAL CUISINE REQUIREMENT: ALL suggestions MUST be authentic {request.cuisine_preference} cuisine dishes"
+                prompt += f"\n- MANDATORY: Every meal name, ingredients, and cooking methods must reflect {request.cuisine_preference} culinary traditions"
+                prompt += f"\n- MANDATORY: Use traditional {request.cuisine_preference} seasonings, ingredients, and preparation techniques"
+                prompt += f"\n- STRICT: Do NOT provide suggestions from other cuisines - only {request.cuisine_preference} dishes allowed"
+            
             prompt += """
 
 STRICT COMPLIANCE REQUIREMENTS:
 - ALL prep time constraints are MANDATORY and must be followed exactly
 - ALL main ingredients specified are MANDATORY and must appear in EVERY suggestion
 - ALL dietary preferences and allergies are MANDATORY restrictions
+- CUISINE PREFERENCE is MANDATORY - if specified, ALL suggestions must be from that cuisine only
 - Do NOT provide suggestions that violate any of these constraints
 
 CREATIVITY GUIDELINES:
 - At least one meal suggestion should be innovative. Think beyond basic combinations.
 - At least one meal suggestion should be comforting and familiar.
 - If main ingredients are specified, make them the star of each dish
+- If cuisine is specified, showcase authentic flavors and techniques from that cuisine
 - Include seasonal ingredients when possible
 - Mix textures and temperatures for interest
-- Consider global flavors and spice profiles
 - Keep descriptions concise but appealing (1-2 sentences max)
 - Respect prep time constraints EXACTLY - no flexibility
 
@@ -371,7 +378,7 @@ Return valid JSON only (no additional text):
             - User's available foods: {[food.get('name', '') for food in user_food_index if food.get('name')]}
             - You MAY assume the user has basic pantry staples (oil, salt, pepper, basic spices, garlic, onions, vinegar, lemon/lime juice)
             - For main ingredients (proteins, grains, vegetables, fruits), ONLY use items from the food index above
-            - This provides realistic nutrition results using foods the user has already logged
+            - This provides realistic nutrition results using foods the user has already logged and indexed
             - If you cannot create a balanced meal plan with only these foods, suggest adding variety to their food index"""
             elif use_food_index_only and not user_food_index:
                 prompt += f"""

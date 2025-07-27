@@ -1,7 +1,8 @@
 from ..core.config import get_database
+from ..core.redis_client import redis_client
 from ..models.weight_log import WeightLogCreate, WeightLogEntry, WeightLogResponse
 from typing import List, Optional
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from bson import ObjectId
 
 
@@ -56,6 +57,40 @@ class WeightLogService:
             result = self.weight_logs_collection.insert_one(log_dict)
             result_id = str(result.inserted_id)
         
+        # Write-through caching: immediately update weight logs cache
+        if redis_client.is_connected():
+            cached_logs = redis_client.get_weight_logs_cached(user_id)
+            if cached_logs:
+                # Create new weight log entry
+                new_weight_entry = {
+                    "id": result_id,
+                    "date": log_data.date,
+                    "weight": log_data.weight,
+                    "notes": log_data.notes or "",
+                    "logged_at": weight_log.logged_at
+                }
+                
+                # Check if updating existing entry (same date)
+                existing_index = None
+                for i, cached_log in enumerate(cached_logs):
+                    if cached_log.get("date") == log_data.date or cached_log.get("date") == log_data.date.isoformat():
+                        existing_index = i
+                        break
+                
+                if existing_index is not None:
+                    # Update existing entry
+                    cached_logs[existing_index] = new_weight_entry
+                else:
+                    # Add new entry and sort by date (most recent first)
+                    cached_logs.append(new_weight_entry)
+                    cached_logs.sort(key=lambda x: x.get("date", ""), reverse=True)
+                
+                # Update cache
+                redis_client.cache_weight_logs_long_term(user_id, cached_logs)
+            else:
+                # No cache exists, will be created on next read
+                pass
+        
         return WeightLogResponse(
             id=result_id,
             **log_data.dict(),
@@ -63,7 +98,29 @@ class WeightLogService:
         )
     
     async def get_weight_logs(self, user_id: str, start_date: Optional[date] = None, end_date: Optional[date] = None) -> List[WeightLogResponse]:
-        """Get weight logs for a user, optionally filtered by date range"""
+        """Get weight logs for a user with Redis caching, optionally filtered by date range"""
+        # For filtered queries, skip cache (complex caching logic)
+        if start_date or end_date:
+            return await self._get_weight_logs_from_db(user_id, start_date, end_date)
+        
+        # Try Redis cache for full user weight logs
+        if redis_client.is_connected():
+            cached_logs = redis_client.get_weight_logs_cached(user_id)
+            if cached_logs:
+                return [WeightLogResponse(**log) for log in cached_logs]
+        
+        # Cache miss - fetch all logs from database
+        logs_data = await self._get_weight_logs_from_db(user_id, None, None)
+        
+        # Cache for 48 hours (weight logs don't change frequently, accessed multiple times daily)
+        if redis_client.is_connected() and logs_data:
+            cache_data = [log.dict() for log in logs_data]
+            redis_client.cache_weight_logs_long_term(user_id, cache_data)
+        
+        return logs_data
+    
+    async def _get_weight_logs_from_db(self, user_id: str, start_date: Optional[date] = None, end_date: Optional[date] = None) -> List[WeightLogResponse]:
+        """Internal method to fetch weight logs from database"""
         query = {"user_id": user_id}
         
         if start_date or end_date:

@@ -5,7 +5,7 @@ import MobileBottomNav from './MobileBottomNav'
 import PWAStatus from './PWAStatus'
 import PWAInstall from './PWAInstall'
 import Dashboard from '../../pages/Dashboard'
-import AIDashboard from '../../pages/AIDashboard'
+import AIDashboard from '../../pages/AIDashboardNew'
 import FoodLog from '../../pages/FoodLogEnhanced'
 import FoodIndex from '../../pages/FoodIndex'
 import MealSuggestions from '../../pages/MealSuggestions'
@@ -19,6 +19,7 @@ import RestaurantMenuAnalysis from '../../pages/RestaurantMenuAnalysis'
 import HealthInsights from '../../pages/HealthInsights'
 import NutritionCoaching from '../../pages/NutritionCoaching'
 import ManualMealPlanner from '../../pages/ManualMealPlanner'
+import MealPlanningPage from '../../pages/MealPlanningPage'
 import FavoritesPage from '../../pages/Favorites'
 import { useState, useEffect } from 'react'
 
@@ -59,7 +60,7 @@ export default function MainLayout() {
           <Route path="/food-index" element={<FoodIndex />} />
           <Route path="/favorites" element={<FavoritesPage />} />
           <Route path="/meal-suggestions" element={<MealSuggestions />} />
-          <Route path="/meal-planning" element={<MealSuggestions />} />
+          <Route path="/meal-planning" element={<MealPlanningPage />} />
           <Route path="/meal-plans" element={<MealPlans />} />
           <Route path="/manual-meal-planning" element={<ManualMealPlanner />} />
           <Route path="/restaurant-ai" element={<RestaurantAI />} />

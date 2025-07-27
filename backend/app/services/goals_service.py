@@ -1,8 +1,9 @@
 from ..core.config import get_database
+from ..core.redis_client import redis_client
 from ..models.goal import Goal, GoalCreate, GoalResponse, NutritionTargets, WeightTarget
 from ..models.user import UserResponse
 from typing import Optional, List, Dict, Any
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from bson import ObjectId
 
 
@@ -48,6 +49,29 @@ class GoalsService:
         
         result = self.goals_collection.insert_one(goal_dict)
         
+        # Write-through caching: immediately update goals cache with new goal
+        if redis_client.is_connected():
+            # Get current cached goals
+            cached_goals = redis_client.get_goals(user_id)
+            if cached_goals:
+                # Add new goal to cached list
+                new_goal_data = goal_data.dict()
+                if 'is_active' in new_goal_data:
+                    new_goal_data['active'] = new_goal_data.pop('is_active')
+                new_goal_data['id'] = str(result.inserted_id)
+                new_goal_data['created_at'] = goal.created_at
+                
+                # Add to beginning of list (most recent first)
+                cached_goals.insert(0, new_goal_data)
+                redis_client.cache_goals_long_term(user_id, cached_goals)
+                
+                # If this goal is active, cache it separately
+                if new_goal_data.get('active', False):
+                    redis_client.cache_active_goal(user_id, new_goal_data)
+            else:
+                # No cache exists, will be created on next read
+                pass
+        
         response_data = goal_data.dict()
         if 'is_active' in response_data:
             response_data['active'] = response_data.pop('is_active')
@@ -59,7 +83,14 @@ class GoalsService:
         )
     
     async def get_user_goals(self, user_id: str) -> List[GoalResponse]:
-        """Get all goals for a user"""
+        """Get all goals for a user with Redis caching"""
+        # Try Redis cache first
+        if redis_client.is_connected():
+            cached_goals = redis_client.get_goals(user_id)
+            if cached_goals:
+                return [GoalResponse(**goal) for goal in cached_goals]
+        
+        # Cache miss - fetch from database
         goals = list(self.goals_collection.find({
             "user_id": user_id
         }).sort("created_at", -1))
@@ -130,10 +161,22 @@ class GoalsService:
                 created_at=goal.get("created_at", datetime.utcnow())
             ))
         
+        # Cache goals for 24 hours (goals don't change frequently, accessed multiple times daily)
+        if redis_client.is_connected() and goal_responses:
+            cache_data = [goal.dict() for goal in goal_responses]
+            redis_client.cache_goals_long_term(user_id, cache_data)
+        
         return goal_responses
     
     async def get_active_goal(self, user_id: str) -> Optional[GoalResponse]:
-        """Get the current active goal for a user"""
+        """Get the current active goal for a user with Redis caching"""
+        # Try Redis cache first
+        if redis_client.is_connected():
+            cached_active_goal = redis_client.get_active_goal(user_id)
+            if cached_active_goal:
+                return GoalResponse(**cached_active_goal)
+        
+        # Cache miss - fetch from database
         goal = self.goals_collection.find_one({
             "user_id": user_id,
             "active": True
@@ -174,7 +217,7 @@ class GoalsService:
         else:
             weight_target = None
         
-        return GoalResponse(
+        active_goal_response = GoalResponse(
             id=str(goal["_id"]),
             title=goal.get("title", "Untitled Goal"),
             goal_type=goal_type,
@@ -185,6 +228,12 @@ class GoalsService:
             nutrition_targets=goal.get("nutrition_targets"),
             created_at=goal.get("created_at", datetime.utcnow())
         )
+        
+        # Cache active goal for 24 hours
+        if redis_client.is_connected():
+            redis_client.cache_active_goal(user_id, active_goal_response.dict())
+        
+        return active_goal_response
     
     async def update_goal(self, goal_id: str, updates: dict, user_id: str) -> Optional[GoalResponse]:
         """Update a goal"""

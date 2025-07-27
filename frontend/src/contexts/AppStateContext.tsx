@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback, ReactNode 
 import { Goal, WeightLogEntry, DailyNutritionSummary } from '../types'
 import api from '../utils/api'
 import { getCurrentDateInTimezone, getUserTimezone } from '../utils/timezone'
+import { deduplicateRequest } from '../utils/requestDeduplication'
 
 interface AppStateContextType {
   // Goals state
@@ -49,14 +50,14 @@ export function AppStateProvider({ children }: AppStateProviderProps) {
     try {
       console.log('🔍 Fetching goals...')
       
-      // Fetch all goals
-      const goalsResponse = await api.get('/goals/')
+      // Deduplicate goals request
+      const goalsResponse = await deduplicateRequest('goals', () => api.get('/goals/'))
       console.log('✅ Goals response:', goalsResponse.data)
       setGoals(goalsResponse.data)
       
-      // Fetch active goal
+      // Deduplicate active goal request
       try {
-        const activeResponse = await api.get('/goals/active')
+        const activeResponse = await deduplicateRequest('active-goal', () => api.get('/goals/active'))
         console.log('✅ Active goal response:', activeResponse.data)
         setActiveGoal(activeResponse.data)
       } catch (error) {
@@ -70,7 +71,7 @@ export function AppStateProvider({ children }: AppStateProviderProps) {
 
   const refreshWeightLogs = useCallback(async () => {
     try {
-      const response = await api.get('/weight-logs/')
+      const response = await deduplicateRequest('weight-logs', () => api.get('/weight-logs/'))
       setWeightLogs(response.data)
       
       // Update current weight from latest log
@@ -90,7 +91,9 @@ export function AppStateProvider({ children }: AppStateProviderProps) {
       const targetDate = date || getCurrentDateInTimezone(getUserTimezone())
       console.log('🔍 Fetching daily summary for date:', targetDate, 'using timezone:', getUserTimezone())
       
-      const response = await api.get(`/food-logs/daily/${targetDate}/with-goals`)
+      const response = await deduplicateRequest(`daily-summary-${targetDate}`, 
+        () => api.get(`/food-logs/daily/${targetDate}/with-goals`)
+      )
       console.log('✅ Daily summary response:', response.data)
       console.log('🔍 Response keys:', Object.keys(response.data))
       console.log('🔍 Food logs count:', response.data.food_logs?.length || 0)
@@ -159,11 +162,11 @@ export function AppStateProvider({ children }: AppStateProviderProps) {
       console.error('Error refreshing app state:', error)
     }
     setLoading(false)
-  }, [refreshGoals, refreshWeightLogs, refreshDailySummary])
+  }, []) // Remove function dependencies since they're stable with empty deps
 
   useEffect(() => {
     refreshAll()
-  }, [refreshAll])
+  }, []) // Remove refreshAll from dependencies to prevent unnecessary re-runs
 
   const updateCurrentWeight = (weight: number) => {
     setCurrentWeight(weight)

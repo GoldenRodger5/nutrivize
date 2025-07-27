@@ -30,6 +30,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [hasCheckedAuth, setHasCheckedAuth] = useState(false)
+  const [isValidatingToken, setIsValidatingToken] = useState(false) // Prevent duplicate validations
 
   // Helper function to store token securely across contexts
   const storeAuthToken = (token: string) => {
@@ -118,6 +119,15 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       if (storedToken && !isExpired) {
         console.log('Found stored token, validating with server...');
         
+        // Prevent duplicate validations
+        if (isValidatingToken) {
+          setHasCheckedAuth(true)
+          setLoading(false)
+          return
+        }
+        
+        setIsValidatingToken(true)
+        
         // Set the token temporarily
         api.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`
         
@@ -140,6 +150,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             clearAuthTokens()
           })
           .finally(() => {
+            setIsValidatingToken(false)
             setHasCheckedAuth(true)
             setLoading(false)
           })
@@ -170,6 +181,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      // Skip processing if we already have a validated user and token hasn't changed
+      if (user && firebaseUser && !isValidatingToken) {
+        console.log('User already validated, skipping Firebase auth processing')
+        setLoading(false)
+        return
+      }
+      
       if (firebaseUser) {
         try {
           console.log('Firebase user detected, getting token')

@@ -26,6 +26,7 @@ import {
   AlertDescription
 } from '@chakra-ui/react'
 import { FoodItem } from '../../types'
+import { useUserPreferences } from '../../hooks/useUserPreferences'
 import api from '../../utils/api'
 import FoodCompatibilityScore from './FoodCompatibilityScore'
 import SmartMealAnalysis from './SmartMealAnalysis'
@@ -62,12 +63,59 @@ export default function SmartMealPlanner({
   const [availableFoods, setAvailableFoods] = useState<FoodItem[]>([])
   
   const { isOpen, onOpen, onClose } = useDisclosure()
+  const { preferences } = useUserPreferences()
   const toast = useToast()
 
+  // Enhanced meal planning using comprehensive preferences
+  const generateEnhancedRecommendations = async () => {
+    if (!preferences) return
+
+    try {
+      setLoading(true)
+      
+      // Create comprehensive request with all preference types
+      const requestData = {
+        dietary_preferences: preferences.dietary,
+        nutrition_preferences: preferences.nutrition,
+        app_preferences: preferences.app,
+        meal_type: selectedMealType,
+        current_meal: currentMeal,
+        user_profile: userProfile
+      }
+
+      console.log('🔥 Enhanced meal planning with comprehensive preferences:', requestData)
+      
+      // This would be an enhanced API call that uses all preferences
+      const response = await api.post('/meal-planning/enhanced-recommendations', requestData)
+      
+      if (response.data?.recommendations) {
+        setRecommendations(response.data.recommendations)
+        toast({
+          title: 'Personalized Recommendations Ready! 🎯',
+          description: `Found ${response.data.recommendations.length} foods tailored to your preferences`,
+          status: 'success',
+          duration: 3000,
+          isClosable: true,
+        })
+      }
+    } catch (error) {
+      console.error('Enhanced meal planning error:', error)
+      // Fallback to basic recommendations
+      loadRecommendations()
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
-    loadRecommendations()
+    // Use enhanced recommendations if preferences are available, otherwise fallback
+    if (preferences) {
+      generateEnhancedRecommendations()
+    } else {
+      loadRecommendations()
+    }
     loadAvailableFoods()
-  }, [userProfile, selectedMealType])
+  }, [userProfile, selectedMealType, preferences])
 
   const loadRecommendations = async () => {
     if (!userProfile) return

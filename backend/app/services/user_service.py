@@ -1,9 +1,13 @@
 from ..core.config import get_database
+from ..core.redis_client import redis_client
 from ..models.user import User, UserCreate, UserResponse, UserLogin, UserRegister, AuthResponse
 from ..core.firebase import firebase_manager
 from typing import Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, timedelta
 from bson import ObjectId
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class UserService:
@@ -94,17 +98,30 @@ class UserService:
         )
     
     async def get_user_by_uid(self, uid: str) -> Optional[UserResponse]:
-        """Get user by Firebase UID"""
+        """Get user by Firebase UID with Redis caching"""
+        # Try Redis cache first
+        if redis_client.is_connected():
+            cached_user = redis_client.get_user_data(uid)
+            if cached_user:
+                return UserResponse(**cached_user)
+        
+        # Cache miss - fetch from database
         user_doc = self.users_collection.find_one({"uid": uid})
         if not user_doc:
             return None
         
-        return UserResponse(
+        user_response = UserResponse(
             uid=user_doc["uid"],
             email=user_doc["email"],
             name=user_doc["name"],
             preferences=user_doc.get("preferences", {})
         )
+        
+        # Cache for 24 hours (user data changes infrequently, accessed every session)
+        if redis_client.is_connected():
+            redis_client.cache_user_data(uid, user_response.dict(), timedelta(hours=24))
+        
+        return user_response
     
     async def get_user_document_by_uid(self, uid: str) -> Optional[Dict[str, Any]]:
         """Get raw user document by Firebase UID"""
@@ -229,7 +246,7 @@ class UserService:
         return await self.get_user_by_uid(uid)
     
     async def update_user(self, uid: str, updates: dict) -> Optional[UserResponse]:
-        """Update user information"""
+        """Update user information with write-through caching"""
         updates["updated_at"] = datetime.utcnow()
         
         result = self.users_collection.update_one(
@@ -240,7 +257,13 @@ class UserService:
         if result.modified_count == 0:
             return None
         
-        return await self.get_user_by_uid(uid)
+        # Write-through caching: get updated user and update cache immediately
+        updated_user = await self.get_user_by_uid(uid)
+        if updated_user and redis_client.is_connected():
+            # Update cache with fresh data
+            redis_client.cache_user_data(uid, updated_user.dict(), timedelta(hours=24))
+        
+        return updated_user
     
     async def verify_token_and_get_user(self, token: str) -> UserResponse:
         """Verify Firebase token and return user"""
@@ -265,19 +288,40 @@ class UserService:
             raise ValueError(f"Authentication failed: {str(e)}")
     
     async def get_user_preferences(self, user_id: str) -> Dict[str, Any]:
-        """Get user preferences"""
+        """Get user preferences with Redis caching"""
         try:
+            # Try cache first
+            from .user_preferences_cache_service import user_preferences_cache
+            cached_preferences = user_preferences_cache.get_cached_preferences(user_id)
+            
+            if cached_preferences:
+                logger.info(f"Returning cached preferences for user {user_id}")
+                return cached_preferences
+            
+            # Cache miss - get from database
             user = await self.get_user_by_uid(user_id)
             if not user:
                 return {}
                 
-            return user.preferences or {}
+            preferences = user.preferences or {}
+            
+            # Cache the preferences for future requests
+            user_preferences_cache.cache_user_preferences(user_id, preferences)
+            logger.info(f"Cached fresh preferences for user {user_id}")
+            
+            return preferences
             
         except Exception as e:
-            raise ValueError(f"Failed to get user preferences: {str(e)}")
+            logger.error(f"Failed to get user preferences for {user_id}: {e}")
+            # Fallback to direct database read without cache
+            try:
+                user = await self.get_user_by_uid(user_id)
+                return user.preferences or {} if user else {}
+            except:
+                return {}
     
     async def update_user_preferences(self, user_id: str, preferences_update: Dict[str, Any]) -> Dict[str, Any]:
-        """Update user preferences"""
+        """Update user preferences with write-through caching"""
         try:
             from datetime import datetime
             
@@ -304,7 +348,7 @@ class UserService:
             # Add timestamp
             updated_preferences["updated_at"] = datetime.now().isoformat()
             
-            # Update in database
+            # Update in database first (write-through)
             result = self.users_collection.update_one(
                 {"uid": user_id},
                 {"$set": {"preferences": updated_preferences}}
@@ -313,9 +357,16 @@ class UserService:
             if result.modified_count == 0:
                 raise ValueError("User not found or no changes made")
             
+            # Write-through cache strategy: invalidate and warm cache
+            from .user_preferences_cache_service import user_preferences_cache
+            user_preferences_cache.invalidate_user_preferences_cache(user_id)
+            user_preferences_cache.warm_preferences_cache(user_id, updated_preferences)
+            
+            logger.info(f"Updated and cached preferences for user {user_id}")
             return updated_preferences
             
         except Exception as e:
+            logger.error(f"Failed to update user preferences for {user_id}: {e}")
             raise ValueError(f"Failed to update user preferences: {str(e)}")
 
     async def get_user_profile(self, user_id: str) -> Dict[str, Any]:

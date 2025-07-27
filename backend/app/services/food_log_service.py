@@ -55,10 +55,53 @@ class FoodLogService:
         
         result = self.food_logs_collection.insert_one(log_dict)
         
-        # Invalidate cache for this date
+        # Write-through caching: immediately update cache with new log
         if redis_client.is_connected():
             date_str = log_data.date.isoformat() if isinstance(log_data.date, date) else log_data.date
-            redis_client.delete(f"food_logs:{user_id}:{date_str}")
+            cached_summary = redis_client.get_food_logs(user_id, date_str)
+            if cached_summary:
+                # Create new log entry
+                new_log_entry = {
+                    "id": str(result.inserted_id),
+                    "date": log_data.date,
+                    "meal_type": log_data.meal_type,
+                    "food_id": log_data.food_id,
+                    "food_name": log_data.food_name,
+                    "amount": self._parse_amount(log_data.amount),
+                    "unit": log_data.unit,
+                    "nutrition": log_data.nutrition.dict(),
+                    "notes": log_data.notes or "",
+                    "logged_at": log_dict["logged_at"]
+                }
+                
+                # Add to cached meals
+                cached_summary["meals"].append(new_log_entry)
+                
+                # Update totals
+                nutrition = log_data.nutrition.dict()
+                cached_summary["total_nutrition"]["calories"] += nutrition.get("calories", 0)
+                cached_summary["total_nutrition"]["protein"] += nutrition.get("protein", 0)
+                cached_summary["total_nutrition"]["carbs"] += nutrition.get("carbs", 0)
+                cached_summary["total_nutrition"]["fat"] += nutrition.get("fat", 0)
+                cached_summary["total_nutrition"]["fiber"] += nutrition.get("fiber", 0)
+                cached_summary["total_nutrition"]["sugar"] += nutrition.get("sugar", 0)
+                cached_summary["total_nutrition"]["sodium"] += nutrition.get("sodium", 0)
+                
+                # Update meal breakdown
+                meal_type = log_data.meal_type
+                if meal_type not in cached_summary["meal_breakdown"]:
+                    cached_summary["meal_breakdown"][meal_type] = {
+                        "calories": 0, "protein": 0, "carbs": 0, "fat": 0, "fiber": 0, "sugar": 0, "sodium": 0
+                    }
+                
+                cached_summary["meal_breakdown"][meal_type]["calories"] += nutrition.get("calories", 0)
+                cached_summary["meal_breakdown"][meal_type]["protein"] += nutrition.get("protein", 0)
+                cached_summary["meal_breakdown"][meal_type]["carbs"] += nutrition.get("carbs", 0)
+                cached_summary["meal_breakdown"][meal_type]["fat"] += nutrition.get("fat", 0)
+                cached_summary["meal_breakdown"][meal_type]["fiber"] += nutrition.get("fiber", 0)
+                
+                # Update cache with new summary
+                redis_client.cache_food_logs_smart(user_id, date_str, cached_summary)
         
         return FoodLogResponse(
             id=str(result.inserted_id),
@@ -140,11 +183,11 @@ class FoodLogService:
             meal_breakdown=dict(meal_breakdown)
         )
         
-        # Cache the result in Redis for 30 minutes
+        # Cache the result in Redis with smart TTL based on date recency
         if redis_client.is_connected():
             # Convert to dict for caching
             cache_data = result.dict()
-            redis_client.cache_food_logs(user_id, target_date_str, cache_data, timedelta(minutes=30))
+            redis_client.cache_food_logs_smart(user_id, target_date_str, cache_data)
         
         return result
     
@@ -202,7 +245,7 @@ class FoodLogService:
             if result.modified_count == 0:
                 return None
             
-            # Invalidate cache for the date
+            # Cache invalidation for updates (write-through would require complex total recalculation)
             if redis_client.is_connected():
                 date_str = log_doc["date"]
                 if not isinstance(date_str, str):
@@ -243,7 +286,7 @@ class FoodLogService:
             
             success = result.deleted_count > 0
             
-            # Invalidate cache for the date if delete was successful
+            # Cache invalidation for deletes (write-through would require complex total recalculation)
             if success and redis_client.is_connected():
                 date_str = log_doc["date"]
                 if not isinstance(date_str, str):

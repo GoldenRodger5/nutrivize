@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import {
   Container,
   VStack,
@@ -25,7 +25,7 @@ import { FoodItem } from '../types'
 import DietaryProfileBuilder from '../components/food/DietaryProfileBuilder'
 import SmartMealPlanner from '../components/food/SmartMealPlanner'
 import SmartMealAnalysis from '../components/food/SmartMealAnalysis'
-import api from '../utils/api'
+import { useUserPreferences } from '../hooks/useUserPreferences'
 
 interface UserProfile {
   dietary_restrictions: string[]
@@ -35,9 +35,7 @@ interface UserProfile {
 }
 
 export default function MealPlanningPage() {
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [currentMeal, setCurrentMeal] = useState<FoodItem[]>([])
-  const [hasProfile, setHasProfile] = useState(false)
   
   const { 
     isOpen: isProfileOpen, 
@@ -46,49 +44,50 @@ export default function MealPlanningPage() {
   } = useDisclosure()
   
   const toast = useToast()
+  
+  // Use the new preferences hook
+  const { 
+    preferences, 
+    updateDietaryPreferences 
+  } = useUserPreferences()
 
-  useEffect(() => {
-    loadUserProfile()
-  }, [])
+  // Convert preferences to user profile format for compatibility
+  const userProfile: UserProfile | null = preferences?.dietary ? {
+    dietary_restrictions: preferences.dietary.dietary_restrictions || [],
+    allergens: preferences.dietary.allergens || [],
+    strictness_level: (preferences.dietary.strictness_level as 'flexible' | 'moderate' | 'strict') || 'moderate'
+  } : null
 
-  const loadUserProfile = async () => {
-    try {
-      const response = await api.get('/dietary/preferences')
-      if (response.data) {
-        setUserProfile(response.data)
-        setHasProfile(true)
-      }
-    } catch (error) {
-      console.log('No dietary profile found, will prompt user to create one')
-      setHasProfile(false)
-    }
-  }
+  const hasProfile = Boolean(userProfile && (userProfile.dietary_restrictions.length > 0 || userProfile.allergens.length > 0))
 
   const handleProfileUpdate = async (profile: UserProfile) => {
     try {
-      await api.post('/dietary/preferences', profile)
-      setUserProfile(profile)
-      setHasProfile(true)
-      onProfileClose()
-      
-      toast({
-        title: 'Profile Updated! 🎉',
-        description: 'Your dietary preferences have been saved. You\'ll now see personalized recommendations.',
-        status: 'success',
-        duration: 5000,
-        isClosable: true,
+      // Convert back to new preferences format
+      const success = await updateDietaryPreferences({
+        dietary_restrictions: profile.dietary_restrictions,
+        allergens: profile.allergens,
+        strictness_level: profile.strictness_level
       })
+      
+      if (success) {
+        onProfileClose()
+        
+        toast({
+          title: 'Profile Updated! 🎉',
+          description: 'Your dietary preferences have been saved. You\'ll now see personalized recommendations.',
+          status: 'success',
+          duration: 5000,
+          isClosable: true,
+        })
+      } else {
+        throw new Error('Failed to update preferences')
+      }
     } catch (error) {
       console.error('Error saving profile:', error)
-      // Still save locally for demo purposes
-      setUserProfile(profile)
-      setHasProfile(true)
-      onProfileClose()
-      
       toast({
-        title: 'Profile Saved Locally',
-        description: 'Your preferences are saved for this session.',
-        status: 'info',
+        title: 'Error Saving Profile',
+        description: 'There was an issue saving your preferences. Please try again.',
+        status: 'error',
         duration: 3000,
         isClosable: true,
       })

@@ -15,36 +15,69 @@
 
 ## 🎯 **Deployment Overview**
 
-Nutrivize V2 uses a **cloud-native deployment strategy** with separate services for frontend and backend, ensuring scalability and maintainability.
+Nutrivize V2 uses a **cloud-native deployment strategy** with enhanced production features, separate services for frontend and backend, and comprehensive monitoring capabilities.
 
 ### **Deployment Architecture**
 ```mermaid
 graph TB
-    subgraph "Production Environment"
+    subgraph "Production Environment (v2.0)"
         FE[Frontend - Render Static Site]
-        BE[Backend - Render Web Service]
+        BE[Backend - Render Web Service + Security]
         DB[MongoDB Atlas]
+        REDIS[Redis Cloud Cache]
         FB[Firebase Auth]
         AI[Anthropic Claude API]
         GV[Google Cloud Vision]
+        MON[Health Monitoring]
     end
     
     subgraph "Development Environment"
         DEV_FE[Local Frontend :5173]
         DEV_BE[Local Backend :8000]
         DEV_DB[MongoDB Atlas]
+        DEV_REDIS[Redis Cloud Cache]
         DEV_FB[Firebase Auth]
     end
     
     FE --> BE
     BE --> DB
+    BE --> REDIS
     BE --> FB
     BE --> AI
     BE --> GV
+    MON --> BE
     
     DEV_FE --> DEV_BE
     DEV_BE --> DEV_DB
+    DEV_BE --> DEV_REDIS
     DEV_BE --> DEV_FB
+```
+
+### **Production Features (v2.0)**
+```yaml
+Security Layer:
+  - Multi-layer security headers
+  - Rate limiting (120 req/min + 20 burst)
+  - Request size limits (10MB)
+  - CSRF and XSS protection
+
+Monitoring:
+  - Health check endpoint (/health)
+  - Service status monitoring
+  - Request tracking with unique IDs
+  - Performance metrics logging
+
+Caching:
+  - Redis Cloud integration
+  - Smart TTL strategies
+  - High-frequency data optimization
+  - Cache invalidation patterns
+
+Error Handling:
+  - Structured error responses
+  - Request correlation
+  - Custom exception hierarchy
+  - Production-safe error messages
 ```
 
 ### **Service Configuration**
@@ -551,16 +584,55 @@ async def get_cached_food(food_id: str):
 
 ---
 
-## 📊 **Monitoring & Logging**
+## 📊 **Monitoring & Logging (Enhanced v2.0)**
 
-### **Application Logging**
+### **Production Health Monitoring**
+```bash
+# Health Check Endpoint
+curl http://localhost:8000/health
+
+# Response with Service Status
+{
+  "status": "healthy",
+  "version": "2.0.0",
+  "timestamp": "2025-07-27T01:25:16.411173",
+  "services": {
+    "api": "up",
+    "database": "up", 
+    "redis": "up"
+  }
+}
+```
+
+### **Monitoring Setup Commands**
+```bash
+# Set up monitoring alerts
+curl -X POST your-monitoring-service.com/alerts \
+  -d '{
+    "name": "Nutrivize Health Check",
+    "url": "https://nutrivize-backend.onrender.com/health",
+    "method": "GET",
+    "expected_status": 200,
+    "check_interval": "2m",
+    "alert_conditions": [
+      "status != healthy",
+      "services.database != up",
+      "response_time > 5000ms"
+    ]
+  }'
+
+# Monitor error rates by request ID
+grep "ERROR" app.log | jq '.request_id' | sort | uniq -c
+```
+
+### **Enhanced Application Logging**
 ```python
-# Structured logging configuration
+# Enhanced structured logging with request tracking
 import logging
 import json
 from datetime import datetime
 
-class JSONFormatter(logging.Formatter):
+class EnhancedJSONFormatter(logging.Formatter):
     def format(self, record):
         log_entry = {
             "timestamp": datetime.utcnow().isoformat(),
@@ -570,46 +642,74 @@ class JSONFormatter(logging.Formatter):
             "module": record.module,
             "function": record.funcName,
             "line": record.lineno,
+            "environment": os.getenv("ENVIRONMENT", "development")
         }
         
+        # Enhanced tracking fields
         if hasattr(record, 'user_id'):
             log_entry["user_id"] = record.user_id
             
         if hasattr(record, 'request_id'):
             log_entry["request_id"] = record.request_id
             
+        if hasattr(record, 'response_time'):
+            log_entry["response_time_ms"] = record.response_time
+            
+        if hasattr(record, 'error_code'):
+            log_entry["error_code"] = record.error_code
+            
         if record.exc_info:
             log_entry["exception"] = self.formatException(record.exc_info)
             
         return json.dumps(log_entry)
 
-# Configure logging
+# Production logging configuration
 logging.basicConfig(
     level=logging.INFO if settings.ENVIRONMENT == "production" else logging.DEBUG,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 
-# Application logger
+# Enhanced logger with request tracking
 logger = logging.getLogger("nutrivize")
 if settings.ENVIRONMENT == "production":
     handler = logging.StreamHandler()
-    handler.setFormatter(JSONFormatter())
+    handler.setFormatter(EnhancedJSONFormatter())
     logger.addHandler(handler)
 ```
 
-### **Request Logging Middleware**
-```python
-import time
-import uuid
-from fastapi import Request
+### **Request Tracking Middleware (Implemented)**
+The API now includes comprehensive request tracking with unique IDs:
 
-@app.middleware("http")
-async def log_requests(request: Request, call_next):
-    # Generate request ID
-    request_id = str(uuid.uuid4())
-    
-    # Log request
-    start_time = time.time()
+```python
+# Automatic request tracking (already implemented)
+# Every request gets:
+# - Unique request ID
+# - Request/response logging  
+# - Performance timing
+# - Error correlation
+# - Security header injection
+
+# Example log output:
+{
+  "timestamp": "2025-07-27T01:25:16.411173",
+  "level": "INFO", 
+  "message": "Request completed: GET /health - 200 (0.05s)",
+  "request_id": "81ac49de-2c1c-438b-a650-58dbbdc5b384",
+  "response_time_ms": 50,
+  "status_code": 200
+}
+```
+
+### **Performance Metrics**
+```bash
+# Monitor API performance
+curl -w "@curl-format.txt" -s -o /dev/null http://localhost:8000/health
+
+# Response time analysis
+grep "Request completed" app.log | \
+  jq '.response_time_ms' | \
+  awk '{sum+=$1; n++} END {print "Avg:", sum/n "ms"}'
+```
     
     logger.info(
         f"Request started: {request.method} {request.url.path}",

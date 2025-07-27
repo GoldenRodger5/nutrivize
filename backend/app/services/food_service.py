@@ -123,9 +123,28 @@ class FoodService:
         
         result = self.food_collection.insert_one(food_dict)
         
-        # Invalidate user's food index cache since we added a new food
+        # Write-through caching: immediately update cache with new food index
         if redis_client.is_connected():
-            redis_client.delete(f"food_index:{user_id}")
+            # Get current cached index
+            cached_index = redis_client.get_food_index(user_id)
+            if cached_index:
+                # Add new food to cached index
+                new_food_entry = {
+                    "id": str(result.inserted_id),
+                    "name": food_data.name,
+                    "serving_size": food_data.serving_size,
+                    "serving_unit": food_data.serving_unit,
+                    "nutrition": food_data.nutrition.dict(),
+                    "source": "user"
+                }
+                cached_index.append(new_food_entry)
+                # Sort by name to maintain consistency
+                cached_index.sort(key=lambda x: x["name"])
+                # Update cache with new index
+                redis_client.cache_food_index_long_term(user_id, cached_index)
+            else:
+                # If no cache exists, don't create one yet (will be created on next read)
+                pass
         
         return FoodItemResponse(
             id=str(result.inserted_id),
@@ -231,6 +250,24 @@ class FoodService:
             if result.modified_count == 0:
                 return None
             
+            # Write-through caching: immediately update cache with modified food
+            if redis_client.is_connected():
+                cached_index = redis_client.get_food_index(user_id)
+                if cached_index:
+                    # Find and update the food in cached index
+                    for i, food in enumerate(cached_index):
+                        if food["id"] == food_id:
+                            # Update the cached food with new data
+                            for key, value in updates.items():
+                                if key in food:
+                                    food[key] = value
+                            # Re-sort if name was updated
+                            if "name" in updates:
+                                cached_index.sort(key=lambda x: x["name"])
+                            # Update cache
+                            redis_client.cache_food_index_long_term(user_id, cached_index)
+                            break
+            
             return await self.get_food_item(food_id, user_id)
         except:
             return None
@@ -241,6 +278,15 @@ class FoodService:
             result = self.food_collection.delete_one(
                 {"_id": ObjectId(food_id), "user_id": user_id}
             )
+            
+            # Write-through caching: immediately remove from cache
+            if result.deleted_count > 0 and redis_client.is_connected():
+                cached_index = redis_client.get_food_index(user_id)
+                if cached_index:
+                    # Remove the deleted food from cached index
+                    updated_index = [food for food in cached_index if food["id"] != food_id]
+                    redis_client.cache_food_index_long_term(user_id, updated_index)
+            
             return result.deleted_count > 0
         except:
             return False
@@ -358,14 +404,13 @@ class FoodService:
         return results
 
     async def get_user_food_index(self, user_id: str) -> List[dict]:
-        """Get all foods from user's personal food index with Redis caching"""
+        """Get all foods from user's personal food index with optimized Redis caching"""
         if not self._check_database_available():
             return []
         
-        # Try to get from Redis cache first
-        cache_key = f"food_index:{user_id}"
+        # Try to get from Redis cache first with long-term caching
         if redis_client.is_connected():
-            cached_data = redis_client.get(cache_key)
+            cached_data = redis_client.get_food_index(user_id)
             if cached_data:
                 return cached_data
         
@@ -385,9 +430,9 @@ class FoodService:
                     "source": food_doc.get("source", "user")
                 })
             
-            # Cache the result for 2 hours (food index changes when user adds foods)
+            # Cache the result for 24 hours (food index changes when user adds foods, but loads frequently)
             if redis_client.is_connected():
-                redis_client.set(cache_key, food_index, timedelta(hours=2))
+                redis_client.cache_food_index_long_term(user_id, food_index)
             
             return food_index
         except Exception as e:

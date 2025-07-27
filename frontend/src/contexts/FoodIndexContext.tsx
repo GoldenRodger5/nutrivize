@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import api from '../utils/api';
 import { FoodItem } from '../types';
+import { deduplicateRequest } from '../utils/requestDeduplication';
 
 interface FoodIndexContextType {
   userFoods: FoodItem[];
@@ -36,7 +37,9 @@ export function FoodIndexProvider({ children }: FoodIndexProviderProps) {
     setError(null);
     try {
       // Use the search endpoint with empty query to get the user's food index
-      const response = await api.get('/foods/search?q=&limit=100');
+      const response = await deduplicateRequest('user-foods', 
+        () => api.get('/foods/search?q=&limit=100')
+      );
       setUserFoods(response.data || []);
     } catch (err) {
       console.error('Error fetching user foods:', err);

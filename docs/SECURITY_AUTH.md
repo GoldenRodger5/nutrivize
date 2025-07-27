@@ -2,6 +2,7 @@
 
 ## 📋 **Table of Contents**
 - [Authentication Overview](#authentication-overview)
+- [Production Security Features](#production-security-features)
 - [Firebase Authentication](#firebase-authentication)
 - [JWT Token Management](#jwt-token-management)
 - [Backend Security](#backend-security)
@@ -15,13 +16,14 @@
 
 ## 🎯 **Authentication Overview**
 
-Nutrivize V2 implements a **zero-trust security model** with Firebase Authentication as the identity provider and custom JWT token verification for API access.
+Nutrivize V2 implements a **zero-trust security model** with Firebase Authentication as the identity provider and enhanced production security features for enterprise-grade protection.
 
 ### **Security Architecture**
 ```mermaid
 sequenceDiagram
     participant U as User
     participant FE as Frontend
+    participant SEC as Security Layer
     participant FB as Firebase Auth
     participant BE as Backend API
     participant DB as MongoDB
@@ -31,12 +33,18 @@ sequenceDiagram
     FB-->>FE: ID Token (JWT)
     FE->>FE: Store Token Securely
     
-    FE->>BE: API Request + Bearer Token
+    FE->>SEC: API Request + Bearer Token
+    SEC->>SEC: Security Headers Check
+    SEC->>SEC: Rate Limiting Check
+    SEC->>SEC: Request Size Validation
+    
+    SEC->>BE: Verified Request + Request ID
     BE->>BE: Verify JWT with Firebase
     BE->>BE: Extract User ID (uid)
     BE->>DB: Query with User Isolation
     DB-->>BE: User-Specific Data Only
-    BE-->>FE: Authorized Response
+    BE-->>SEC: Authorized Response
+    SEC-->>FE: Enhanced Response + Security Headers
 ```
 
 ### **Key Security Principles**
@@ -45,6 +53,57 @@ sequenceDiagram
 - **Token-Based**: Stateless authentication with JWT tokens
 - **Encrypted Transport**: HTTPS/TLS for all communications
 - **Principle of Least Privilege**: Minimal required permissions
+- **Defense in Depth**: Multi-layer security protection
+- **Request Tracking**: Unique request IDs for security monitoring
+
+---
+
+## 🛡️ **Production Security Features (v2.0)**
+
+### **Security Middleware Stack**
+```yaml
+Security Headers:
+  - X-Content-Type-Options: nosniff
+  - X-Frame-Options: DENY
+  - X-XSS-Protection: 1; mode=block
+  - Referrer-Policy: strict-origin-when-cross-origin
+  - Content-Security-Policy: default-src 'none'; frame-ancestors 'none'
+  - Permissions-Policy: geolocation=(), microphone=(), camera=()
+
+Rate Limiting:
+  - Global: 120 requests/minute with 20 burst allowance
+  - Sliding window algorithm
+  - Rate limit headers in responses
+  - Automatic 429 responses for violations
+
+Request Validation:
+  - Maximum request size: 10MB
+  - Content-type validation
+  - Request timeout protection
+  - Malformed request rejection
+
+Request Tracking:
+  - Unique request ID generation
+  - Request/response logging
+  - Performance metrics tracking
+  - Error correlation across services
+```
+
+### **Enhanced Error Security**
+```yaml
+Error Response Security:
+  - No sensitive data leakage
+  - Structured error responses
+  - Request ID for tracking
+  - User-friendly error messages
+  - Developer context preservation
+
+Rate Limiting Protection:
+  - Progressive rate limiting
+  - Burst allowance for normal usage
+  - Client notification headers
+  - Automatic threat detection
+```
 
 ---
 

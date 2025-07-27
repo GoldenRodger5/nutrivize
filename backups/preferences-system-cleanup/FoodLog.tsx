@@ -22,6 +22,7 @@ import {
 } from '@chakra-ui/react'
 import api from '../utils/api'
 import { FoodItem } from '../types'
+import { useUserPreferences } from '../hooks/useUserPreferences'
 import QuickLogging from '../components/food/QuickLogging'
 import FoodRecommendations from '../components/food/FoodRecommendations'
 
@@ -37,7 +38,49 @@ export default function FoodLog() {
   const [mealType, setMealType] = useState('breakfast')
   const [loading, setLoading] = useState(false)
   const [foodIndexLoading, setFoodIndexLoading] = useState(false)
+  
+  const { preferences } = useUserPreferences()
   const toast = useToast()
+
+  // Filter foods based on dietary preferences
+  const filterFoodsByDietaryRestrictions = (foodList: FoodItem[]): FoodItem[] => {
+    if (!preferences?.dietary) return foodList
+    
+    const { dietary_restrictions, allergens, disliked_foods } = preferences.dietary
+    
+    return foodList.filter(food => {
+      // Filter by dietary restrictions
+      if (dietary_restrictions?.length > 0) {
+        const foodName = food.name.toLowerCase()
+        const hasRestrictedIngredient = dietary_restrictions.some(restriction => 
+          foodName.includes(restriction.toLowerCase()) ||
+          restriction.toLowerCase().includes('vegetarian') && foodName.includes('meat') ||
+          restriction.toLowerCase().includes('vegan') && (foodName.includes('dairy') || foodName.includes('meat'))
+        )
+        if (hasRestrictedIngredient) return false
+      }
+      
+      // Filter by allergens
+      if (allergens?.length > 0) {
+        const foodName = food.name.toLowerCase()
+        const hasAllergen = allergens.some(allergen => 
+          foodName.includes(allergen.toLowerCase())
+        )
+        if (hasAllergen) return false
+      }
+      
+      // Filter by disliked foods
+      if (disliked_foods?.length > 0) {
+        const foodName = food.name.toLowerCase()
+        const isDisliked = disliked_foods.some(disliked => 
+          foodName.includes(disliked.toLowerCase())
+        )
+        if (isDisliked) return false
+      }
+      
+      return true
+    })
+  }
 
   // Fetch user foods from the food index, popular foods, and recent foods on component mount
   useEffect(() => {
@@ -239,7 +282,7 @@ export default function FoodLog() {
                       <Text fontSize="sm" mt={2}>Loading your food index...</Text>
                     </Box>
                   ) : userFoods.length > 0 ? (
-                    userFoods.map((userFood) => (
+                    filterFoodsByDietaryRestrictions(userFoods).map((userFood) => (
                       <Card
                         key={userFood.id}
                         variant={selectedFood?.id === userFood.id ? 'filled' : 'outline'}
@@ -275,7 +318,7 @@ export default function FoodLog() {
                 </Text>
                 <SimpleGrid columns={{ base: 2, md: 4 }} spacing={2} maxH="120px" overflowY="auto">
                   {popularFoods.length > 0 ? (
-                    popularFoods.map((popularFood) => (
+                    filterFoodsByDietaryRestrictions(popularFoods).map((popularFood) => (
                       <Card
                         key={popularFood.id}
                         variant={selectedFood?.id === popularFood.id ? 'filled' : 'outline'}
@@ -311,7 +354,7 @@ export default function FoodLog() {
                 </Text>
                 <SimpleGrid columns={{ base: 2, md: 3 }} spacing={2} maxH="120px" overflowY="auto">
                   {recentFoods.length > 0 ? (
-                    recentFoods.map((recentFood) => (
+                    filterFoodsByDietaryRestrictions(recentFoods).map((recentFood) => (
                       <Card
                         key={recentFood.id}
                         variant={selectedFood?.id === recentFood.id ? 'filled' : 'outline'}
@@ -369,7 +412,7 @@ export default function FoodLog() {
                     </Box>
                   ) : foods.length > 0 ? (
                     <SimpleGrid columns={1} spacing={2}>
-                      {foods.map((food) => (
+                      {filterFoodsByDietaryRestrictions(foods).map((food) => (
                         <Card
                           key={food.id}
                           variant={selectedFood?.id === food.id ? 'filled' : 'outline'}

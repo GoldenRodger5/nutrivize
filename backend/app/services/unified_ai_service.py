@@ -1386,6 +1386,7 @@ MEAL REQUIREMENTS:
 - Allergies: {', '.join(request.allergies) if request.allergies else 'none'}
 - Prep time preference: {request.prep_time_preference or 'moderate'}
 - Main ingredients: {', '.join(request.main_ingredients) if request.main_ingredients else 'flexible'}
+- Cuisine preference: {request.cuisine_preference if request.cuisine_preference else 'any cuisine'}
 
 SPECIAL REQUESTS: {request.special_requests if request.special_requests else 'None - follow standard meal suggestion guidelines'}
 
@@ -1398,7 +1399,14 @@ CRITICAL DIETARY COMPLIANCE REQUIREMENTS:
 - "strict": ZERO tolerance for violations
 - "moderate": Strong preference, very rare exceptions only
 - "flexible": Generally follow but some adaptation allowed
-6. DOUBLE-CHECK each suggestion before including it"""
+6. DOUBLE-CHECK each suggestion before including it
+
+CRITICAL CUISINE COMPLIANCE REQUIREMENTS:
+- If cuisine preference is specified: ALL suggestions MUST be authentic dishes from that cuisine ONLY
+- Use traditional ingredients, seasonings, and cooking methods from the specified cuisine
+- Meal names must reflect the cuisine (e.g., Italian: "Risotto alla Milanese", not "Rice Bowl")
+- Do NOT mix cuisines or provide generic dishes when a specific cuisine is requested
+- If no cuisine specified, provide varied international options"""
 
             # Add food index instructions if enabled
             if request.use_food_index_only and user_food_index:

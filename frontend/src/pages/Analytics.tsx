@@ -38,6 +38,7 @@ import {
 } from 'react-icons/fi'
 import { useAppState } from '../contexts/AppStateContext'
 import { useFoodIndex } from '../contexts/FoodIndexContext'
+import { useUserPreferences } from '../hooks/useUserPreferences'
 import AnalyticsInsights from '../components/analytics/AnalyticsInsights'
 import { analyticsService, type Insight, type TrendData } from '../services/analyticsService'
 
@@ -120,6 +121,7 @@ export default function Analytics() {
   } = useAppState()
 
   const { triggerRefresh } = useFoodIndex()
+  const { preferences } = useUserPreferences()
 
   const isMobile = useBreakpointValue({ base: true, md: false })
 
@@ -237,12 +239,26 @@ export default function Analytics() {
   // Get active goal
   const activeGoal = goals.find(goal => goal.active)
 
-  // Get nutrition targets from active goal or defaults
-  const nutritionTargets = activeGoal?.nutrition_targets || {
-    calories: 2000,
-    protein: 150,
-    carbs: 250,
-    fat: 65
+  // Get nutrition targets from user preferences, active goal, or defaults
+  const nutritionTargets = preferences?.nutrition || activeGoal?.nutrition_targets || {
+    calorie_goal: 2000,
+    protein_goal: 150,
+    carb_goal: 250,
+    fat_goal: 65,
+    fiber_goal: 30,
+    sodium_limit: 2300,
+    sugar_limit: 50
+  }
+
+  // Convert to format expected by analytics components  
+  const targets = {
+    calories: (nutritionTargets as any).calorie_goal || (nutritionTargets as any).calories || 2000,
+    protein: (nutritionTargets as any).protein_goal || (nutritionTargets as any).protein || 150,
+    carbs: (nutritionTargets as any).carb_goal || (nutritionTargets as any).carbs || 250,
+    fat: (nutritionTargets as any).fat_goal || (nutritionTargets as any).fat || 65,
+    fiber: (nutritionTargets as any).fiber_goal || 30,
+    sodium: (nutritionTargets as any).sodium_limit || 2300,
+    sugar: (nutritionTargets as any).sugar_limit || 50
   }
 
   // Calculate weight progress
@@ -339,9 +355,9 @@ export default function Analytics() {
             <Stat>
               <StatLabel fontSize={isMobile ? "xs" : "sm"}>Calories</StatLabel>
               <StatNumber fontSize={isMobile ? "lg" : "xl"}>{Math.round(nutrition.calories)}</StatNumber>
-              <StatHelpText fontSize="xs">of {nutritionTargets.calories} kcal</StatHelpText>
+              <StatHelpText fontSize="xs">of {targets.calories} kcal</StatHelpText>
               <Progress 
-                value={getNutritionProgress(nutrition.calories, nutritionTargets.calories)}
+                value={getNutritionProgress(nutrition.calories, targets.calories)}
                 colorScheme="blue"
                 size="sm"
                 mt={2}
@@ -351,9 +367,9 @@ export default function Analytics() {
             <Stat>
               <StatLabel fontSize={isMobile ? "xs" : "sm"}>Protein</StatLabel>
               <StatNumber fontSize={isMobile ? "lg" : "xl"}>{Math.round(nutrition.protein)}g</StatNumber>
-              <StatHelpText fontSize="xs">of {nutritionTargets.protein}g</StatHelpText>
+              <StatHelpText fontSize="xs">of {targets.protein}g</StatHelpText>
               <Progress 
-                value={getNutritionProgress(nutrition.protein, nutritionTargets.protein)}
+                value={getNutritionProgress(nutrition.protein, targets.protein)}
                 colorScheme="red"
                 size="sm"
                 mt={2}
@@ -363,9 +379,9 @@ export default function Analytics() {
             <Stat>
               <StatLabel fontSize={isMobile ? "xs" : "sm"}>Carbs</StatLabel>
               <StatNumber fontSize={isMobile ? "lg" : "xl"}>{Math.round(nutrition.carbs)}g</StatNumber>
-              <StatHelpText fontSize="xs">of {nutritionTargets.carbs}g</StatHelpText>
+              <StatHelpText fontSize="xs">of {targets.carbs}g</StatHelpText>
               <Progress 
-                value={getNutritionProgress(nutrition.carbs, nutritionTargets.carbs)}
+                value={getNutritionProgress(nutrition.carbs, targets.carbs)}
                 colorScheme="green"
                 size="sm"
                 mt={2}
@@ -375,9 +391,9 @@ export default function Analytics() {
             <Stat>
               <StatLabel fontSize={isMobile ? "xs" : "sm"}>Fat</StatLabel>
               <StatNumber fontSize={isMobile ? "lg" : "xl"}>{Math.round(nutrition.fat)}g</StatNumber>
-              <StatHelpText fontSize="xs">of {nutritionTargets.fat}g</StatHelpText>
+              <StatHelpText fontSize="xs">of {targets.fat}g</StatHelpText>
               <Progress 
-                value={getNutritionProgress(nutrition.fat, nutritionTargets.fat)}
+                value={getNutritionProgress(nutrition.fat, targets.fat)}
                 colorScheme="yellow"
                 size="sm"
                 mt={2}

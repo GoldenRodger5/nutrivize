@@ -248,7 +248,7 @@ async def generate_ai_response(message: str, context: ChatContext) -> ChatRespon
     """
     
     response = await anthropic_client.messages.create(
-        model="claude-3-sonnet-20240229",
+        model="claude-sonnet-4-20250514",
         max_tokens=1000,
         messages=[{"role": "user", "content": prompt}]
     )

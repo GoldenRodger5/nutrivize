@@ -5,7 +5,7 @@ import redis
 import json
 import logging
 from typing import Any, Optional, Dict, List
-from datetime import timedelta
+from datetime import timedelta, datetime
 import os
 
 logger = logging.getLogger(__name__)
@@ -137,9 +137,9 @@ class RedisClient:
             logger.error(f"Error flushing Redis keys with pattern {pattern}: {e}")
             return 0
     
-    # Caching helpers for common operations
-    def cache_user_data(self, user_id: str, data: Dict[str, Any], expiry: timedelta = timedelta(hours=1)) -> bool:
-        """Cache user data"""
+    # Caching helpers for common operations with optimized TTLs for 6-8 daily visits
+    def cache_user_data(self, user_id: str, data: Dict[str, Any], expiry: timedelta = timedelta(hours=24)) -> bool:
+        """Cache user data for 24 hours - profile changes are rare, accessed every session"""
         return self.set(f"user:{user_id}", data, expiry)
     
     def get_user_data(self, user_id: str) -> Optional[Dict[str, Any]]:
@@ -155,8 +155,27 @@ class RedisClient:
         return self.get(f"shopping_list:{plan_id}")
     
     def cache_food_logs(self, user_id: str, date: str, logs: List[Dict[str, Any]], expiry: timedelta = timedelta(minutes=30)) -> bool:
-        """Cache food logs for a specific date"""
-        return self.set(f"food_logs:{user_id}:{date}", logs, expiry)
+        """Cache food logs for a specific date with smart TTL"""
+        # Use graduated TTL based on date recency for better performance
+        smart_expiry = self.get_smart_food_logs_ttl(date)
+        return self.set(f"food_logs:{user_id}:{date}", logs, smart_expiry)
+    
+    def get_smart_food_logs_ttl(self, date_str: str) -> timedelta:
+        """Get appropriate cache duration based on date recency - optimized for frequent daily visits"""
+        try:
+            target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+            today = datetime.now().date()
+            days_old = (today - target_date).days
+            
+            if days_old == 0:
+                return timedelta(hours=2)     # Today - still changing but cache longer between visits
+            elif days_old <= 2:
+                return timedelta(hours=8)     # Recent - occasional changes, cache for most of day
+            else:
+                return timedelta(hours=48)    # Historical - rarely changes, multi-day cache
+        except:
+            # Fallback to default if date parsing fails
+            return timedelta(hours=2)
     
     def get_food_logs(self, user_id: str, date: str) -> Optional[List[Dict[str, Any]]]:
         """Get cached food logs"""
@@ -188,6 +207,55 @@ class RedisClient:
         import hashlib
         query_hash = hashlib.md5(query.lower().encode()).hexdigest()[:8]
         return self.get(f"food_search:{query_hash}")
+    
+    # Optimized caching methods for high-frequency data with multi-day TTLs
+    def cache_food_index_long_term(self, user_id: str, food_index: List[Dict[str, Any]]) -> bool:
+        """Cache food index for 72 hours - foods are rarely deleted, accessed constantly"""
+        return self.set(f"food_index:{user_id}", food_index, timedelta(hours=72))
+    
+    def get_food_index(self, user_id: str) -> Optional[List[Dict[str, Any]]]:
+        """Get cached food index"""
+        return self.get(f"food_index:{user_id}")
+    
+    def invalidate_food_index(self, user_id: str) -> bool:
+        """Invalidate food index cache when foods are added/modified"""
+        return self.delete(f"food_index:{user_id}")
+    
+    def cache_food_logs_smart(self, user_id: str, date: str, logs: Dict[str, Any]) -> bool:
+        """Cache food logs with smart TTL based on date recency"""
+        smart_expiry = self.get_smart_food_logs_ttl(date)
+        return self.set(f"food_logs:{user_id}:{date}", logs, smart_expiry)
+    
+    # New helper methods for write-through caching
+    def cache_goals_long_term(self, user_id: str, goals: List[Dict[str, Any]]) -> bool:
+        """Cache user goals for 24 hours - goals change weekly/monthly, checked daily"""
+        return self.set(f"goals:{user_id}", goals, timedelta(hours=24))
+    
+    def get_goals(self, user_id: str) -> Optional[List[Dict[str, Any]]]:
+        """Get cached goals"""
+        return self.get(f"goals:{user_id}")
+    
+    def cache_active_goal(self, user_id: str, goal: Dict[str, Any]) -> bool:
+        """Cache active goal for 24 hours"""
+        return self.set(f"active_goal:{user_id}", goal, timedelta(hours=24))
+    
+    def get_active_goal(self, user_id: str) -> Optional[Dict[str, Any]]:
+        """Get cached active goal"""
+        return self.get(f"active_goal:{user_id}")
+    
+    def cache_weight_logs_long_term(self, user_id: str, weight_logs: List[Dict[str, Any]]) -> bool:
+        """Cache weight logs for 48 hours - weight logged daily, viewed multiple times"""
+        return self.set(f"weight_logs:{user_id}", weight_logs, timedelta(hours=48))
+    
+    def get_weight_logs_cached(self, user_id: str) -> Optional[List[Dict[str, Any]]]:
+        """Get cached weight logs"""
+        return self.get(f"weight_logs:{user_id}")
+    
+    def invalidate_goals_cache(self, user_id: str) -> bool:
+        """Invalidate goals cache when goals are modified"""
+        deleted_goals = self.delete(f"goals:{user_id}")
+        deleted_active = self.delete(f"active_goal:{user_id}")
+        return deleted_goals or deleted_active
 
 # Global Redis client instance
 redis_client = RedisClient()

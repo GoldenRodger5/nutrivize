@@ -5,7 +5,7 @@ from ..core.firebase import firebase_manager
 from typing import Optional
 
 
-router = APIRouter(prefix="/auth", tags=["authentication"])
+router = APIRouter(tags=["authentication"])
 
 
 async def get_current_user(authorization: Optional[str] = Header(None)) -> UserResponse:
