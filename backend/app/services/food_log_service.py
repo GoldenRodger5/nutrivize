@@ -7,6 +7,9 @@ from datetime import datetime, date, timedelta
 from bson import ObjectId
 from collections import defaultdict
 import re
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class FoodLogService:
@@ -54,6 +57,17 @@ class FoodLogService:
             log_dict['date'] = log_dict['date'].isoformat()
         
         result = self.food_logs_collection.insert_one(log_dict)
+        
+        # ✅ VECTORIZE NEW FOOD LOG FOR AI CONTEXT
+        try:
+            from .vector_management_service import vector_management_service
+            # Add the document ID to the log data for vectorization
+            log_dict_with_id = {**log_dict, "_id": str(result.inserted_id)}
+            await vector_management_service.on_food_log_created(user_id, log_dict_with_id)
+            logger.info(f"✅ Vectorized new food log for user {user_id}")
+        except Exception as vector_error:
+            logger.warning(f"⚠️ Failed to vectorize food log: {vector_error}")
+            # Don't fail the request if vectorization fails
         
         # Write-through caching: immediately update cache with new log
         if redis_client.is_connected():

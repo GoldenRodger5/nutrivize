@@ -74,6 +74,17 @@ class UserFavoritesService:
             if redis_client.is_connected():
                 redis_client.invalidate_user_favorites_cache(user_id)
             
+            # ✅ VECTORIZE UPDATED FAVORITES FOR AI CONTEXT
+            try:
+                from .vector_management_service import vector_management_service
+                # Get all user favorites and re-vectorize
+                all_favorites = list(self.favorites_collection.find({"user_id": user_id}))
+                await vector_management_service.on_favorites_updated(user_id, all_favorites)
+                logger.info(f"✅ Vectorized updated favorites for user {user_id}")
+            except Exception as vector_error:
+                logger.warning(f"⚠️ Failed to vectorize favorites: {vector_error}")
+                # Don't fail the request if vectorization fails
+            
             # Return the created favorite with food details
             return await self._get_favorite_with_food_details(str(result.inserted_id))
             
@@ -92,6 +103,18 @@ class UserFavoritesService:
             # Invalidate favorites cache if deletion was successful
             if result.deleted_count > 0 and redis_client.is_connected():
                 redis_client.invalidate_user_favorites_cache(user_id)
+            
+            # ✅ VECTORIZE UPDATED FAVORITES FOR AI CONTEXT
+            if result.deleted_count > 0:
+                try:
+                    from .vector_management_service import vector_management_service
+                    # Get remaining user favorites and re-vectorize
+                    all_favorites = list(self.favorites_collection.find({"user_id": user_id}))
+                    await vector_management_service.on_favorites_updated(user_id, all_favorites)
+                    logger.info(f"✅ Vectorized updated favorites after removal for user {user_id}")
+                except Exception as vector_error:
+                    logger.warning(f"⚠️ Failed to vectorize favorites after removal: {vector_error}")
+                    # Don't fail the request if vectorization fails
             
             return result.deleted_count > 0
             

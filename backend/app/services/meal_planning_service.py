@@ -158,6 +158,16 @@ class MealPlanningService:
                     result = self.meal_plans_collection.insert_one(meal_plan)
                     meal_plan["_id"] = str(result.inserted_id)
                     print(f"DEBUG: Successfully inserted meal plan with ID: {result.inserted_id}")
+                    
+                    # ✅ VECTORIZE NEW MEAL PLAN FOR AI CONTEXT
+                    try:
+                        from .vector_management_service import vector_management_service
+                        await vector_management_service.on_meal_plan_created(user_id, meal_plan)
+                        print(f"✅ Vectorized new meal plan for user {user_id}")
+                    except Exception as vector_error:
+                        print(f"⚠️ Failed to vectorize meal plan: {vector_error}")
+                        # Don't fail the request if vectorization fails
+                    
                     break
                 except Exception as insert_error:
                     print(f"ERROR: Insert attempt {attempt + 1} failed: {insert_error}")

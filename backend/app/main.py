@@ -34,6 +34,18 @@ from .core.exceptions import NutrivizeException
 # Import routes safely
 from .routes import auth, foods, food_logs, ai, meal_planning, preferences, goals, weight_logs, water_logs, nutrition_labels, dietary, ai_dashboard, restaurant_ai, ai_health, food_stats, user_favorites, user_foods, onboarding
 
+# Import vector routes
+try:
+    from .routes import vectors
+    logger.info("Successfully imported vector routes")
+except Exception as e:
+    logger.error("Error importing vector routes", extra={"error": str(e)})
+    # Create a minimal version in memory
+    from fastapi import APIRouter
+    vectors = type('Module', (), {})
+    vectors.router = APIRouter(prefix="/vectors", tags=["vectors"])
+    logger.warning("Using minimal vector routes")
+
 # Import analytics routes
 try:
     from .routes import analytics
@@ -203,6 +215,7 @@ app.include_router(dietary.router, prefix="/dietary", tags=["dietary"])       # 
 app.include_router(food_stats.router, prefix="/food-stats", tags=["food-stats"])  # food_stats.router has no prefix
 app.include_router(user_favorites.router, tags=["favorites"])                  # user_favorites.router has /favorites prefix
 app.include_router(user_foods.router, tags=["user-foods"])                     # user_foods.router has /user-foods prefix
+app.include_router(vectors.router, tags=["vectors"])                           # vectors.router has /vectors prefix
 
 logger.info("API routes configured successfully")
 
