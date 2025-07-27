@@ -21,7 +21,7 @@ from datetime import datetime
 # Add project root to path
 sys.path.append('/Users/isaacmineo/Main/projects/nutrivize-v2/backend')
 
-from app.core.database import get_database
+from app.core.config import get_database
 from app.services.pinecone_service import PineconeService
 import openai
 from pinecone import Pinecone, ServerlessSpec

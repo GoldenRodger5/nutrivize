@@ -13,7 +13,7 @@ from datetime import datetime
 # Add the backend directory to the Python path
 sys.path.append('/Users/isaacmineo/Main/projects/nutrivize-v2/backend')
 
-from app.database import get_database
+from app.core.config import get_database
 from app.services.pinecone_service import pinecone_service
 
 # Set up logging

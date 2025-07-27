@@ -6,8 +6,10 @@
 - [Core Food System](#core-food-system)
 - [Nutrition Logging](#nutrition-logging)
 - [AI Services](#ai-services)
+- [AI Coaching](#ai-coaching)
 - [Meal Planning](#meal-planning)
 - [User Management](#user-management)
+- [User Favorites](#user-favorites)
 - [Analytics & Reporting](#analytics--reporting)
 - [Specialized Features](#specialized-features)
 - [Error Handling](#error-handling)
@@ -632,6 +634,73 @@ Authorization: Bearer <jwt_token>
 
 ---
 
+## 🧠 **AI Coaching**
+
+### **Coaching Session Management**
+
+#### **Get Coaching Plans**
+```http
+GET /ai/coaching/plans
+Authorization: Bearer <jwt_token>
+```
+**Description**: Get user's current coaching plan and progress
+
+#### **Get Coaching Sessions**
+```http
+GET /ai/coaching/sessions
+Authorization: Bearer <jwt_token>
+```
+**Description**: Get past coaching sessions and history
+
+#### **Ask Coach Question**
+```http
+POST /ai/coaching/ask
+Authorization: Bearer <jwt_token>
+Content-Type: application/json
+
+{
+  "question": "How can I increase my protein intake?",
+  "category": "nutrition",
+  "context": {
+    "current_plan": {},
+    "recent_sessions": []
+  }
+}
+```
+
+#### **Get Coaching Recommendations**
+```http
+GET /ai/coaching/recommendations
+Authorization: Bearer <jwt_token>
+```
+**Description**: Get personalized coaching recommendations
+
+#### **Complete Recommendation**
+```http
+POST /ai/coaching/recommendations/{recommendation_id}/complete
+Authorization: Bearer <jwt_token>
+```
+**Description**: Mark a coaching recommendation as completed
+
+### **Restaurant Menu Analysis (AI Coaching)**
+
+#### **Analyze Restaurant Menu**
+```http
+POST /ai/analyze-restaurant-menu
+Authorization: Bearer <jwt_token>
+Content-Type: multipart/form-data
+
+{
+  "analysis_mode": "text|image|url",
+  "content": "menu content or base64 image or URL",
+  "restaurant_name": "Restaurant Name",
+  "cuisine_type": "italian"
+}
+```
+**Description**: AI-powered analysis of restaurant menus with nutrition insights
+
+---
+
 ## 🍽️ **Meal Planning**
 
 ### **AI-Generated Meal Plans**
@@ -927,6 +996,60 @@ Content-Type: application/json
     "fat_percent": 30
   }
 }
+```
+
+### **User Recent Foods & Favorites**
+
+#### **Get Recent Foods**
+```http
+GET /user/recent-foods
+Authorization: Bearer <jwt_token>
+```
+**Description**: Get user's recently consumed foods from last 5 days
+
+#### **Add to Recent Foods**
+```http
+POST /user/recent-foods
+Authorization: Bearer <jwt_token>
+Content-Type: application/json
+
+{
+  "food_id": "507f1f77bcf86cd799439011",
+  "food_name": "Grilled Chicken Breast",
+  "quantity": 150,
+  "unit": "g",
+  "calories": 231,
+  "protein": 43.5,
+  "carbs": 0,
+  "fat": 5.0
+}
+```
+
+#### **Get User Favorite Foods**
+```http
+GET /user/favorite-foods
+Authorization: Bearer <jwt_token>
+```
+**Description**: Get user's favorite foods with default portions
+
+#### **Add to Favorite Foods**
+```http
+POST /user/favorite-foods
+Authorization: Bearer <jwt_token>
+Content-Type: application/json
+
+{
+  "food_id": "507f1f77bcf86cd799439011",
+  "food_name": "Grilled Chicken Breast",
+  "default_quantity": 150,
+  "default_unit": "g"
+}
+```
+
+#### **Remove from Favorite Foods**
+```http
+DELETE /user/favorite-foods/{food_id}
+Authorization: Bearer <jwt_token>
 ```
 
 ### **Goals Management**

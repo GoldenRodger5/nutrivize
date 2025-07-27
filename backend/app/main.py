@@ -32,7 +32,7 @@ from .core.error_handling import (
 from .core.exceptions import NutrivizeException
 
 # Import routes safely
-from .routes import auth, foods, food_logs, ai, meal_planning, preferences, goals, weight_logs, water_logs, nutrition_labels, dietary, ai_dashboard, restaurant_ai, ai_health, food_stats, user_favorites, user_foods, onboarding
+from .routes import auth, foods, food_logs, ai, ai_coaching, meal_planning, preferences, goals, weight_logs, water_logs, nutrition_labels, dietary, ai_dashboard, restaurant_ai, ai_health, food_stats, user_favorites, user_foods, user, onboarding
 
 # Import vector routes
 try:
@@ -203,6 +203,7 @@ app.include_router(food_logs.router, tags=["food-logs"])                       #
 app.include_router(preferences.router, prefix="/preferences", tags=["preferences"])  # preferences.router has no prefix
 app.include_router(analytics.router, tags=["analytics"])                       # analytics.router has /analytics prefix  
 app.include_router(ai.router, tags=["ai"])                                     # ai.router has /ai prefix
+app.include_router(ai_coaching.router, tags=["ai-coaching"])                   # ai_coaching.router has /ai prefix
 app.include_router(ai_dashboard.router, tags=["ai-dashboard"])                 # ai_dashboard.router has /ai-dashboard prefix
 app.include_router(ai_health.router, tags=["ai-health"])                       # ai_health.router has /ai-health prefix
 app.include_router(restaurant_ai.router, tags=["restaurant-ai"])               # restaurant_ai.router has /restaurant-ai prefix
@@ -215,6 +216,7 @@ app.include_router(dietary.router, prefix="/dietary", tags=["dietary"])       # 
 app.include_router(food_stats.router, prefix="/food-stats", tags=["food-stats"])  # food_stats.router has no prefix
 app.include_router(user_favorites.router, tags=["favorites"])                  # user_favorites.router has /favorites prefix
 app.include_router(user_foods.router, tags=["user-foods"])                     # user_foods.router has /user-foods prefix
+app.include_router(user.router, tags=["user"])                                 # user.router has /user prefix
 app.include_router(vectors.router, tags=["vectors"])                           # vectors.router has /vectors prefix
 
 logger.info("API routes configured successfully")

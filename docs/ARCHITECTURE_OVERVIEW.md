@@ -103,7 +103,7 @@ graph TB
     
     subgraph "Application Layer"
         API[FastAPI Backend]
-        Routes[17 Route Modules]
+        Routes[24 Route Modules]
         Services[Business Logic Services]
         Models[Pydantic Data Models]
     end
@@ -161,7 +161,7 @@ backend/app/
 │   ├── security.py        # Production security middleware suite
 │   ├── error_handling.py  # Enhanced error handling and logging
 │   └── exceptions.py      # Custom exception hierarchy (8 types)
-├── routes/                 # API endpoint definitions (17 modules)
+├── routes/                 # API endpoint definitions (24 modules)
 │   ├── auth.py            # User authentication and registration
 │   ├── foods.py           # Food database search and management
 │   ├── food_logs.py       # Daily nutrition logging
@@ -661,7 +661,7 @@ async def search_foods(query: str, user_id: str):
 
 ### **Maintainability**
 - **Clear Separation**: Frontend, backend, and database concerns are isolated
-- **Modular Design**: 17 backend modules and feature-based frontend components
+- **Modular Design**: 24 backend modules and feature-based frontend components
 - **Type Safety**: TypeScript frontend and Pydantic backend models
 - **Consistent Patterns**: Standardized error handling and API responses
 
