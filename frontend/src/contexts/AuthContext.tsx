@@ -30,25 +30,31 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [hasCheckedAuth, setHasCheckedAuth] = useState(false)
-  const [isValidatingToken, setIsValidatingToken] = useState(false) // Prevent duplicate validations
 
-  // Helper function to store token securely across contexts
-  const storeAuthToken = (token: string) => {
-    // Store in localStorage
-    localStorage.setItem('authToken', token)
+  // On component mount, immediately clear all auth state to force fresh login
+  useEffect(() => {
+    console.log('🔄 AuthProvider mounted - clearing all existing auth state')
     
-    // Store in sessionStorage as backup for iOS PWA
-    sessionStorage.setItem('authToken', token)
+    // Immediately sign out from Firebase if there's an existing session
+    if (auth.currentUser) {
+      signOut(auth).catch(e => console.error('Error clearing Firebase auth:', e))
+    }
     
-    // Set expiry time - 50 minutes from now (Firebase tokens last 1 hour)
-    const expiryTime = Date.now() + (50 * 60 * 1000)
-    localStorage.setItem('authTokenExpiry', expiryTime.toString())
-    sessionStorage.setItem('authTokenExpiry', expiryTime.toString())
+    // Clear all storage
+    localStorage.removeItem('authToken')
+    localStorage.removeItem('authTokenExpiry')
+    sessionStorage.removeItem('authToken')
+    sessionStorage.removeItem('authTokenExpiry')
+    localStorage.removeItem('firebase:authUser')
+    sessionStorage.removeItem('firebase:authUser')
+    sessionStorage.removeItem('allow-auto-login')
     
-    // Set in API headers
-    api.defaults.headers.common['Authorization'] = `Bearer ${token}`
-  }
-  
+    // Clear API headers
+    delete api.defaults.headers.common['Authorization']
+    
+    console.log('✅ All existing auth state cleared on app load')
+  }, []) // Run once on mount
+
   // Helper function to clear auth tokens
   const clearAuthTokens = () => {
     localStorage.removeItem('authToken')
@@ -58,36 +64,36 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     delete api.defaults.headers.common['Authorization']
   }
   
-  // Function to refresh the token when needed
-  const refreshTokenIfNeeded = async () => {
-    if (auth.currentUser) {
-      try {
-        const freshToken = await auth.currentUser.getIdToken(true)
-        storeAuthToken(freshToken)
-        
-        // Get user data from our API
-        const response = await api.get('/auth/me')
-        setUser(response.data)
-        
-        return true
-      } catch (error) {
-        console.error('Failed to refresh token:', error)
-        return false
-      }
-    }
-    return false
-  }
-  
-  // Listen for PWA-specific events
+  // Listen for PWA-specific events - modified for force login
   useEffect(() => {
     const handleAppResume = async () => {
-      console.log('PWA resumed - checking authentication')
-      await refreshTokenIfNeeded()
+      console.log('📱 PWA resumed - enforcing fresh login requirement')
+      
+      // Always clear auth and force login on PWA resume
+      clearAuthTokens()
+      setUser(null)
+      
+      // Sign out from Firebase if there's a session
+      if (auth.currentUser) {
+        try {
+          await signOut(auth)
+          console.log('🚪 Signed out from Firebase on PWA resume')
+        } catch (error) {
+          console.error('Error signing out on PWA resume:', error)
+        }
+      }
+      
+      // Force redirect to login if not already there
+      if (!window.location.pathname.includes('/login')) {
+        console.log('🔄 Forcing redirect to login after PWA resume')
+        window.location.replace('/login')
+      }
     }
     
+    // Remove token expiring handler since we don't want any auto-refresh
     const handleTokenExpiring = async () => {
-      console.log('Token expiring - refreshing')
-      await refreshTokenIfNeeded()
+      console.log('🔓 Token expiring - forcing logout and fresh login')
+      await logout()
     }
     
     window.addEventListener('pwa:resumed', handleAppResume)
@@ -100,114 +106,56 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   }, [])
   
   useEffect(() => {
-    // On first load, try to restore from storage but validate token
+    // Always force fresh login - no token restoration allowed
     if (!hasCheckedAuth) {
-      // Check if we're on Render production deployment
-      const isProduction = window.location.hostname.includes('render.com') || 
-                           window.location.hostname.includes('nutrivize') ||
-                           !window.location.hostname.includes('localhost');
+      console.log('🔐 Forcing fresh login - clearing all stored authentication tokens');
       
-      // Try to get token from storage
-      const storedToken = localStorage.getItem('authToken') || sessionStorage.getItem('authToken')
-      const tokenExpiry = localStorage.getItem('authTokenExpiry') || sessionStorage.getItem('authTokenExpiry')
+      // Always clear all stored authentication data to force fresh login
+      clearAuthTokens()
       
-      // Add extra buffer time to token expiration (10 minutes) for production environments
-      const expiryBuffer = isProduction ? 10 * 60 * 1000 : 0; 
-      const isExpired = !tokenExpiry || parseInt(tokenExpiry) < (Date.now() + expiryBuffer);
+      // Clear Firebase auth persistence to ensure clean slate
+      localStorage.removeItem('firebase:authUser')
+      sessionStorage.removeItem('firebase:authUser')
       
-      // If we have a token that's not expired, validate it with the server before accepting
-      if (storedToken && !isExpired) {
-        console.log('Found stored token, validating with server...');
-        
-        // Prevent duplicate validations
-        if (isValidatingToken) {
-          setHasCheckedAuth(true)
-          setLoading(false)
-          return
+      // Clear any auto-login flags
+      sessionStorage.removeItem('allow-auto-login')
+      
+      // Clear any additional auth-related storage
+      Object.keys(localStorage).forEach(key => {
+        if (key.includes('firebase') || key.includes('auth') || key.includes('token')) {
+          localStorage.removeItem(key)
         }
-        
-        setIsValidatingToken(true)
-        
-        // Set the token temporarily
-        api.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`
-        
-        // Try to validate with the server
-        api.get('/auth/me')
-          .then(response => {
-            // Only set user if we're not in production or if explicitly allowed
-            if (!isProduction || window.sessionStorage.getItem('allow-auto-login') === 'true') {
-              console.log('Token validated successfully');
-              setUser(response.data)
-            } else {
-              // For production, always require explicit login
-              console.log('Requiring explicit login on production deployment');
-              clearAuthTokens()
-            }
-          })
-          .catch(error => {
-            // Token is invalid, clear all tokens
-            console.log('Stored token is invalid or server validation failed, clearing', error)
-            clearAuthTokens()
-          })
-          .finally(() => {
-            setIsValidatingToken(false)
-            setHasCheckedAuth(true)
-            setLoading(false)
-          })
-      } else {
-        // No token or expired token
-        console.log('No valid token found or token expired')
-        clearAuthTokens() // Clear any expired tokens
-        setHasCheckedAuth(true)
-        setLoading(false)
-      }
+      })
       
-      // Check if we're in iOS PWA mode
-      const isPWA = window.matchMedia('(display-mode: standalone)').matches
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream
-      
-      if (isPWA && isIOS) {
-        console.log('iOS PWA detected - restoring navigation state')
-        // Restore last path if available (for iOS PWA)
-        const lastPath = sessionStorage.getItem('pwa:lastPath')
-        if (lastPath && lastPath !== '/' && lastPath !== '/login') {
-          setTimeout(() => {
-            window.history.pushState({}, '', lastPath)
-          }, 100)
+      Object.keys(sessionStorage).forEach(key => {
+        if (key.includes('firebase') || key.includes('auth') || key.includes('token')) {
+          sessionStorage.removeItem(key)
         }
-      }
+      })
       
+      // Force user to be null and require fresh login
+      setUser(null)
+      setHasCheckedAuth(true)
+      setLoading(false)
+      
+      console.log('✅ All authentication state cleared - user must login')
       return
     }
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      // Skip processing if we already have a validated user and token hasn't changed
-      if (user && firebaseUser && !isValidatingToken) {
-        console.log('User already validated, skipping Firebase auth processing')
-        setLoading(false)
-        return
-      }
-      
+      // FORCE FRESH LOGIN: Never auto-login from persisted Firebase state
       if (firebaseUser) {
+        console.log('🚫 Firebase user detected but forcing logout - no auto-login allowed')
         try {
-          console.log('Firebase user detected, getting token')
-          // Get Firebase token
-          const token = await firebaseUser.getIdToken(true) // Always force refresh for reliability
-          storeAuthToken(token)
-          
-          // Get user data from our API
-          const response = await api.get('/auth/me')
-          setUser(response.data)
-          console.log('User data fetched successfully')
+          await signOut(auth)
+          console.log('✅ Forced logout from Firebase to require fresh login')
         } catch (error) {
-          console.error('❌ Error fetching user data:', error)
-          clearAuthTokens()
-          setUser(null)
-          // Force logout from Firebase if backend validation fails
-          await auth.signOut().catch(e => console.error('Error signing out:', e))
+          console.error('Error forcing logout:', error)
         }
+        clearAuthTokens()
+        setUser(null)
       } else {
-        console.log('No Firebase user, clearing tokens')
+        console.log('No Firebase user - login required')
         clearAuthTokens()
         setUser(null)
       }
@@ -220,14 +168,34 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const login = async (email: string, password: string) => {
     setLoading(true)
     try {
-      await signInWithEmailAndPassword(auth, email, password)
+      console.log('🔐 Logging in user - explicit login required every time')
+      const userCredential = await signInWithEmailAndPassword(auth, email, password)
       
-      // Mark this as an explicit login to allow auto-login on Render
-      // This flag will be cleared on page refresh/browser close
-      window.sessionStorage.setItem('allow-auto-login', 'true')
+      // Manually handle authentication since onAuthStateChanged no longer auto-logins
+      const token = await userCredential.user.getIdToken(true)
+      
+      // Store the token
+      localStorage.setItem('authToken', token)
+      sessionStorage.setItem('authToken', token)
+      
+      // Set expiry time - 50 minutes from now (Firebase tokens last 1 hour)
+      const expiryTime = Date.now() + (50 * 60 * 1000)
+      localStorage.setItem('authTokenExpiry', expiryTime.toString())
+      sessionStorage.setItem('authTokenExpiry', expiryTime.toString())
+      
+      // Set in API headers
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`
+      
+      // Get user data from our API
+      const response = await api.get('/auth/me')
+      setUser(response.data)
+      console.log('✅ User authenticated successfully')
+      
     } catch (error) {
       setLoading(false)
       throw error
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -263,31 +231,47 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   }
 
   const logout = async () => {
+    console.log('🚪 Logging out - clearing all authentication state')
+    
     // Clear all tokens first
     clearAuthTokens()
     
     // Remove explicit login flag
     window.sessionStorage.removeItem('allow-auto-login')
     
-    // Then sign out from Firebase
-    try {
-      await signOut(auth)
-      console.log('Signed out successfully')
-    } catch (error) {
-      console.error('Error during sign out:', error)
-    }
+    // Clear all Firebase-related storage
+    localStorage.removeItem('firebase:authUser')
+    sessionStorage.removeItem('firebase:authUser')
+    
+    // Clear any additional auth-related storage items more thoroughly
+    Object.keys(localStorage).forEach(key => {
+      if (key.includes('firebase') || key.includes('auth') || key.includes('token') || key.includes('user')) {
+        localStorage.removeItem(key)
+      }
+    })
+    
+    Object.keys(sessionStorage).forEach(key => {
+      if (key.includes('firebase') || key.includes('auth') || key.includes('token') || key.includes('user')) {
+        sessionStorage.removeItem(key)
+      }
+    })
     
     // Force clear user data
     setUser(null)
     
-    // Force clear additional storage items that might persist auth state
-    localStorage.removeItem('firebase:authUser')
-    sessionStorage.removeItem('firebase:authUser')
-    
     // Force clear auth state in the API
     delete api.defaults.headers.common['Authorization']
     
-    // Redirect to login page with a fresh state
+    // Sign out from Firebase
+    try {
+      await signOut(auth)
+      console.log('✅ Signed out from Firebase successfully')
+    } catch (error) {
+      console.error('Error during Firebase sign out:', error)
+    }
+    
+    // Force reload the page to ensure complete state reset
+    console.log('🔄 Force reloading page to ensure clean state')
     window.location.replace('/login')
   }
 

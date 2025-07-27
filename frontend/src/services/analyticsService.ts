@@ -1,4 +1,5 @@
 import api from '../utils/api'
+import { LocalStorageCache, CACHE_KEYS, CACHE_TTL, CACHE_VERSION } from '../utils/localStorage'
 
 export interface Insight {
   id: string
@@ -54,13 +55,38 @@ class AnalyticsService {
    */
   async generateInsights(timeframe: 'day' | 'week' | 'month' = 'week', forceRefresh: boolean = false): Promise<AnalyticsResponse> {
     try {
+      // Check localStorage cache first if not forcing refresh
+      if (!forceRefresh) {
+        const cacheKey = `${CACHE_KEYS.AI_INSIGHTS}_${timeframe}`;
+        const cachedInsights = LocalStorageCache.get<AnalyticsResponse>(
+          cacheKey, 
+          CACHE_VERSION.CURRENT
+        );
+        
+        if (cachedInsights) {
+          return cachedInsights;
+        }
+      }
+
       const response = await api.get('/analytics/insights', {
         params: {
           timeframe,
           force_refresh: forceRefresh
         }
       })
-      return response.data
+      
+      const data = response.data;
+      
+      // Cache the insights with 2-hour TTL (matches backend AI cache)
+      const cacheKey = `${CACHE_KEYS.AI_INSIGHTS}_${timeframe}`;
+      LocalStorageCache.set(
+        cacheKey,
+        data,
+        CACHE_TTL.AI_INSIGHTS,
+        CACHE_VERSION.CURRENT
+      );
+      
+      return data;
     } catch (error) {
       console.error('Error generating insights:', error)
       throw error
@@ -72,10 +98,32 @@ class AnalyticsService {
    */
   async getNutritionTrends(days: number = 30): Promise<NutritionTrendsResponse> {
     try {
+      // Check localStorage cache first
+      const cacheKey = `${CACHE_KEYS.ANALYTICS_DATA}_trends_${days}`;
+      const cachedTrends = LocalStorageCache.get<NutritionTrendsResponse>(
+        cacheKey, 
+        CACHE_VERSION.CURRENT
+      );
+      
+      if (cachedTrends) {
+        return cachedTrends;
+      }
+
       const response = await api.get('/analytics/nutrition-trends', {
         params: { days }
       })
-      return response.data
+      
+      const data = response.data;
+      
+      // Cache with 6-hour TTL (analytics data)
+      LocalStorageCache.set(
+        cacheKey,
+        data,
+        CACHE_TTL.ANALYTICS_DATA,
+        CACHE_VERSION.CURRENT
+      );
+      
+      return data;
     } catch (error) {
       console.error('Error fetching nutrition trends:', error)
       throw error

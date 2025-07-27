@@ -35,6 +35,15 @@ Health Check: /health
 - **Rate Limiting**: 120 requests/minute with 20 burst allowance
 - **Security**: Multi-layer security headers and validation
 - **Monitoring**: Health checks with service status reporting
+- **Caching**: Smart Redis caching with AI-first freshness priority
+
+### **🚀 Smart Caching Strategy (2025)**
+- **AI Insights**: 2 hours maximum (fresh recommendations)
+- **Computational Analytics**: 6-12 hours (performance balance)
+- **User Data**: 5-10 days (stable profiles/preferences)
+- **Food Data**: 2-7 days (database content stability)
+- **Historical Data**: Graduated TTL by age (6h-7d)
+- **Write-Through**: Immediate cache updates on data changes
 
 ### **Enhanced Response Structure**
 ```typescript
@@ -1039,7 +1048,124 @@ Authorization: Bearer <jwt_token>
 
 ## 📈 **Analytics & Reporting**
 
-### **Nutrition Analytics**
+### **🚀 Smart Cached Analytics (2025)**
+All analytics endpoints use intelligent caching for optimal performance:
+- **AI Insights**: 2 hours (fresh recommendations)
+- **Weekly Summaries**: 6 hours (same-day updates)
+- **Monthly Summaries**: 1 day (historical stability)
+- **Trends/Breakdowns**: 8 hours (computational balance)
+- **Goal Progress**: 12 hours (default analytics)
+
+### **AI-Powered Analytics**
+
+#### **Generate AI Insights**
+```http
+GET /analytics/insights?timeframe={period}&force_refresh={bool}
+Authorization: Bearer <jwt_token>
+```
+**Parameters**:
+- `timeframe` (string): "day", "week", "month"
+- `force_refresh` (boolean): Skip cache for fresh insights
+
+**Response**:
+```json
+{
+  "data": {
+    "insights": [
+      {
+        "type": "nutrition",
+        "title": "Protein Consistency Improving",
+        "content": "Your protein intake has been more consistent this week...",
+        "importance": 2,
+        "category": "progress"
+      }
+    ],
+    "statistics": {
+      "calories": {"value": 1847, "trend": 5, "trend_direction": "up"},
+      "protein": {"value": 128, "target": 120, "target_unit": "g"}
+    },
+    "generated_at": "2025-07-27T12:00:00Z",
+    "is_cached": false,
+    "summary": "You're making great progress with consistent nutrition tracking..."
+  }
+}
+```
+
+#### **Get Nutrition Trends**
+```http
+GET /analytics/nutrition-trends?days={number}
+Authorization: Bearer <jwt_token>
+```
+**Response**:
+```json
+{
+  "data": {
+    "period": "2025-07-01 to 2025-07-27",
+    "days_analyzed": 27,
+    "trends": [
+      {
+        "date": "2025-07-27",
+        "daily": {"calories": 1920, "protein": 135, "carbs": 180, "fat": 68},
+        "3_day_average": {"calories": 1847, "protein": 128, "carbs": 167, "fat": 62}
+      }
+    ],
+    "is_cached": true
+  }
+}
+```
+
+#### **Get Goal Progress**
+```http
+GET /analytics/goal-progress
+Authorization: Bearer <jwt_token>
+```
+**Response**:
+```json
+{
+  "data": {
+    "period": "2025-07-20 to 2025-07-27",
+    "progress": {
+      "calories": {
+        "target": 1800,
+        "actual": 1847,
+        "percentage": 102.6,
+        "status": "above"
+      }
+    },
+    "recommendations": [
+      "You're consuming 47 more calories than your target. Consider portion control."
+    ],
+    "is_cached": true
+  }
+}
+```
+
+#### **Get Macro Breakdown**
+```http
+GET /analytics/macro-breakdown?timeframe={period}
+Authorization: Bearer <jwt_token>
+```
+**Response**:
+```json
+{
+  "data": {
+    "timeframe": "week",
+    "totals": {"protein": 896, "carbs": 1169, "fat": 434, "calories": 12929},
+    "daily_averages": {"protein": 128, "carbs": 167, "fat": 62, "calories": 1847},
+    "macro_percentages": {"protein": 28, "carbs": 47, "fat": 25},
+    "charts": [
+      {
+        "chart_type": "pie",
+        "title": "Macronutrient Distribution (%)",
+        "data": {"labels": ["Protein", "Carbohydrates", "Fat"], "values": [28, 47, 25]}
+      }
+    ],
+    "is_cached": false
+  }
+}
+```
+
+### **Traditional Analytics**
 
 #### **Get Nutrition Summary**
 ```http
@@ -1202,6 +1328,9 @@ Authorization: Bearer <jwt_token>
 
 ### **Water Logging**
 
+#### **🚀 Smart Cached Water Logs (2025)**
+Water log endpoints use intelligent 1-hour caching for real-time balance with performance.
+
 #### **Log Water Intake**
 ```http
 POST /water-logs/
@@ -1221,11 +1350,41 @@ Content-Type: application/json
 GET /water-logs/?date={date}
 Authorization: Bearer <jwt_token>
 ```
+**Response**:
+```json
+{
+  "data": [
+    {
+      "id": "log_id",
+      "amount": 500,
+      "unit": "ml",
+      "timestamp": "2025-01-20T14:30:00Z",
+      "drink_type": "water"
+    }
+  ],
+  "is_cached": true,
+  "total_today": 1750
+}
+```
 
 #### **Get Daily Water Summary**
 ```http
 GET /water-logs/daily/{date}
 Authorization: Bearer <jwt_token>
+```
+**Response**:
+```json
+{
+  "data": {
+    "date": "2025-01-20",
+    "total_ml": 1750,
+    "goal_ml": 2000,
+    "percentage_of_goal": 87.5,
+    "logs_count": 7,
+    "is_goal_met": false
+  },
+  "is_cached": false
+}
 ```
 
 ### **Weight Tracking**

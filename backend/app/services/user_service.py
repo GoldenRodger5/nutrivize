@@ -137,18 +137,23 @@ class UserService:
             return None
     
     async def update_user_data(self, uid: str, data_update: Dict[str, Any]) -> bool:
-        """Update user data directly in the document"""
+        """Update user data directly in the document with write-through caching"""
         try:
             from datetime import datetime
             
             # Add timestamp
             data_update["updated_at"] = datetime.utcnow()
             
-            # Update in database
+            # Update in database first
             result = self.users_collection.update_one(
                 {"uid": uid},
                 {"$set": data_update}
             )
+            
+            # Write-through cache: invalidate user cache so fresh data is fetched next time
+            if result.modified_count > 0 and redis_client.is_connected():
+                redis_client.delete(f"user:{uid}")
+                logger.info(f"✅ Invalidated user cache for {uid} after update")
             
             return result.modified_count > 0
             

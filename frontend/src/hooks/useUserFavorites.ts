@@ -1,7 +1,8 @@
-// React hook for managing user favorites
+// React hook for managing user favorites with localStorage persistence
 import { useState, useEffect, useCallback } from 'react'
 import { useToast } from '@chakra-ui/react'
 import userFavoritesService, { UserFavorite, UserFavoriteCreate, UserFavoriteUpdate, UserFavoriteStats } from '../services/userFavoritesService'
+import { LocalStorageCache, CACHE_KEYS, CACHE_TTL, CACHE_VERSION } from '../utils/localStorage'
 
 export const useUserFavorites = () => {
   const [favorites, setFavorites] = useState<UserFavorite[]>([])
@@ -11,12 +12,37 @@ export const useUserFavorites = () => {
   const toast = useToast()
 
   // Load all favorites
-  const loadFavorites = useCallback(async (category?: string) => {
+  const loadFavorites = useCallback(async (category?: string, forceRefresh = false) => {
     setLoading(true)
     setError(null)
+    
     try {
+      // First, try to get from localStorage cache if not forcing refresh
+      if (!forceRefresh) {
+        const cacheKey = category ? `${CACHE_KEYS.USER_FAVORITES}_${category}` : CACHE_KEYS.USER_FAVORITES;
+        const cachedFavorites = LocalStorageCache.get<UserFavorite[]>(
+          cacheKey, 
+          CACHE_VERSION.CURRENT
+        );
+        
+        if (cachedFavorites) {
+          setFavorites(cachedFavorites);
+          setLoading(false);
+          return;
+        }
+      }
+
       const data = await userFavoritesService.getFavorites(category)
       setFavorites(data)
+      
+      // Cache the data in localStorage with 4-hour TTL (matches backend cache)
+      const cacheKey = category ? `${CACHE_KEYS.USER_FAVORITES}_${category}` : CACHE_KEYS.USER_FAVORITES;
+      LocalStorageCache.set(
+        cacheKey,
+        data,
+        CACHE_TTL.USER_FAVORITES,
+        CACHE_VERSION.CURRENT
+      );
     } catch (err: any) {
       const errorMessage = err.response?.data?.detail || 'Failed to load favorites'
       setError(errorMessage)
@@ -46,7 +72,17 @@ export const useUserFavorites = () => {
   const addFavorite = useCallback(async (data: UserFavoriteCreate) => {
     try {
       const newFavorite = await userFavoritesService.addFavorite(data)
-      setFavorites(prev => [newFavorite, ...prev])
+      const updatedFavorites = [newFavorite, ...favorites];
+      setFavorites(updatedFavorites)
+      
+      // Update localStorage cache immediately (write-through pattern)
+      LocalStorageCache.set(
+        CACHE_KEYS.USER_FAVORITES,
+        updatedFavorites,
+        CACHE_TTL.USER_FAVORITES,
+        CACHE_VERSION.CURRENT
+      );
+      
       toast({
         title: 'Added to favorites',
         description: `${data.custom_name || newFavorite.food_name} has been added to your favorites`,
@@ -66,7 +102,7 @@ export const useUserFavorites = () => {
       })
       throw err
     }
-  }, [toast])
+  }, [toast, favorites])
 
   // Update a favorite
   const updateFavorite = useCallback(async (foodId: string, data: UserFavoriteUpdate) => {

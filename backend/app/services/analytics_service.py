@@ -1,4 +1,5 @@
 from ..core.config import get_database
+from ..core.redis_client import redis_client
 from ..models.food_log import FoodLogEntry
 from ..services.food_log_service import food_log_service
 from typing import Dict, List, Any, Optional
@@ -6,6 +7,9 @@ from datetime import datetime, date, timedelta
 from collections import defaultdict
 import statistics
 import asyncio
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class AnalyticsService:
@@ -21,11 +25,19 @@ class AnalyticsService:
             print("⚠️  AnalyticsService initialized without database connection")
     
     async def get_weekly_summary(self, user_id: str, end_date: date = None) -> Dict[str, Any]:
-        """Get weekly nutrition summary"""
+        """Get weekly nutrition summary with Redis caching"""
         if not end_date:
             end_date = date.today()
         
         start_date = end_date - timedelta(days=6)  # 7 days total
+        cache_key = f"weekly_summary_{start_date.isoformat()}_{end_date.isoformat()}"
+        
+        # Try Redis cache first
+        if redis_client.is_connected():
+            cached_data = redis_client.get_analytics_cached(user_id, cache_key)
+            if cached_data:
+                logger.info(f"✅ Found cached weekly summary for user {user_id}")
+                return cached_data
         
         weekly_data = []
         total_nutrition = {"calories": 0, "protein": 0, "carbs": 0, "fat": 0}
@@ -52,15 +64,22 @@ class AnalyticsService:
         # Calculate averages
         avg_nutrition = {k: round(v / 7, 1) for k, v in total_nutrition.items()}
         
-        return {
+        result = {
             "period": f"{start_date.isoformat()} to {end_date.isoformat()}",
             "daily_data": weekly_data,
             "weekly_totals": total_nutrition,
             "daily_averages": avg_nutrition
         }
+        
+        # Cache the result for 3 days (analytics are expensive to compute)
+        if redis_client.is_connected():
+            redis_client.cache_analytics_long_term(user_id, cache_key, result)
+            logger.info(f"✅ Cached weekly summary for user {user_id}")
+        
+        return result
     
     async def get_monthly_summary(self, user_id: str, year: int = None, month: int = None) -> Dict[str, Any]:
-        """Get monthly nutrition summary"""
+        """Get monthly nutrition summary with smart caching"""
         from datetime import date
         import calendar
         
@@ -68,6 +87,14 @@ class AnalyticsService:
             year = date.today().year
         if not month:
             month = date.today().month
+        
+        # Check cache first
+        cache_key = f"monthly_summary_{year}_{month}"
+        if redis_client.is_connected():
+            cached_data = redis_client.get_analytics_cached(user_id, cache_key)
+            if cached_data:
+                cached_data["is_cached"] = True
+                return cached_data
             
         # Get first and last day of month
         start_date = date(year, month, 1)
@@ -78,7 +105,7 @@ class AnalyticsService:
         logs = await food_log_service.get_date_range_logs(user_id, start_date, end_date)
         
         if not logs:
-            return {
+            result = {
                 "period": f"{start_date.isoformat()} to {end_date.isoformat()}",
                 "month_name": calendar.month_name[month],
                 "year": year,
@@ -86,8 +113,14 @@ class AnalyticsService:
                 "logged_days": 0,
                 "total_nutrition": {"calories": 0, "protein": 0, "carbs": 0, "fat": 0},
                 "average_daily": {"calories": 0, "protein": 0, "carbs": 0, "fat": 0},
-                "weekly_averages": []
+                "weekly_averages": [],
+                "is_cached": False
             }
+            
+            # Cache empty result for shorter time
+            if redis_client.is_connected():
+                redis_client.cache_analytics_smart(user_id, cache_key, result)
+            return result
         
         # Group by week
         weekly_data = {}
@@ -141,7 +174,7 @@ class AnalyticsService:
             "fat": round(total_nutrition["fat"] / num_logged_days, 1) if num_logged_days > 0 else 0,
         }
         
-        return {
+        result = {
             "period": f"{start_date.isoformat()} to {end_date.isoformat()}",
             "month_name": calendar.month_name[month],
             "year": year,
@@ -149,12 +182,27 @@ class AnalyticsService:
             "logged_days": num_logged_days,
             "total_nutrition": total_nutrition,
             "average_daily": average_daily,
-            "weekly_averages": weekly_averages
+            "weekly_averages": weekly_averages,
+            "is_cached": False
         }
+        
+        # Cache the result using smart analytics caching
+        if redis_client.is_connected():
+            redis_client.cache_analytics_smart(user_id, cache_key, result)
+        
+        return result
 
     async def generate_ai_insights(self, user_id: str, timeframe: str = "week", force_refresh: bool = False) -> Dict[str, Any]:
-        """Generate AI-powered insights about user's nutrition patterns (caching disabled)"""
+        """Generate AI-powered insights about user's nutrition patterns (smart 2-hour caching)"""
         from datetime import datetime, timedelta
+        
+        # Check cache first (unless force_refresh)
+        cache_key = f"ai_insights_{timeframe}"
+        if not force_refresh and redis_client.is_connected():
+            cached_data = redis_client.get_analytics_cached(user_id, cache_key)
+            if cached_data:
+                cached_data["is_cached"] = True
+                return cached_data
         
         # Determine date range
         end_date = date.today()
@@ -198,22 +246,40 @@ class AnalyticsService:
             "main_opportunity": insights_response.get("main_opportunity", "")
         }
         
+        # Cache AI insights for 2 hours using smart caching
+        if redis_client.is_connected():
+            redis_client.cache_analytics_smart(user_id, cache_key, result)
+        
         return result
 
     async def get_nutrition_trends(self, user_id: str, days: int) -> Dict[str, Any]:
-        """Get nutrition trends over specified number of days"""
+        """Get nutrition trends over specified number of days with smart caching"""
+        # Check cache first
+        cache_key = f"nutrition_trends_{days}d"
+        if redis_client.is_connected():
+            cached_data = redis_client.get_analytics_cached(user_id, cache_key)
+            if cached_data:
+                cached_data["is_cached"] = True
+                return cached_data
+        
         end_date = date.today()
         start_date = end_date - timedelta(days=days)
         
         logs = await food_log_service.get_date_range_logs(user_id, start_date, end_date)
         
         if not logs:
-            return {
+            result = {
                 "period": f"{start_date} to {end_date}",
                 "days_analyzed": days,
                 "trends": [],
-                "message": "No data available for trend analysis"
+                "message": "No data available for trend analysis",
+                "is_cached": False
             }
+            
+            # Cache empty result
+            if redis_client.is_connected():
+                redis_client.cache_analytics_smart(user_id, cache_key, result)
+            return result
         
         # Group by date and calculate daily totals
         daily_totals = defaultdict(lambda: {"calories": 0, "protein": 0, "carbs": 0, "fat": 0})
@@ -258,26 +324,47 @@ class AnalyticsService:
                 }
             })
         
-        return {
+        result = {
             "period": f"{start_date} to {end_date}",
             "days_analyzed": days,
             "days_with_data": len(dates),
-            "trends": trend_data
+            "trends": trend_data,
+            "is_cached": False
         }
+        
+        # Cache trends data using smart caching (8 hours)
+        if redis_client.is_connected():
+            redis_client.cache_analytics_smart(user_id, cache_key, result)
+        
+        return result
 
     async def get_goal_progress(self, user_id: str) -> Dict[str, Any]:
-        """Get progress towards user's nutrition and health goals"""
+        """Get progress towards user's nutrition and health goals with smart caching"""
+        # Check cache first
+        cache_key = "goal_progress"
+        if redis_client.is_connected():
+            cached_data = redis_client.get_analytics_cached(user_id, cache_key)
+            if cached_data:
+                cached_data["is_cached"] = True
+                return cached_data
+        
         from ..services.goals_service import goals_service
         
         # Get user's current goals
         user_goals = await goals_service.get_user_goals(user_id)
         
         if not user_goals:
-            return {
+            result = {
                 "message": "No goals set",
                 "progress": {},
-                "recommendations": ["Set nutrition goals to track your progress"]
+                "recommendations": ["Set nutrition goals to track your progress"],
+                "is_cached": False
             }
+            
+            # Cache empty result
+            if redis_client.is_connected():
+                redis_client.cache_analytics_smart(user_id, cache_key, result)
+            return result
         
         # Get recent nutrition data (last 7 days)
         end_date = date.today()
@@ -308,12 +395,19 @@ class AnalyticsService:
         
         # Similar logic for protein, carbs, fat goals...
         
-        return {
+        result = {
             "period": f"{start_date} to {end_date}",
             "goals": user_goals,
             "progress": progress,
-            "recommendations": recommendations
+            "recommendations": recommendations,
+            "is_cached": False
         }
+        
+        # Cache goal progress data using smart caching
+        if redis_client.is_connected():
+            redis_client.cache_analytics_smart(user_id, cache_key, result)
+        
+        return result
 
     async def analyze_food_patterns(self, user_id: str, days: int) -> Dict[str, Any]:
         """Analyze food consumption patterns and habits"""
@@ -765,8 +859,16 @@ class AnalyticsService:
         return charts
 
     async def get_macro_breakdown(self, user_id: str, timeframe: str = "week") -> Dict[str, Any]:
-        """Get detailed macronutrient breakdown with visualizations"""
+        """Get detailed macronutrient breakdown with visualizations and smart caching"""
         try:
+            # Check cache first
+            cache_key = f"macro_breakdown_{timeframe}"
+            if redis_client.is_connected():
+                cached_data = redis_client.get_analytics_cached(user_id, cache_key)
+                if cached_data:
+                    cached_data["is_cached"] = True
+                    return cached_data
+            
             # Determine date range
             end_date = date.today()
             if timeframe == "week":
@@ -900,8 +1002,15 @@ class AnalyticsService:
                     "carbs": round(carbs_percentage, 1),
                     "fat": round(fat_percentage, 1)
                 },
-                "charts": charts
+                "charts": charts,
+                "is_cached": False
             }
+            
+            # Cache macro breakdown using smart caching (8 hours)
+            if redis_client.is_connected():
+                redis_client.cache_analytics_smart(user_id, cache_key, result)
+            
+            return result
             
         except Exception as e:
             print(f"Error in get_macro_breakdown: {str(e)}")

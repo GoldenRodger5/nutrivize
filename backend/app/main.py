@@ -102,8 +102,8 @@ app.add_middleware(RequestLoggingMiddleware, log_body=False)  # Set to True for 
 # Add rate limiting - adjust based on your needs
 app.add_middleware(
     RateLimitMiddleware, 
-    requests_per_minute=120,  # Increased for nutrition app usage
-    burst_requests=20
+    requests_per_minute=300,  # Increased significantly for nutrition app usage
+    burst_requests=50  # Allow more burst requests
 )
 
 # Configure CORS with tighter security
@@ -184,13 +184,25 @@ async def health_check():
         )
 
 # Include routers with tags
-app.include_router(auth.router, prefix="/auth", tags=["auth"])
-app.include_router(onboarding.router, prefix="/onboarding", tags=["onboarding"])
-app.include_router(foods.router, prefix="/foods", tags=["foods"])
-app.include_router(food_logs.router, prefix="/food-logs", tags=["food-logs"])
-app.include_router(preferences.router, prefix="/preferences", tags=["preferences"])
-app.include_router(analytics.router, prefix="/analytics", tags=["analytics"])
-app.include_router(ai.router, prefix="/ai", tags=["ai"])
+app.include_router(auth.router, prefix="/auth", tags=["auth"])                  # auth.router has no prefix
+app.include_router(onboarding.router, tags=["onboarding"])                     # onboarding.router has /onboarding prefix  
+app.include_router(foods.router, tags=["foods"])                               # foods.router has /foods prefix
+app.include_router(food_logs.router, tags=["food-logs"])                       # food_logs.router has /food-logs prefix
+app.include_router(preferences.router, prefix="/preferences", tags=["preferences"])  # preferences.router has no prefix
+app.include_router(analytics.router, tags=["analytics"])                       # analytics.router has /analytics prefix  
+app.include_router(ai.router, tags=["ai"])                                     # ai.router has /ai prefix
+app.include_router(ai_dashboard.router, tags=["ai-dashboard"])                 # ai_dashboard.router has /ai-dashboard prefix
+app.include_router(ai_health.router, tags=["ai-health"])                       # ai_health.router has /ai-health prefix
+app.include_router(restaurant_ai.router, tags=["restaurant-ai"])               # restaurant_ai.router has /restaurant-ai prefix
+app.include_router(meal_planning.router, tags=["meal-planning"])               # meal_planning.router has /meal-planning prefix
+app.include_router(goals.router, tags=["goals"])                               # goals.router has /goals prefix
+app.include_router(weight_logs.router, tags=["weight-logs"])                   # weight_logs.router has /weight-logs prefix
+app.include_router(water_logs.router, tags=["water-logs"])                     # water_logs.router has /water-logs prefix
+app.include_router(nutrition_labels.router, prefix="/nutrition-labels", tags=["nutrition-labels"])  # nutrition_labels.router has no prefix
+app.include_router(dietary.router, prefix="/dietary", tags=["dietary"])       # dietary.router has no prefix
+app.include_router(food_stats.router, prefix="/food-stats", tags=["food-stats"])  # food_stats.router has no prefix
+app.include_router(user_favorites.router, tags=["favorites"])                  # user_favorites.router has /favorites prefix
+app.include_router(user_foods.router, tags=["user-foods"])                     # user_foods.router has /user-foods prefix
 
 logger.info("API routes configured successfully")
 

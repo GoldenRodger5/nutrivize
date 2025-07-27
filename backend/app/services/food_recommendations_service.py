@@ -1,24 +1,34 @@
 """
-Food Recommendations Service - Handles recent foods and AI-generated popular foods
+Food Recommendations Service - Handles recent foods and AI-generated popular foods with smart caching
 """
 
 import logging
 from datetime import datetime, timedelta
 from typing import List, Dict, Any
 from ..core.config import get_database
+from ..core.redis_client import redis_client
 from ..services.unified_ai_service import unified_ai_service
 
 logger = logging.getLogger(__name__)
 
 class FoodRecommendationsService:
-    """Service for generating food recommendations"""
+    """Service for generating food recommendations with smart caching"""
     
     def __init__(self):
         self.db = get_database()
+        if not self.db:
+            print("⚠️  FoodRecommendationsService initialized without database connection")
     
     async def get_recent_foods(self, user_id: str, limit: int = 10) -> List[Dict[str, Any]]:
-        """Get user's recently logged foods"""
+        """Get user's recently logged foods with 2-day caching"""
         try:
+            # Check cache first
+            cache_context = f"recent_foods_{limit}"
+            if redis_client.is_connected():
+                cached_data = redis_client.get_food_recommendations_cached(user_id, cache_context)
+                if cached_data:
+                    return cached_data
+            
             # Get food logs from the last 30 days
             start_date = datetime.now() - timedelta(days=30)
             
@@ -58,7 +68,7 @@ class FoodRecommendationsService:
             
             recent_foods = list(self.db.food_logs.aggregate(pipeline))
             
-            return [
+            result = [
                 {
                     "food_name": food["food_name"],
                     "food_id": food.get("food_id"),
@@ -76,13 +86,26 @@ class FoodRecommendationsService:
                 for food in recent_foods
             ]
             
+            # Cache the result for 2 days
+            if redis_client.is_connected():
+                redis_client.cache_food_recommendations(user_id, cache_context, result)
+            
+            return result
+            
         except Exception as e:
             logger.error(f"Error getting recent foods: {e}")
             return []
     
     async def get_popular_foods_ai(self, user_id: str, limit: int = 10) -> List[Dict[str, Any]]:
-        """Get AI-generated popular foods based on user preferences and nutrition goals"""
+        """Get AI-generated popular foods based on user preferences and nutrition goals with 2-day caching"""
         try:
+            # Check cache first
+            cache_context = f"popular_foods_ai_{limit}"
+            if redis_client.is_connected():
+                cached_data = redis_client.get_food_recommendations_cached(user_id, cache_context)
+                if cached_data:
+                    return cached_data
+            
             # Get user context
             user_context = await unified_ai_service._get_user_context(user_id)
             
@@ -133,11 +156,24 @@ class FoodRecommendationsService:
                 else:
                     recommendations = ai_response
                 
-                return recommendations[:limit]
+                result = recommendations[:limit]
+                
+                # Cache AI recommendations for 2 days
+                if redis_client.is_connected():
+                    redis_client.cache_food_recommendations(user_id, cache_context, result)
+                
+                return result
                 
             except Exception as ai_error:
                 logger.warning(f"AI recommendation failed, using fallback: {ai_error}")
-                return self._get_fallback_popular_foods(limit)
+                fallback_result = self._get_fallback_popular_foods(limit)
+                
+                # Cache fallback result for shorter time (4 hours)
+                if redis_client.is_connected():
+                    from datetime import timedelta
+                    redis_client.set(f"food_recommendations:{user_id}:{cache_context}", fallback_result, timedelta(hours=4))
+                
+                return fallback_result
                 
         except Exception as e:
             logger.error(f"Error getting AI popular foods: {e}")

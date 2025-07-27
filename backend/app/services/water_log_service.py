@@ -1,5 +1,5 @@
 """
-Water Log Service - Handles water intake logging and tracking
+Water Log Service - Handles water intake logging and tracking with smart caching
 """
 
 import logging
@@ -7,19 +7,22 @@ from datetime import date, datetime, timedelta
 from typing import List, Optional
 from bson import ObjectId
 from ..core.config import get_database
+from ..core.redis_client import redis_client
 from ..models.water_log import WaterLogCreate, WaterLogEntry, WaterLogResponse, DailyWaterSummary
 
 logger = logging.getLogger(__name__)
 
 class WaterLogService:
-    """Service for managing water intake logs"""
+    """Service for managing water intake logs with smart caching"""
     
     def __init__(self):
         self.db = get_database()
-        self.collection = self.db.water_logs
+        self.collection = self.db.water_logs if self.db else None
+        if not self.collection:
+            print("⚠️  WaterLogService initialized without database connection")
     
     async def log_water(self, log_data: WaterLogCreate, user_id: str) -> WaterLogResponse:
-        """Log a water intake entry"""
+        """Log a water intake entry with cache invalidation"""
         try:
             water_log_data = {
                 "user_id": user_id,
@@ -31,6 +34,10 @@ class WaterLogService:
             
             # Insert into database
             result = self.collection.insert_one(water_log_data)
+            
+            # Invalidate cache for this date
+            if redis_client.is_connected():
+                redis_client.delete(f"water_logs:{user_id}:{log_data.date.isoformat()}")
             
             # Return the created log
             created_log = self.collection.find_one({"_id": result.inserted_id})
@@ -78,8 +85,15 @@ class WaterLogService:
             raise Exception(f"Failed to get water logs: {str(e)}")
     
     async def get_daily_water_summary(self, user_id: str, target_date: date) -> DailyWaterSummary:
-        """Get daily water intake summary"""
+        """Get daily water intake summary with smart caching"""
         try:
+            # Check cache first
+            date_str = target_date.isoformat()
+            if redis_client.is_connected():
+                cached_data = redis_client.get_water_logs_cached(user_id, date_str)
+                if cached_data:
+                    return DailyWaterSummary(**cached_data)
+            
             query = {"user_id": user_id, "date": target_date.isoformat()}
             logs = list(self.collection.find(query))
             
@@ -87,13 +101,19 @@ class WaterLogService:
             target_amount = 64.0  # 64 fluid ounces per day
             percentage = min((total_amount / target_amount) * 100, 100) if target_amount > 0 else 0
             
-            return DailyWaterSummary(
+            result = DailyWaterSummary(
                 date=target_date,
                 total_amount=total_amount,
                 target_amount=target_amount,
                 percentage=percentage,
                 logs_count=len(logs)
             )
+            
+            # Cache the result using smart TTL
+            if redis_client.is_connected():
+                redis_client.cache_water_logs(user_id, date_str, result.dict())
+            
+            return result
             
         except Exception as e:
             logger.error(f"Error getting daily water summary: {e}")

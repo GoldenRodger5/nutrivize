@@ -1,5 +1,5 @@
-// iOS PWA Authentication Helper
-// This script helps maintain authentication state in iOS PWA mode
+// iOS PWA Authentication Helper - FORCE LOGIN MODE
+// This script ensures users must login every time, even in PWA mode
 
 // Wait for document to be fully loaded
 document.addEventListener('DOMContentLoaded', function() {
@@ -8,7 +8,22 @@ document.addEventListener('DOMContentLoaded', function() {
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
   
   if (isPWA && isIOS) {
-    console.log('🔒 iOS PWA mode detected - enabling enhanced auth persistence');
+    console.log('🔒 iOS PWA mode detected - FORCE LOGIN MODE enabled');
+    
+    // Clear all authentication storage on app launch in PWA mode
+    console.log('🧹 Clearing all auth storage for iOS PWA force login');
+    
+    Object.keys(localStorage).forEach(key => {
+      if (key.includes('auth') || key.includes('token') || key.includes('firebase') || key.includes('user')) {
+        localStorage.removeItem(key);
+      }
+    });
+    
+    Object.keys(sessionStorage).forEach(key => {
+      if (key.includes('auth') || key.includes('token') || key.includes('firebase') || key.includes('user')) {
+        sessionStorage.removeItem(key);
+      }
+    });
     
     // Add iOS PWA specific meta tags
     const metaViewport = document.querySelector('meta[name=viewport]');
@@ -17,46 +32,52 @@ document.addEventListener('DOMContentLoaded', function() {
         'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover');
     }
     
-    // Listen for visibility changes to refresh token
+    // When app resumes, clear auth and force login
     document.addEventListener('visibilitychange', function() {
       if (document.visibilityState === 'visible') {
-        console.log('📱 App resumed - checking auth status');
+        console.log('📱 App resumed - forcing fresh login');
+        
+        // Clear all auth storage again on resume
+        Object.keys(localStorage).forEach(key => {
+          if (key.includes('auth') || key.includes('token') || key.includes('firebase') || key.includes('user')) {
+            localStorage.removeItem(key);
+          }
+        });
+        
+        Object.keys(sessionStorage).forEach(key => {
+          if (key.includes('auth') || key.includes('token') || key.includes('firebase') || key.includes('user')) {
+            sessionStorage.removeItem(key);
+          }
+        });
+        
         // Send a custom event that our auth context can listen for
         const event = new CustomEvent('pwa:resumed');
         window.dispatchEvent(event);
+        
+        // Force redirect to login if not already there
+        if (!window.location.pathname.includes('/login')) {
+          console.log('🔄 Forcing redirect to login page');
+          window.location.replace('/login');
+        }
       }
     });
     
-    // Intercept page unload to store current navigation state
+    // Clear storage on page unload
     window.addEventListener('beforeunload', function() {
-      // Store the current path so we can restore it
-      sessionStorage.setItem('pwa:lastPath', window.location.pathname);
+      console.log('🧹 App closing - clearing all auth storage');
+      Object.keys(localStorage).forEach(key => {
+        if (key.includes('auth') || key.includes('token') || key.includes('firebase') || key.includes('user')) {
+          localStorage.removeItem(key);
+        }
+      });
+      
+      Object.keys(sessionStorage).forEach(key => {
+        if (key.includes('auth') || key.includes('token') || key.includes('firebase') || key.includes('user')) {
+          sessionStorage.removeItem(key);
+        }
+      });
     });
     
-    // Sync localStorage and sessionStorage for better iOS PWA persistence
-    window.addEventListener('storage', function(e) {
-      if (e.key && e.key.startsWith('auth')) {
-        if (e.newValue !== null) {
-          sessionStorage.setItem(e.key, e.newValue);
-        } else {
-          sessionStorage.removeItem(e.key);
-        }
-      }
-    });
-    
-    // Create a custom event when token is about to expire
-    setInterval(function() {
-      const tokenExpiry = localStorage.getItem('authTokenExpiry') || sessionStorage.getItem('authTokenExpiry');
-      if (tokenExpiry) {
-        const expiryTime = parseInt(tokenExpiry);
-        const now = Date.now();
-        // If token expires in less than 2 minutes
-        if (expiryTime - now < 2 * 60 * 1000) {
-          console.log('⚠️ Token expiring soon - triggering refresh');
-          const event = new CustomEvent('auth:tokenExpiring');
-          window.dispatchEvent(event);
-        }
-      }
-    }, 60000); // Check every minute
+    console.log('✅ iOS PWA Force Login Mode configured');
   }
 });

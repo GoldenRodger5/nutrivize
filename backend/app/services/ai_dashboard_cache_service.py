@@ -12,12 +12,12 @@ logger = logging.getLogger(__name__)
 
 class AIDashboardCacheService:
     """
-    Service to cache AI dashboard data and regenerate every 4 hours
+    Service to cache AI dashboard data and regenerate every 2 DAYS for optimal performance
     """
     
     def __init__(self):
         self.db = get_database()
-        self.cache_duration_hours = 4
+        self.cache_duration_hours = 48  # Extended to 2 days
     
     async def get_cached_data(self, user_id: str, data_type: str) -> Optional[Dict[str, Any]]:
         """Get cached data if it exists and is not expired"""
@@ -30,7 +30,7 @@ class AIDashboardCacheService:
             if not cache_doc:
                 return None
             
-            # Check if cache is expired (older than 4 hours)
+            # Check if cache is expired (older than 2 days)
             cache_time = cache_doc.get("generated_at")
             if isinstance(cache_time, str):
                 cache_time = datetime.fromisoformat(cache_time)

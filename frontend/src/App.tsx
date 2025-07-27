@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { ColorModeProvider } from './contexts/ColorModeContext'
 import { AppStateProvider } from './contexts/AppStateContext'
 import { FoodIndexProvider } from './contexts/FoodIndexContext'
+import { UserDataProvider } from './contexts/UserDataContext'
 import LoginPage from './components/auth/LoginPage'
 import MainLayout from './components/ui/MainLayout'
 import ErrorBoundary from './components/ui/ErrorBoundary'
@@ -85,14 +86,16 @@ function App() {
     <ChakraProvider theme={theme}>
       <ErrorBoundary>
         <AuthProvider>
-          <Router
-            future={{
-              v7_startTransition: true,
-              v7_relativeSplatPath: true
-            }}
-          >
-            <AppLayout />
-          </Router>
+          <UserDataProvider>
+            <Router
+              future={{
+                v7_startTransition: true,
+                v7_relativeSplatPath: true
+              }}
+            >
+              <AppLayout />
+            </Router>
+          </UserDataProvider>
         </AuthProvider>
       </ErrorBoundary>
     </ChakraProvider>

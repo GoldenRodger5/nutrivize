@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import api from '../utils/api';
 import { FoodItem } from '../types';
 import { deduplicateRequest } from '../utils/requestDeduplication';
+import { LocalStorageCache, CACHE_KEYS, CACHE_TTL, CACHE_VERSION } from '../utils/localStorage';
 
 interface FoodIndexContextType {
   userFoods: FoodItem[];
@@ -10,6 +11,7 @@ interface FoodIndexContextType {
   refreshUserFoods: () => Promise<void>;
   searchUserFoods: (query: string) => Promise<FoodItem[]>;
   triggerRefresh: () => void;
+  invalidateCache: () => void; // New method for cache invalidation
 }
 
 const FoodIndexContext = createContext<FoodIndexContextType | undefined>(undefined);
@@ -32,15 +34,40 @@ export function FoodIndexProvider({ children }: FoodIndexProviderProps) {
   const [error, setError] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-  const fetchUserFoods = async () => {
+  const fetchUserFoods = async (forceRefresh = false) => {
     setIsLoading(true);
     setError(null);
+    
     try {
-      // Use the search endpoint with empty query to get the user's food index
+      // First, try to get from localStorage cache if not forcing refresh
+      if (!forceRefresh) {
+        const cachedFoods = LocalStorageCache.get<FoodItem[]>(
+          CACHE_KEYS.FOOD_INDEX, 
+          CACHE_VERSION.CURRENT
+        );
+        
+        if (cachedFoods) {
+          setUserFoods(cachedFoods);
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      // Use the dedicated user-index endpoint which uses Redis caching for optimal performance
       const response = await deduplicateRequest('user-foods', 
-        () => api.get('/foods/search?q=&limit=100')
+        () => api.get('/foods/user-index')
       );
-      setUserFoods(response.data || []);
+      
+      const foodData = response.data || [];
+      setUserFoods(foodData);
+      
+      // Cache the data in localStorage with 7-day TTL (matches backend cache)
+      LocalStorageCache.set(
+        CACHE_KEYS.FOOD_INDEX,
+        foodData,
+        CACHE_TTL.FOOD_INDEX,
+        CACHE_VERSION.CURRENT
+      );
     } catch (err) {
       console.error('Error fetching user foods:', err);
       setError('Failed to load your food index');
@@ -51,6 +78,12 @@ export function FoodIndexProvider({ children }: FoodIndexProviderProps) {
 
   const triggerRefresh = () => {
     setRefreshTrigger(prev => prev + 1);
+  };
+
+  const invalidateCache = () => {
+    // Clear localStorage cache and trigger refresh
+    LocalStorageCache.remove(CACHE_KEYS.FOOD_INDEX);
+    triggerRefresh();
   };
 
   const searchUserFoods = async (query: string): Promise<FoodItem[]> => {
@@ -76,7 +109,8 @@ export function FoodIndexProvider({ children }: FoodIndexProviderProps) {
     error,
     refreshUserFoods: fetchUserFoods,
     searchUserFoods,
-    triggerRefresh
+    triggerRefresh,
+    invalidateCache
   };
 
   return (

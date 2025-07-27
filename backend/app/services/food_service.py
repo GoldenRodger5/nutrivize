@@ -190,7 +190,22 @@ class FoodService:
             return None
     
     async def search_food_items(self, search_params: FoodSearch, user_id: str = None) -> List[FoodItemResponse]:
-        """Search food items - only user-specific foods for data separation"""
+        """Search food items with Redis caching for performance"""
+        if not user_id:
+            # If no user_id provided, return empty results for security
+            return []
+        
+        # Create cache key based on search parameters and user
+        cache_key = f"food_search:{user_id}:{search_params.query}:{search_params.limit}:{search_params.skip}"
+        
+        # Try Redis cache first for non-empty queries
+        if search_params.query and redis_client.is_connected():
+            cached_results = redis_client.get_food_search(cache_key)
+            if cached_results:
+                logger.info(f"✅ Cache hit for food search: {search_params.query}")
+                return [FoodItemResponse(**item) for item in cached_results]
+        
+        # Cache miss - query database
         query = {}
         
         # User filtering for data separation
@@ -201,9 +216,6 @@ class FoodService:
                 {"user_id": None},          # Default foods with None
                 {"user_id": {"$exists": False}}  # Foods without user_id field
             ]
-        else:
-            # If no user_id provided, return empty results for security
-            return []
             
         # Log the query for debugging
         logger.info(f"Food search query: {query}, params: {search_params.dict()}, user_id: {user_id}")
@@ -236,6 +248,12 @@ class FoodService:
                 barcode=food_doc.get("barcode"),
                 dietary_attributes=food_doc.get("dietary_attributes")
             ))
+        
+        # Cache the results for 2 DAYS (search results rarely change, extended TTL)
+        if search_params.query and redis_client.is_connected() and results:
+            redis_results = [result.dict() for result in results]
+            redis_client.cache_food_search(cache_key, redis_results)  # Uses 2-day default TTL
+            logger.info(f"✅ Cached food search results for 2 days: {search_params.query}")
         
         return results
     

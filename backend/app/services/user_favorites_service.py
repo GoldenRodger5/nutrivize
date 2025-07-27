@@ -1,5 +1,5 @@
 """
-User Favorites Service - Manages user favorite foods
+User Favorites Service - Manages user favorite foods with smart caching
 """
 
 import logging
@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import List, Optional, Dict, Any
 from bson import ObjectId
 from ..core.config import get_database
+from ..core.redis_client import redis_client
 from ..models.user_favorite import (
     UserFavoriteCreate, UserFavorite, UserFavoriteResponse, 
     UserFavoriteUpdate, UserFavoriteStats, FavoriteCategory
@@ -15,24 +16,28 @@ from ..models.user_favorite import (
 logger = logging.getLogger(__name__)
 
 class UserFavoritesService:
-    """Service for managing user favorite foods"""
+    """Service for managing user favorite foods with smart caching"""
     
     def __init__(self):
         self.db = get_database()
-        self.favorites_collection = self.db.user_favorites
-        self.foods_collection = self.db.foods
+        self.favorites_collection = self.db.user_favorites if self.db else None
+        self.foods_collection = self.db.foods if self.db else None
+        
+        if not self.favorites_collection:
+            print("⚠️  UserFavoritesService initialized without database connection")
         
         # Create indexes for efficient querying
         try:
-            self.favorites_collection.create_index([("user_id", 1), ("food_id", 1)], unique=True)
-            self.favorites_collection.create_index([("user_id", 1), ("category", 1)])
-            self.favorites_collection.create_index([("user_id", 1), ("usage_count", -1)])
-            self.favorites_collection.create_index([("user_id", 1), ("created_at", -1)])
+            if self.favorites_collection:
+                self.favorites_collection.create_index([("user_id", 1), ("food_id", 1)], unique=True)
+                self.favorites_collection.create_index([("user_id", 1), ("category", 1)])
+                self.favorites_collection.create_index([("user_id", 1), ("usage_count", -1)])
+                self.favorites_collection.create_index([("user_id", 1), ("created_at", -1)])
         except Exception as e:
             logger.warning(f"Could not create indexes: {e}")
     
     async def add_favorite(self, user_id: str, favorite_data: UserFavoriteCreate) -> UserFavoriteResponse:
-        """Add a food to user's favorites"""
+        """Add a food to user's favorites with cache invalidation"""
         try:
             # Check if food exists
             food = self.foods_collection.find_one({"_id": ObjectId(favorite_data.food_id)})
@@ -65,6 +70,10 @@ class UserFavoritesService:
             
             result = self.favorites_collection.insert_one(favorite_doc)
             
+            # Invalidate favorites cache
+            if redis_client.is_connected():
+                redis_client.invalidate_user_favorites_cache(user_id)
+            
             # Return the created favorite with food details
             return await self._get_favorite_with_food_details(str(result.inserted_id))
             
@@ -73,12 +82,17 @@ class UserFavoritesService:
             raise e
     
     async def remove_favorite(self, user_id: str, food_id: str) -> bool:
-        """Remove a food from user's favorites"""
+        """Remove a food from user's favorites with cache invalidation"""
         try:
             result = self.favorites_collection.delete_one({
                 "user_id": user_id,
                 "food_id": food_id
             })
+            
+            # Invalidate favorites cache if deletion was successful
+            if result.deleted_count > 0 and redis_client.is_connected():
+                redis_client.invalidate_user_favorites_cache(user_id)
+            
             return result.deleted_count > 0
             
         except Exception as e:
@@ -88,8 +102,17 @@ class UserFavoritesService:
     async def get_user_favorites(self, user_id: str, 
                                 category: Optional[FavoriteCategory] = None,
                                 limit: int = 100) -> List[UserFavoriteResponse]:
-        """Get user's favorite foods"""
+        """Get user's favorite foods with smart caching"""
         try:
+            # Create cache key based on parameters
+            cache_key = f"favorites_{category.value if category else 'all'}_{limit}"
+            
+            # Check cache first
+            if redis_client.is_connected():
+                cached_data = redis_client.get_user_favorites_cached(user_id)
+                if cached_data and not category:  # Only use full cache if no specific category filter
+                    return [UserFavoriteResponse(**fav) for fav in cached_data[:limit]]
+            
             query = {"user_id": user_id}
             if category:
                 query["category"] = category.value
@@ -108,6 +131,11 @@ class UserFavoritesService:
                     logger.warning(f"Could not get details for favorite {fav['_id']}: {e}")
                     continue
             
+            # Cache the result if no category filter (full list)
+            if not category and redis_client.is_connected():
+                cache_data = [fav.dict() for fav in result]
+                redis_client.cache_user_favorites(user_id, cache_data)
+            
             return result
             
         except Exception as e:
@@ -116,7 +144,7 @@ class UserFavoritesService:
     
     async def update_favorite(self, user_id: str, food_id: str, 
                             update_data: UserFavoriteUpdate) -> Optional[UserFavoriteResponse]:
-        """Update a favorite food"""
+        """Update a favorite food with cache invalidation"""
         try:
             # Build update document
             update_doc = {"updated_at": datetime.utcnow()}
@@ -142,6 +170,10 @@ class UserFavoritesService:
             if result.matched_count == 0:
                 return None
             
+            # Invalidate favorites cache
+            if redis_client.is_connected():
+                redis_client.invalidate_user_favorites_cache(user_id)
+            
             # Get updated favorite
             updated_fav = self.favorites_collection.find_one({
                 "user_id": user_id,
@@ -155,7 +187,7 @@ class UserFavoritesService:
             return None
     
     async def increment_usage(self, user_id: str, food_id: str) -> bool:
-        """Increment usage count when favorite is used"""
+        """Increment usage count when favorite is used with cache invalidation"""
         try:
             result = self.favorites_collection.update_one(
                 {"user_id": user_id, "food_id": food_id},
@@ -164,6 +196,11 @@ class UserFavoritesService:
                     "$set": {"last_used": datetime.utcnow(), "updated_at": datetime.utcnow()}
                 }
             )
+            
+            # Invalidate favorites cache if update was successful
+            if result.matched_count > 0 and redis_client.is_connected():
+                redis_client.invalidate_user_favorites_cache(user_id)
+            
             return result.matched_count > 0
             
         except Exception as e:

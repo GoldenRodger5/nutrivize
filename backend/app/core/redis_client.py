@@ -137,17 +137,17 @@ class RedisClient:
             logger.error(f"Error flushing Redis keys with pattern {pattern}: {e}")
             return 0
     
-    # Caching helpers for common operations with optimized TTLs for 6-8 daily visits
-    def cache_user_data(self, user_id: str, data: Dict[str, Any], expiry: timedelta = timedelta(hours=24)) -> bool:
-        """Cache user data for 24 hours - profile changes are rare, accessed every session"""
+    # Caching helpers for common operations with EXTENDED TTLs for optimal performance
+    def cache_user_data(self, user_id: str, data: Dict[str, Any], expiry: timedelta = timedelta(days=7)) -> bool:
+        """Cache user data for 7 DAYS - profile changes are rare, accessed every session"""
         return self.set(f"user:{user_id}", data, expiry)
     
     def get_user_data(self, user_id: str) -> Optional[Dict[str, Any]]:
         """Get cached user data"""
         return self.get(f"user:{user_id}")
     
-    def cache_shopping_list(self, plan_id: str, shopping_list: Dict[str, Any], expiry: timedelta = timedelta(hours=6)) -> bool:
-        """Cache shopping list"""
+    def cache_shopping_list(self, plan_id: str, shopping_list: Dict[str, Any], expiry: timedelta = timedelta(days=3)) -> bool:
+        """Cache shopping list for 3 DAYS - rarely changes once generated"""
         return self.set(f"shopping_list:{plan_id}", shopping_list, expiry)
     
     def get_shopping_list(self, plan_id: str) -> Optional[Dict[str, Any]]:
@@ -161,21 +161,23 @@ class RedisClient:
         return self.set(f"food_logs:{user_id}:{date}", logs, smart_expiry)
     
     def get_smart_food_logs_ttl(self, date_str: str) -> timedelta:
-        """Get appropriate cache duration based on date recency - optimized for frequent daily visits"""
+        """Get appropriate cache duration based on date recency - EXTENDED for multi-day caching"""
         try:
             target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
             today = datetime.now().date()
             days_old = (today - target_date).days
             
             if days_old == 0:
-                return timedelta(hours=2)     # Today - still changing but cache longer between visits
+                return timedelta(hours=6)     # Today - cache for 6 hours between updates
             elif days_old <= 2:
-                return timedelta(hours=8)     # Recent - occasional changes, cache for most of day
+                return timedelta(days=1)      # Recent - cache for 1 day
+            elif days_old <= 7:
+                return timedelta(days=3)      # Last week - cache for 3 days
             else:
-                return timedelta(hours=48)    # Historical - rarely changes, multi-day cache
+                return timedelta(days=7)      # Historical - cache for 7 days (rarely changes)
         except:
             # Fallback to default if date parsing fails
-            return timedelta(hours=2)
+            return timedelta(hours=6)
     
     def get_food_logs(self, user_id: str, date: str) -> Optional[List[Dict[str, Any]]]:
         """Get cached food logs"""
@@ -195,23 +197,18 @@ class RedisClient:
         
         return total_deleted
     
-    def cache_food_search(self, query: str, results: List[Dict[str, Any]], expiry: timedelta = timedelta(hours=2)) -> bool:
-        """Cache food search results"""
-        # Create a simple hash of the query for the key
-        import hashlib
-        query_hash = hashlib.md5(query.lower().encode()).hexdigest()[:8]
-        return self.set(f"food_search:{query_hash}", results, expiry)
+    def cache_food_search(self, cache_key: str, results: List[Dict[str, Any]], expiry: timedelta = timedelta(days=2)) -> bool:
+        """Cache food search results for 2 DAYS - food data rarely changes"""
+        return self.set(cache_key, results, expiry)
     
-    def get_food_search(self, query: str) -> Optional[List[Dict[str, Any]]]:
-        """Get cached food search results"""
-        import hashlib
-        query_hash = hashlib.md5(query.lower().encode()).hexdigest()[:8]
-        return self.get(f"food_search:{query_hash}")
+    def get_food_search(self, cache_key: str) -> Optional[List[Dict[str, Any]]]:
+        """Get cached food search results with custom cache key"""
+        return self.get(cache_key)
     
-    # Optimized caching methods for high-frequency data with multi-day TTLs
+    # Optimized caching methods for high-frequency data with EXTENDED multi-day TTLs
     def cache_food_index_long_term(self, user_id: str, food_index: List[Dict[str, Any]]) -> bool:
-        """Cache food index for 72 hours - foods are rarely deleted, accessed constantly"""
-        return self.set(f"food_index:{user_id}", food_index, timedelta(hours=72))
+        """Cache food index for 7 DAYS - foods are rarely deleted, accessed constantly"""
+        return self.set(f"food_index:{user_id}", food_index, timedelta(days=7))
     
     def get_food_index(self, user_id: str) -> Optional[List[Dict[str, Any]]]:
         """Get cached food index"""
@@ -226,36 +223,168 @@ class RedisClient:
         smart_expiry = self.get_smart_food_logs_ttl(date)
         return self.set(f"food_logs:{user_id}:{date}", logs, smart_expiry)
     
-    # New helper methods for write-through caching
+    # Extended TTL helper methods for write-through caching
     def cache_goals_long_term(self, user_id: str, goals: List[Dict[str, Any]]) -> bool:
-        """Cache user goals for 24 hours - goals change weekly/monthly, checked daily"""
-        return self.set(f"goals:{user_id}", goals, timedelta(hours=24))
+        """Cache user goals for 5 DAYS - goals change weekly/monthly, checked daily"""
+        return self.set(f"goals:{user_id}", goals, timedelta(days=5))
     
     def get_goals(self, user_id: str) -> Optional[List[Dict[str, Any]]]:
         """Get cached goals"""
         return self.get(f"goals:{user_id}")
     
     def cache_active_goal(self, user_id: str, goal: Dict[str, Any]) -> bool:
-        """Cache active goal for 24 hours"""
-        return self.set(f"active_goal:{user_id}", goal, timedelta(hours=24))
+        """Cache active goal for 5 DAYS - active goals rarely change"""
+        return self.set(f"active_goal:{user_id}", goal, timedelta(days=5))
     
     def get_active_goal(self, user_id: str) -> Optional[Dict[str, Any]]:
         """Get cached active goal"""
         return self.get(f"active_goal:{user_id}")
     
     def cache_weight_logs_long_term(self, user_id: str, weight_logs: List[Dict[str, Any]]) -> bool:
-        """Cache weight logs for 48 hours - weight logged daily, viewed multiple times"""
-        return self.set(f"weight_logs:{user_id}", weight_logs, timedelta(hours=48))
+        """Cache weight logs for 7 DAYS - weight logged daily, viewed multiple times"""
+        return self.set(f"weight_logs:{user_id}", weight_logs, timedelta(days=7))
     
     def get_weight_logs_cached(self, user_id: str) -> Optional[List[Dict[str, Any]]]:
         """Get cached weight logs"""
         return self.get(f"weight_logs:{user_id}")
     
+    # New extended cache methods for other frequently accessed data
+    def cache_preferences_long_term(self, user_id: str, preferences: Dict[str, Any]) -> bool:
+        """Cache user preferences for 10 DAYS - preferences rarely change"""
+        return self.set(f"preferences:{user_id}", preferences, timedelta(days=10))
+    
+    def get_preferences_cached(self, user_id: str) -> Optional[Dict[str, Any]]:
+        """Get cached preferences"""
+        return self.get(f"preferences:{user_id}")
+    
+    def cache_analytics_smart(self, user_id: str, analytics_type: str, data: Dict[str, Any]) -> bool:
+        """Smart analytics caching with different TTLs based on data type"""
+        # AI-generated insights should be fresher, computational analytics can be cached longer
+        if "ai_insights" in analytics_type or "coaching" in analytics_type:
+            # AI insights: 2 hours max - want fresh insights based on recent data
+            return self.set(f"analytics:{user_id}:{analytics_type}", data, timedelta(hours=2))
+        elif "weekly_summary" in analytics_type:
+            # Weekly summaries: 6 hours - calculated data but should reflect same-day updates  
+            return self.set(f"analytics:{user_id}:{analytics_type}", data, timedelta(hours=6))
+        elif "monthly_summary" in analytics_type:
+            # Monthly summaries: 1 day - historical data changes less frequently
+            return self.set(f"analytics:{user_id}:{analytics_type}", data, timedelta(days=1))
+        elif "trends" in analytics_type or "macro_breakdown" in analytics_type:
+            # Trends/breakdowns: 8 hours - computational but should stay reasonably fresh
+            return self.set(f"analytics:{user_id}:{analytics_type}", data, timedelta(hours=8))
+        else:
+            # Default analytics: 12 hours - balance between computation cost and freshness
+            return self.set(f"analytics:{user_id}:{analytics_type}", data, timedelta(hours=12))
+    
+    def get_analytics_cached(self, user_id: str, analytics_type: str) -> Optional[Dict[str, Any]]:
+        """Get cached analytics data"""
+        return self.get(f"analytics:{user_id}:{analytics_type}")
+    
+    # Legacy method for backward compatibility
+    def cache_analytics_long_term(self, user_id: str, analytics_type: str, data: Dict[str, Any]) -> bool:
+        """Legacy method - redirects to smart caching"""
+        return self.cache_analytics_smart(user_id, analytics_type, data)
+    
+    def cache_meal_plans_long_term(self, user_id: str, meal_plans: List[Dict[str, Any]]) -> bool:
+        """Cache meal plans for 5 DAYS - meal plans change weekly"""
+        return self.set(f"meal_plans:{user_id}", meal_plans, timedelta(days=5))
+    
+    def get_meal_plans_cached(self, user_id: str) -> Optional[List[Dict[str, Any]]]:
+        """Get cached meal plans"""
+        return self.get(f"meal_plans:{user_id}")
+    
+    # Enhanced invalidation methods for write-through caching
     def invalidate_goals_cache(self, user_id: str) -> bool:
-        """Invalidate goals cache when goals are modified"""
+        """Invalidate goals cache when goals are modified - for write-through updates"""
         deleted_goals = self.delete(f"goals:{user_id}")
         deleted_active = self.delete(f"active_goal:{user_id}")
         return deleted_goals or deleted_active
+    
+    def invalidate_preferences_cache(self, user_id: str) -> bool:
+        """Invalidate preferences cache when preferences are modified"""
+        return self.delete(f"preferences:{user_id}")
+    
+    def invalidate_weight_logs_cache(self, user_id: str) -> bool:
+        """Invalidate weight logs cache when weight is logged"""
+        return self.delete(f"weight_logs:{user_id}")
+    
+    def invalidate_analytics_cache(self, user_id: str, analytics_type: str = None) -> bool:
+        """Invalidate analytics cache - optionally specific type"""
+        if analytics_type:
+            return self.delete(f"analytics:{user_id}:{analytics_type}")
+        else:
+            # Invalidate all analytics for user
+            patterns = [f"analytics:{user_id}:*"]
+            total_deleted = 0
+            for pattern in patterns:
+                total_deleted += self.flush_pattern(pattern)
+            return total_deleted > 0
+    
+    def invalidate_meal_plans_cache(self, user_id: str) -> bool:
+        """Invalidate meal plans cache when plans are modified"""
+        return self.delete(f"meal_plans:{user_id}")
+    
+    def invalidate_food_logs_cache(self, user_id: str, date: str = None) -> bool:
+        """Invalidate food logs cache - optionally for specific date"""
+        if date:
+            return self.delete(f"food_logs:{user_id}:{date}")
+        else:
+            # Invalidate all food logs for user
+            patterns = [f"food_logs:{user_id}:*"]
+            total_deleted = 0
+            for pattern in patterns:
+                total_deleted += self.flush_pattern(pattern)
+            return total_deleted > 0
+    
+    # Smart caching for AI-powered services and user favorites
+    def cache_user_favorites(self, user_id: str, favorites: List[Dict[str, Any]]) -> bool:
+        """Cache user favorites for 5 DAYS - accessed frequently, change infrequently"""
+        return self.set(f"favorites:{user_id}", favorites, timedelta(days=5))
+    
+    def get_user_favorites_cached(self, user_id: str) -> Optional[List[Dict[str, Any]]]:
+        """Get cached user favorites"""
+        return self.get(f"favorites:{user_id}")
+    
+    def invalidate_user_favorites_cache(self, user_id: str) -> bool:
+        """Invalidate favorites cache when favorites are modified"""
+        return self.delete(f"favorites:{user_id}")
+    
+    def cache_ai_coaching_insights(self, user_id: str, insights_type: str, data: Dict[str, Any]) -> bool:
+        """Cache AI coaching insights for 2 HOURS - AI content should be fresh"""
+        return self.set(f"ai_coaching:{user_id}:{insights_type}", data, timedelta(hours=2))
+    
+    def get_ai_coaching_cached(self, user_id: str, insights_type: str) -> Optional[Dict[str, Any]]:
+        """Get cached AI coaching insights"""
+        return self.get(f"ai_coaching:{user_id}:{insights_type}")
+    
+    def cache_water_logs(self, user_id: str, date: str, water_data: Dict[str, Any]) -> bool:
+        """Cache water logs with smart TTL similar to food logs"""
+        smart_expiry = self.get_smart_food_logs_ttl(date)  # Reuse smart logic
+        return self.set(f"water_logs:{user_id}:{date}", water_data, smart_expiry)
+    
+    def get_water_logs_cached(self, user_id: str, date: str) -> Optional[Dict[str, Any]]:
+        """Get cached water logs"""
+        return self.get(f"water_logs:{user_id}:{date}")
+    
+    def cache_food_recommendations(self, user_id: str, context: str, recommendations: List[Dict[str, Any]]) -> bool:
+        """Cache food recommendations for 2 DAYS - algorithm results can be reused"""
+        return self.set(f"food_recommendations:{user_id}:{context}", recommendations, timedelta(days=2))
+    
+    def get_food_recommendations_cached(self, user_id: str, context: str) -> Optional[List[Dict[str, Any]]]:
+        """Get cached food recommendations"""
+        return self.get(f"food_recommendations:{user_id}:{context}")
+    
+    def invalidate_ai_coaching_cache(self, user_id: str, insights_type: str = None) -> bool:
+        """Invalidate AI coaching cache - optionally specific type"""
+        if insights_type:
+            return self.delete(f"ai_coaching:{user_id}:{insights_type}")
+        else:
+            # Invalidate all AI coaching for user
+            patterns = [f"ai_coaching:{user_id}:*"]
+            total_deleted = 0
+            for pattern in patterns:
+                total_deleted += self.flush_pattern(pattern)
+            return total_deleted > 0
 
 # Global Redis client instance
 redis_client = RedisClient()

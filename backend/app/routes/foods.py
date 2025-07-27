@@ -166,17 +166,26 @@ async def get_foods(
 async def get_user_foods_index(
     current_user: UserResponse = Depends(get_current_user)
 ):
-    """Get all foods specific to a user for the food index"""
+    """Get all foods specific to a user for the food index with Redis caching"""
     try:
-        # Use the existing get_foods method with default pagination and sorting
-        # but ensure it only returns the user's foods (user_id is passed)
-        results = await food_service.get_foods(
-            limit=100, 
-            skip=0, 
-            sort_by="name", 
-            sort_order="asc", 
-            user_id=current_user.uid
-        )
+        # Use the cached get_user_food_index method for optimal performance
+        cached_foods = await food_service.get_user_food_index(current_user.uid)
+        
+        # Convert to FoodItemResponse objects
+        results = []
+        for food_data in cached_foods:
+            results.append(FoodItemResponse(
+                id=food_data["id"],
+                name=food_data["name"],
+                serving_size=food_data["serving_size"],
+                serving_unit=food_data["serving_unit"],
+                nutrition=food_data["nutrition"],
+                source=food_data["source"],
+                barcode=food_data.get("barcode"),
+                brand=food_data.get("brand"),
+                dietary_attributes=food_data.get("dietary_attributes")
+            ))
+        
         return results
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to retrieve user foods: {str(e)}")

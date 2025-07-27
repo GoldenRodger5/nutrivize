@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import api from '../utils/api';
+import { LocalStorageCache, CACHE_KEYS, CACHE_TTL, CACHE_VERSION } from '../utils/localStorage';
 
 // Types for the health score data
 interface ComponentScores {
@@ -81,12 +82,37 @@ export function useEnhancedHealthScore() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchEnhancedHealthScore = async () => {
+  const fetchEnhancedHealthScore = async (forceRefresh = false) => {
     try {
       setLoading(true);
+      
+      // Check localStorage cache first if not forcing refresh
+      if (!forceRefresh) {
+        const cachedHealthScore = LocalStorageCache.get<EnhancedHealthScore>(
+          CACHE_KEYS.AI_INSIGHTS + '_health_score', 
+          CACHE_VERSION.CURRENT
+        );
+        
+        if (cachedHealthScore) {
+          setEnhancedHealthScore(cachedHealthScore);
+          setError(null);
+          setLoading(false);
+          return;
+        }
+      }
+      
       const response = await api.get('/ai-dashboard/health-score');
-      setEnhancedHealthScore(response.data);
+      const data = response.data;
+      setEnhancedHealthScore(data);
       setError(null);
+      
+      // Cache with 2-hour TTL (AI insights freshness)
+      LocalStorageCache.set(
+        CACHE_KEYS.AI_INSIGHTS + '_health_score',
+        data,
+        CACHE_TTL.AI_INSIGHTS,
+        CACHE_VERSION.CURRENT
+      );
     } catch (err) {
       console.error('Error fetching enhanced health score:', err);
       setError('Failed to load health score data');

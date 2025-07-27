@@ -6,35 +6,8 @@ import base64
 import requests
 from bs4 import BeautifulSoup
 import aiohttp
-from ..core.config import db_manager
-from ..services.unified_ai_service import unified_ai_service
-from bson import ObjectId
-import asyncio
-
-logger = logging.getLogger(__name__)
-
-class AICoachingService:
-    def __init__(self):
-        self.db = db_manager.connect()
-        if self.db is None:
-            logger.error("Failed to connect to database")
-            # Create empty collections for graceful degradation
-            self.coaching_sessions = None
-            self.coaching_plans = None
-            self.coaching_recommendations = None
-            self.restaurant_analyses = None
-            self.health_insights = None
-        else:
-            self.coaching_sessions = self.db.coaching_sessions
-            self.coaching_plans = self.db.coaching_plans
-            self.coaching_recommendations = self.db.coaching_recommendations
-            self.restaurant_analyses = self.db.restaurant_analyses
-            self.health_insights = self.db.health_insightsict, Any, List, Optional
-import logging
-from datetime import datetime, timedelta
-import json
-import base64
 from ..core.config import get_database
+from ..core.redis_client import redis_client
 from ..services.unified_ai_service import unified_ai_service
 from bson import ObjectId
 import asyncio
@@ -42,12 +15,18 @@ import asyncio
 logger = logging.getLogger(__name__)
 
 class AICoachingService:
+    """AI Coaching Service with smart 2-hour caching for fresh insights"""
+    
     def __init__(self):
         self.db = get_database()
-        self.coaching_sessions = self.db.coaching_sessions
-        self.coaching_plans = self.db.coaching_plans
-        self.coaching_recommendations = self.db.coaching_recommendations
-        self.restaurant_analyses = self.db.restaurant_analyses
+        self.coaching_sessions = self.db.coaching_sessions if self.db else None
+        self.coaching_plans = self.db.coaching_plans if self.db else None
+        self.coaching_recommendations = self.db.coaching_recommendations if self.db else None
+        self.restaurant_analyses = self.db.restaurant_analyses if self.db else None
+        self.health_insights = self.db.health_insights if self.db else None
+        
+        if not self.db:
+            print("⚠️  AICoachingService initialized without database connection")
         self.health_insights = self.db.health_insights
         
     async def get_user_context(self, user_id: str) -> Dict[str, Any]:
@@ -188,8 +167,20 @@ class AICoachingService:
         health_goals: List[str],
         user_id: str
     ) -> Dict[str, Any]:
-        """Analyze restaurant menu using AI"""
+        """Analyze restaurant menu using AI with 2-hour caching"""
         try:
+            # Create cache key based on content hash (for repeated analysis)
+            import hashlib
+            content_hash = hashlib.md5(content.encode()).hexdigest()[:8]
+            cache_key = f"menu_analysis_{analysis_type}_{content_hash}"
+            
+            # Check cache first  
+            if redis_client.is_connected():
+                cached_data = redis_client.get_ai_coaching_cached(user_id, cache_key)
+                if cached_data:
+                    cached_data["is_cached"] = True
+                    return cached_data
+            
             # Create analysis record
             analysis_id = str(ObjectId())
             
@@ -280,7 +271,7 @@ class AICoachingService:
             
             self.restaurant_analyses.insert_one(analysis_doc)
             
-            return {
+            result = {
                 "analysis_id": analysis_id,
                 "restaurant_name": analysis_data.get("restaurant_name", "Unknown Restaurant"),
                 "menu_items": analysis_data.get("menu_items", []),
@@ -288,8 +279,15 @@ class AICoachingService:
                 "recommendations": analysis_data.get("recommendations", []),
                 "confidence_score": 0.85,
                 "health_score": analysis_data.get("health_score", 6.5),
-                "dietary_compatibility": analysis_data.get("dietary_compatibility", {})
+                "dietary_compatibility": analysis_data.get("dietary_compatibility", {}),
+                "is_cached": False
             }
+            
+            # Cache restaurant analysis for 2 hours
+            if redis_client.is_connected():
+                redis_client.cache_ai_coaching_insights(user_id, cache_key, result)
+            
+            return result
             
         except Exception as e:
             logger.error(f"Restaurant menu analysis error: {str(e)}")
@@ -312,10 +310,18 @@ class AICoachingService:
         insight_types: List[str] = None,
         include_recommendations: bool = True
     ) -> Dict[str, Any]:
-        """Generate comprehensive health insights"""
+        """Generate comprehensive health insights with 2-hour caching"""
         try:
             if insight_types is None:
                 insight_types = ["nutrition", "activity", "trends"]
+            
+            # Check cache first
+            cache_key = f"health_insights_{time_range}_{'-'.join(sorted(insight_types))}"
+            if redis_client.is_connected():
+                cached_data = redis_client.get_ai_coaching_cached(user_id, cache_key)
+                if cached_data:
+                    cached_data["is_cached"] = True
+                    return cached_data
             
             # Get user context
             user_context = await self.get_user_context(user_id)
@@ -379,13 +385,20 @@ class AICoachingService:
             
             self.health_insights.insert_one(insights_doc)
             
-            return {
+            result = {
                 "insights": insights_data.get("insights", []),
                 "health_score": insights_data.get("health_score", 7.0),
                 "trends": insights_data.get("trends", {}),
                 "recommendations": insights_data.get("recommendations", []),
-                "next_review_date": (datetime.now() + timedelta(days=7)).isoformat()
+                "next_review_date": (datetime.now() + timedelta(days=7)).isoformat(),
+                "is_cached": False
             }
+            
+            # Cache health insights for 2 hours
+            if redis_client.is_connected():
+                redis_client.cache_ai_coaching_insights(user_id, cache_key, result)
+            
+            return result
             
         except Exception as e:
             logger.error(f"Health insights generation error: {str(e)}")
