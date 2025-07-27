@@ -18,7 +18,6 @@ import {
   CircularProgress,
   CircularProgressLabel,
   useColorModeValue,
-  useBreakpointValue,
   Modal,
   ModalOverlay,
   ModalContent,
@@ -34,7 +33,7 @@ import {
   AlertIcon
 } from '@chakra-ui/react'
 import { AddIcon, StarIcon } from '@chakra-ui/icons'
-// import { useAppState } from '../context/AppStateContext'
+import { useAppState } from '../contexts/AppStateContext'
 import api from '../utils/api'
 import vectorService, { VectorizedFoodLog } from '../services/vectorService'
 
@@ -243,7 +242,7 @@ const SmartFoodRecommendations = ({
 
 // Main Enhanced Mobile Food Log Component
 export default function EnhancedMobileFoodLog() {
-  const { activeGoal, dailySummary, refreshDailySummary, loading } = useAppState()
+  const { activeGoal, dailySummary, refreshDailySummary } = useAppState()
   const [selectedDate, setSelectedDate] = useState(() => {
     const today = new Date()
     return today.toISOString().split('T')[0]
@@ -263,7 +262,6 @@ export default function EnhancedMobileFoodLog() {
 
   const { isOpen: isLogModalOpen, onOpen: onLogModalOpen, onClose: onLogModalClose } = useDisclosure()
   const toast = useToast()
-  const isMobile = useBreakpointValue({ base: true, lg: false })
   const bg = useColorModeValue('white', 'gray.800')
 
   useEffect(() => {
@@ -438,19 +436,19 @@ export default function EnhancedMobileFoodLog() {
                 {/* Calories Circle */}
                 <VStack spacing={2}>
                   <CircularProgress 
-                    value={Math.min((dailySummary.total_calories / (activeGoal?.daily_calories || 2000)) * 100, 100)} 
+                    value={Math.min((dailySummary.total_nutrition.calories / (activeGoal?.nutrition_targets.calories || 2000)) * 100, 100)} 
                     size="80px" 
                     color="green.400"
                     thickness="8px"
                   >
                     <CircularProgressLabel fontSize="sm" fontWeight="bold">
-                      {Math.round(dailySummary.total_calories)}
+                      {Math.round(dailySummary.total_nutrition.calories)}
                     </CircularProgressLabel>
                   </CircularProgress>
                   <VStack spacing={0}>
                     <Text fontSize="sm" fontWeight="medium">Calories</Text>
                     <Text fontSize="xs" color="gray.500">
-                      {activeGoal?.daily_calories ? `of ${activeGoal.daily_calories}` : 'goal not set'}
+                      {activeGoal?.nutrition_targets.calories ? `of ${activeGoal.nutrition_targets.calories}` : 'goal not set'}
                     </Text>
                   </VStack>
                 </VStack>
@@ -459,37 +457,37 @@ export default function EnhancedMobileFoodLog() {
                 <SimpleGrid columns={3} spacing={4} w="full">
                   <VStack spacing={1}>
                     <Progress 
-                      value={Math.min((dailySummary.total_protein / (activeGoal?.protein_target || 100)) * 100, 100)} 
+                      value={Math.min((dailySummary.total_nutrition.protein / (activeGoal?.nutrition_targets.protein || 100)) * 100, 100)} 
                       colorScheme="blue" 
                       size="sm" 
                       w="40px"
                       borderRadius="full"
                     />
-                    <Text fontSize="xs" fontWeight="medium">{dailySummary.total_protein}g</Text>
+                    <Text fontSize="xs" fontWeight="medium">{dailySummary.total_nutrition.protein}g</Text>
                     <Text fontSize="2xs" color="gray.500">Protein</Text>
                   </VStack>
                   
                   <VStack spacing={1}>
                     <Progress 
-                      value={Math.min((dailySummary.total_carbs / (activeGoal?.carbs_target || 200)) * 100, 100)} 
+                      value={Math.min((dailySummary.total_nutrition.carbs / (activeGoal?.nutrition_targets.carbs || 200)) * 100, 100)} 
                       colorScheme="orange" 
                       size="sm" 
                       w="40px"
                       borderRadius="full"
                     />
-                    <Text fontSize="xs" fontWeight="medium">{dailySummary.total_carbs}g</Text>
+                    <Text fontSize="xs" fontWeight="medium">{dailySummary.total_nutrition.carbs}g</Text>
                     <Text fontSize="2xs" color="gray.500">Carbs</Text>
                   </VStack>
                   
                   <VStack spacing={1}>
                     <Progress 
-                      value={Math.min((dailySummary.total_fat / (activeGoal?.fat_target || 80)) * 100, 100)} 
+                      value={Math.min((dailySummary.total_nutrition.fat / (activeGoal?.nutrition_targets.fat || 80)) * 100, 100)} 
                       colorScheme="purple" 
                       size="sm" 
                       w="40px"
                       borderRadius="full"
                     />
-                    <Text fontSize="xs" fontWeight="medium">{dailySummary.total_fat}g</Text>
+                    <Text fontSize="xs" fontWeight="medium">{dailySummary.total_nutrition.fat}g</Text>
                     <Text fontSize="2xs" color="gray.500">Fat</Text>
                   </VStack>
                 </SimpleGrid>

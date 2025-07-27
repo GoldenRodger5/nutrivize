@@ -95,9 +95,9 @@
     </style>
     
     <title>Nutrivize V2 - Smart Nutrition Tracker</title>
-    <script type="module" crossorigin src="/assets/index-lxJCK6Ao.js"></script>
+    <script type="module" crossorigin src="/assets/index-BiNcZ0kN.js"></script>
     <link rel="modulepreload" crossorigin href="/assets/vendor-BTukGEff.js">
-    <link rel="modulepreload" crossorigin href="/assets/chakra-DbuNdIl9.js">
+    <link rel="modulepreload" crossorigin href="/assets/chakra-BmxL6hb2.js">
     <link rel="modulepreload" crossorigin href="/assets/router-DLIK_EF6.js">
     <link rel="stylesheet" crossorigin href="/assets/index-Bs7tFQHA.css">
   <link rel="manifest" href="/manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="/registerSW.js"></script></head>
@@ -126,6 +126,22 @@
         deferredPrompt = e;
         // Show install button or trigger install flow
       });
+    </script>
+    
+    <!-- Chakra UI Color Mode Script -->
+    <script>
+      (function() {
+        try {
+          var mode = localStorage.getItem('chakra-ui-color-mode');
+          if (mode === 'dark') {
+            document.documentElement.style.colorScheme = 'dark';
+            document.body.style.backgroundColor = '#1A202C';
+          } else {
+            document.documentElement.style.colorScheme = 'light';
+            document.body.style.backgroundColor = '#ffffff';
+          }
+        } catch (e) {}
+      })();
     </script>
   </body>
 </html>
