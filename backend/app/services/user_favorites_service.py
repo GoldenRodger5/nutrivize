@@ -20,15 +20,15 @@ class UserFavoritesService:
     
     def __init__(self):
         self.db = get_database()
-        self.favorites_collection = self.db.user_favorites if self.db else None
-        self.foods_collection = self.db.foods if self.db else None
+        self.favorites_collection = self.db.user_favorites if self.db is not None else None
+        self.foods_collection = self.db.foods if self.db is not None else None
         
-        if not self.favorites_collection:
+        if self.favorites_collection is None:
             print("⚠️  UserFavoritesService initialized without database connection")
         
         # Create indexes for efficient querying
         try:
-            if self.favorites_collection:
+            if self.favorites_collection is not None:
                 self.favorites_collection.create_index([("user_id", 1), ("food_id", 1)], unique=True)
                 self.favorites_collection.create_index([("user_id", 1), ("category", 1)])
                 self.favorites_collection.create_index([("user_id", 1), ("usage_count", -1)])

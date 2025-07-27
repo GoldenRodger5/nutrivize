@@ -27,7 +27,7 @@ class AnalyticsRefreshService:
     async def _cache_insights(self, user_id: str, timeframe: str, insights_data: Dict[str, Any]):
         """Cache insights data for a user"""
         try:
-            if not self.insights_cache_collection:
+            if self.insights_cache_collection is None:
                 return
             
             cache_entry = {
@@ -88,7 +88,7 @@ class AnalyticsRefreshService:
     async def get_cached_insights(self, user_id: str, timeframe: str = "week") -> Dict[str, Any]:
         """Get cached insights for a user"""
         try:
-            if not self.insights_cache_collection:
+            if self.insights_cache_collection is None:
                 return {}
             
             cache_entry = await self.insights_cache_collection.find_one({
@@ -112,7 +112,7 @@ class AnalyticsRefreshService:
     async def refresh_all_active_users(self) -> int:
         """Refresh insights for all active users (users who logged food in the last 7 days)"""
         try:
-            if not self.db:
+            if self.db is None:
                 return 0
             
             # Get active users (those who logged food in the last 7 days)
@@ -192,7 +192,7 @@ class AnalyticsRefreshService:
     async def cleanup_expired_cache(self):
         """Remove expired cache entries"""
         try:
-            if not self.insights_cache_collection:
+            if self.insights_cache_collection is None:
                 return 0
             
             result = await self.insights_cache_collection.delete_many({

@@ -19,13 +19,13 @@ class AICoachingService:
     
     def __init__(self):
         self.db = get_database()
-        self.coaching_sessions = self.db.coaching_sessions if self.db else None
-        self.coaching_plans = self.db.coaching_plans if self.db else None
-        self.coaching_recommendations = self.db.coaching_recommendations if self.db else None
-        self.restaurant_analyses = self.db.restaurant_analyses if self.db else None
-        self.health_insights = self.db.health_insights if self.db else None
+        self.coaching_sessions = self.db.coaching_sessions if self.db is not None else None
+        self.coaching_plans = self.db.coaching_plans if self.db is not None else None
+        self.coaching_recommendations = self.db.coaching_recommendations if self.db is not None else None
+        self.restaurant_analyses = self.db.restaurant_analyses if self.db is not None else None
+        self.health_insights = self.db.health_insights if self.db is not None else None
         
-        if not self.db:
+        if self.db is None:
             print("⚠️  AICoachingService initialized without database connection")
         self.health_insights = self.db.health_insights
         

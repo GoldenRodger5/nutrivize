@@ -6,11 +6,13 @@ Replaces raw prompt stuffing with efficient, query-relevant context retrieval
 
 import logging
 import json
+import hashlib
 from typing import Dict, List, Any, Optional
 from datetime import datetime, timedelta, date
 from .pinecone_service import pinecone_service
 from .vector_management_service import vector_management_service
 from ..models.chat import ChatMessage, ChatRequest, ChatResponse
+from ..core.redis_client import redis_client
 
 logger = logging.getLogger(__name__)
 
@@ -21,14 +23,15 @@ class VectorEnhancedAIService:
     """
     
     def __init__(self):
-        self.context_cache = {}  # Cache for recent context retrievals
+        self.context_cache = {}  # Memory cache for recent context retrievals
         self.max_context_tokens = 8000  # Limit context size for Claude
+        self.cache_ttl_minutes = 15  # Redis cache TTL for vector context
         
         logger.info("✅ VectorEnhancedAIService initialized")
     
     async def get_relevant_context(self, user_id: str, query: str, context_type: str = "all") -> Dict[str, Any]:
         """
-        Get relevant context for a user query using vector retrieval
+        Get relevant context for a user query using vector retrieval with Redis caching
         
         Args:
             user_id: User's Firebase UID
@@ -40,6 +43,19 @@ class VectorEnhancedAIService:
         """
         try:
             logger.info(f"Getting relevant context for user {user_id}, query: {query[:100]}...")
+            
+            # Create cache key based on user, query, and context type
+            cache_key = self._generate_cache_key(user_id, query, context_type)
+            
+            # Try to get from Redis cache first
+            if redis_client.is_connected():
+                cached_context = redis_client.get(cache_key)
+                if cached_context:
+                    logger.info(f"✅ Vector context cache HIT for user {user_id}")
+                    return cached_context
+            
+            # Cache miss - proceed with vector retrieval
+            logger.info(f"Vector context cache MISS for user {user_id} - querying vectors")
             
             # Determine which data types to query based on context_type and query content
             data_types = self._determine_relevant_data_types(query, context_type)
@@ -58,9 +74,7 @@ class VectorEnhancedAIService:
             # Generate context summary for Claude
             context_summary = self._generate_context_summary(organized_context, query)
             
-            logger.info(f"✅ Retrieved {len(context_items)} relevant context items for user {user_id}")
-            
-            return {
+            result = {
                 "context_summary": context_summary,
                 "raw_context": organized_context,
                 "context_stats": {
@@ -69,6 +83,21 @@ class VectorEnhancedAIService:
                     "query_intent": self._analyze_query_intent(query)
                 }
             }
+            
+            # Cache the result in Redis for future queries
+            if redis_client.is_connected():
+                try:
+                    redis_client.set(
+                        cache_key,
+                        result,
+                        expiry=timedelta(minutes=self.cache_ttl_minutes)
+                    )
+                    logger.info(f"✅ Cached vector context for user {user_id} (TTL: {self.cache_ttl_minutes}min)")
+                except Exception as cache_error:
+                    logger.warning(f"⚠️ Failed to cache vector context: {cache_error}")
+            
+            logger.info(f"✅ Retrieved {len(context_items)} relevant context items for user {user_id}")
+            return result
             
         except Exception as e:
             logger.error(f"❌ Failed to get relevant context: {e}")
@@ -352,6 +381,12 @@ Guidelines:
                 "context_summary": "No specific preference data available",
                 "recommendation_basis": "Based on general nutrition guidelines"
             }
+    
+    def _generate_cache_key(self, user_id: str, query: str, context_type: str) -> str:
+        """Generate a unique cache key for vector context queries"""
+        # Create a hash of the query to handle long queries and special characters
+        query_hash = hashlib.md5(query.lower().encode()).hexdigest()[:12]
+        return f"vector_context:{user_id}:{context_type}:{query_hash}"
 
 # Global instance
 vector_ai_service = VectorEnhancedAIService()

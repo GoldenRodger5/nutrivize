@@ -130,7 +130,10 @@ export const CACHE_KEYS = {
   AI_INSIGHTS: 'ai_insights',
   ANALYTICS_DATA: 'analytics_data',
   WATER_LOGS: 'water_logs',
-  PREFERENCES: 'user_preferences'
+  PREFERENCES: 'user_preferences',
+  VECTOR_STATS: 'vector_stats',
+  FOOD_LOGS: 'food_logs',
+  FOOD_RECOMMENDATIONS: 'food_recommendations'
 } as const;
 
 /**
@@ -143,7 +146,10 @@ export const CACHE_TTL = {
   AI_INSIGHTS: 2 * 60, // 2 hours (matches backend fresh insights)
   ANALYTICS_DATA: 6 * 60, // 6 hours (conservative for analytics)
   WATER_LOGS: 60, // 1 hour (matches backend)
-  PREFERENCES: 10 * 24 * 60 // 10 days (matches backend)
+  PREFERENCES: 10 * 24 * 60, // 10 days (matches backend)
+  MEDIUM: 60, // 1 hour for general caching
+  SHORT: 15, // 15 minutes for frequent updates
+  LONG: 4 * 60 // 4 hours for stable data
 } as const;
 
 /**

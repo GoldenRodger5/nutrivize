@@ -16,7 +16,7 @@ class FoodRecommendationsService:
     
     def __init__(self):
         self.db = get_database()
-        if not self.db:
+        if self.db is None:
             print("⚠️  FoodRecommendationsService initialized without database connection")
     
     async def get_recent_foods(self, user_id: str, limit: int = 10) -> List[Dict[str, Any]]:

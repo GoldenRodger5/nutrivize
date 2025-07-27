@@ -17,8 +17,8 @@ class WaterLogService:
     
     def __init__(self):
         self.db = get_database()
-        self.collection = self.db.water_logs if self.db else None
-        if not self.collection:
+        self.collection = self.db.water_logs if self.db is not None else None
+        if self.collection is None:
             print("⚠️  WaterLogService initialized without database connection")
     
     async def log_water(self, log_data: WaterLogCreate, user_id: str) -> WaterLogResponse:
