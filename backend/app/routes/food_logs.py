@@ -186,3 +186,18 @@ async def delete_food_log(
         # Don't fail the request if cache invalidation fails
     
     return {"message": "Food log entry deleted successfully"}
+
+
+@router.get("/range")
+async def get_food_logs_range(
+    start_date: str = Query(..., description="Start date in YYYY-MM-DD format"),
+    end_date: str = Query(..., description="End date in YYYY-MM-DD format"),
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Get food logs for a date range"""
+    try:
+        food_logs = await food_log_service.get_food_logs_range(current_user.uid, start_date, end_date)
+        return food_logs
+    except Exception as e:
+        logger.error(f"Error fetching food logs range: {e}")
+        raise HTTPException(status_code=500, detail=f"Error fetching food logs: {str(e)}")

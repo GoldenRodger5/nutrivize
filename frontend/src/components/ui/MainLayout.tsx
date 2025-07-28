@@ -4,6 +4,7 @@ import NavBar from './NavBar'
 import MobileBottomNav from './MobileBottomNav'
 import PWAStatus from './PWAStatus'
 import PWAInstall from './PWAInstall'
+import PersistentAIChat from '../ai/PersistentAIChat'
 import Dashboard from '../../pages/Dashboard'
 import AIDashboard from '../../pages/AIDashboardNew'
 import FoodLog from '../../pages/FoodLogEnhanced'
@@ -13,6 +14,8 @@ import MealPlans from '../../pages/MealPlans'
 import AIChat from '../../pages/AIChat'
 import Goals from '../../pages/Goals'
 import Settings from '../../pages/Settings'
+import SettingsEnhanced from '../../pages/SettingsEnhanced'
+import VisualsComponent from '../analytics/VisualsComponent'
 import Analytics from '../../pages/Analytics'
 import RestaurantAI from '../../pages/RestaurantAI'
 import RestaurantMenuAnalysis from '../../pages/RestaurantMenuAnalysis'
@@ -70,11 +73,16 @@ export default function MainLayout() {
           <Route path="/ai" element={<AIChat />} />
           <Route path="/ai-chat" element={<AIChat />} />
           <Route path="/goals" element={<Goals />} />
-          <Route path="/settings" element={<Settings />} />
+          <Route path="/settings" element={<SettingsEnhanced />} />
+          <Route path="/settings-legacy" element={<Settings />} />
           <Route path="/analytics" element={<Analytics />} />
+          <Route path="/visuals" element={<VisualsComponent />} />
         </Routes>
       </Box>
       <MobileBottomNav onMenuOpen={onOpen} />
+      
+      {/* Persistent AI Chat - Available on all pages */}
+      <PersistentAIChat />
       
       <PWAInstall 
         isOpen={showPWAInstall} 

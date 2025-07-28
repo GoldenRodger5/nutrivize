@@ -45,6 +45,7 @@ import { useEnhancedHealthScore, useProgressAnalytics } from '../hooks/useEnhanc
 import { useTodayActivity } from '../hooks/useTodayActivity'
 import { useWeeklyProgress } from '../hooks/useWeeklyProgress'
 import { useNutritionStreak } from '../hooks/useNutritionStreak'
+import { useUserPreferences } from '../hooks/useUserPreferences'
 import TodaysNutritionDetailModal from '../components/nutrition/TodaysNutritionDetailModal'
 import ErrorBoundary from '../components/ui/ErrorBoundary'
 import WaterLogModal from '../components/nutrition/WaterLogModal'
@@ -1516,6 +1517,12 @@ export default function AIDashboard() {
   const navigate = useNavigate()
   const isMobile = useBreakpointValue({ base: true, lg: false })
 
+  // User preferences for dashboard widgets
+  const { preferences } = useUserPreferences()
+  const enabledWidgets = preferences?.app?.dashboard_widgets || [
+    'nutrition_summary', 'goals_progress', 'recent_meals', 'water_intake'
+  ] // Default widgets if no preferences
+
   // Move hooks from child components to ensure consistent hook order
   const { nutrition: nutritionData, loading: nutritionLoading, error: nutritionError } = useSmartNutrition()
   const nutritionTrackColor = useColorModeValue('gray.100', 'gray.700')
@@ -1895,6 +1902,7 @@ export default function AIDashboard() {
           /* Desktop Grid Layout - Always Expanded Cards with Better Sizing */
           <VStack spacing={6}>
             {/* Today's Nutrition First - Full Width */}
+            {enabledWidgets.includes('nutrition_summary') && (
             <MotionCard 
               bg={cardBg}
               borderColor={cardBorderColor}
@@ -1931,8 +1939,10 @@ export default function AIDashboard() {
                 />
               </CardBody>
             </MotionCard>
+            )}
 
             {/* Quick Logging Buttons - Below Today's Nutrition */}
+            {enabledWidgets.includes('water_intake') && (
             <Box w="full">
               <QuickLoggingButtons
                 isMobile={isMobile}
@@ -1947,6 +1957,7 @@ export default function AIDashboard() {
                 onFoodModalClose={onFoodModalClose}
               />
             </Box>
+            )}
 
             <Grid 
               templateColumns={{ 
@@ -1958,7 +1969,8 @@ export default function AIDashboard() {
               autoRows="minmax(400px, auto)"
               w="full"
             >
-            {/* AI Health Coach - Large Card */}
+            {/* AI Health Coach - Show if enabled */}
+            {enabledWidgets.includes('ai_coach') && (
             <MotionCard 
               bg={cardBg}
               borderColor={cardBorderColor}
@@ -1989,8 +2001,10 @@ export default function AIDashboard() {
                 />
               </CardBody>
             </MotionCard>
+            )}
             
-            {/* Progress & Goals - New Card */}
+            {/* Progress & Goals - Show if enabled */}
+            {enabledWidgets.includes('goals_progress') && (
             <MotionCard 
               bg={cardBg}
               borderColor={cardBorderColor}
@@ -2029,8 +2043,10 @@ export default function AIDashboard() {
                 />
               </CardBody>
             </MotionCard>
+            )}
 
-            {/* Health Score - Large Card */}
+            {/* Health Score - Show if enabled */}
+            {enabledWidgets.includes('health_score') && (
             <MotionCard 
               bg={cardBg}
               borderColor={cardBorderColor}
@@ -2070,6 +2086,7 @@ export default function AIDashboard() {
                 />
               </CardBody>
             </MotionCard>
+            )}
             
             {/* Quick Actions - Large Card */}
             <MotionCard 
@@ -2106,6 +2123,7 @@ export default function AIDashboard() {
             </MotionCard>
 
             {/* Weekly Progress Summary - New Engaging Card */}
+            {enabledWidgets.includes('goals_progress') && (
             <MotionCard 
               bg={cardBg}
               borderColor={cardBorderColor}
@@ -2179,8 +2197,10 @@ export default function AIDashboard() {
                 </VStack>
               </CardBody>
             </MotionCard>
+            )}
 
             {/* Nutrition Streak Counter - New Engaging Card */}
+            {enabledWidgets.includes('recent_meals') && (
             <MotionCard 
               bg={cardBg}
               borderColor={cardBorderColor}
@@ -2259,6 +2279,7 @@ export default function AIDashboard() {
                 </VStack>
               </CardBody>
             </MotionCard>
+            )}
           </Grid>
           </VStack>
         )}

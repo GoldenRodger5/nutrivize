@@ -106,3 +106,18 @@ async def delete_water_log(
         logger.warning(f"Failed to invalidate cache after water log deletion: {cache_error}")
     
     return {"message": "Water log entry deleted successfully"}
+
+
+@router.get("/range")
+async def get_water_logs_range(
+    start_date: str = Query(..., description="Start date in YYYY-MM-DD format"),
+    end_date: str = Query(..., description="End date in YYYY-MM-DD format"),
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Get water logs for a date range"""
+    try:
+        water_logs = await water_log_service.get_water_logs_range(current_user.uid, start_date, end_date)
+        return water_logs
+    except Exception as e:
+        logger.error(f"Error fetching water logs range: {e}")
+        raise HTTPException(status_code=500, detail=f"Error fetching water logs: {str(e)}")

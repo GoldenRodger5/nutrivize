@@ -179,5 +179,36 @@ class WaterLogService:
             logger.error(f"Error deleting water log: {e}")
             raise Exception(f"Failed to delete water log: {str(e)}")
 
+    async def get_water_logs_range(self, user_id: str, start_date: str, end_date: str) -> List[dict]:
+        """Get water logs for a date range"""
+        try:
+            if not self.collection:
+                logger.error("Database not available for water logs range query")
+                return []
+            
+            # Query water logs within the date range
+            query = {
+                "user_id": user_id,
+                "date": {
+                    "$gte": start_date,
+                    "$lte": end_date
+                }
+            }
+            
+            # Get all water logs in the range
+            cursor = self.collection.find(query).sort("date", 1)
+            water_logs = []
+            
+            async for doc in cursor:
+                # Convert ObjectId to string
+                doc["_id"] = str(doc["_id"])
+                water_logs.append(doc)
+            
+            return water_logs
+            
+        except Exception as e:
+            logger.error(f"Error getting water logs range: {e}")
+            return []
+
 # Create a singleton instance
 water_log_service = WaterLogService()

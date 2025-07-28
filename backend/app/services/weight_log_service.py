@@ -225,6 +225,36 @@ class WeightLogService:
         except:
             return False
 
+    async def get_weight_logs_range(self, user_id: str, start_date: str, end_date: str) -> List[dict]:
+        """Get weight logs for a date range"""
+        try:
+            if not self.weight_logs_collection:
+                return []
+            
+            # Query weight logs within the date range
+            query = {
+                "user_id": user_id,
+                "date": {
+                    "$gte": start_date,
+                    "$lte": end_date
+                }
+            }
+            
+            # Get all weight logs in the range
+            cursor = self.weight_logs_collection.find(query).sort("date", 1)
+            weight_logs = []
+            
+            for doc in cursor:
+                # Convert ObjectId to string
+                doc["_id"] = str(doc["_id"])
+                weight_logs.append(doc)
+            
+            return weight_logs
+            
+        except Exception as e:
+            print(f"Error getting weight logs range: {e}")
+            return []
+
 
 # Global weight log service instance
 weight_log_service = WeightLogService()

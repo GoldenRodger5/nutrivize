@@ -70,3 +70,17 @@ async def delete_weight_log(
     if not success:
         raise HTTPException(status_code=404, detail="Weight log entry not found")
     return {"message": "Weight log entry deleted successfully"}
+
+
+@router.get("/range")
+async def get_weight_logs_range(
+    start_date: str = Query(..., description="Start date in YYYY-MM-DD format"),
+    end_date: str = Query(..., description="End date in YYYY-MM-DD format"),
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Get weight logs for a date range"""
+    try:
+        weight_logs = await weight_log_service.get_weight_logs_range(current_user.uid, start_date, end_date)
+        return weight_logs
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching weight logs: {str(e)}")

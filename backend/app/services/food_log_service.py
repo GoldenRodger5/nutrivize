@@ -464,5 +464,44 @@ class FoodLogService:
                 "error": f"Goal integration failed: {str(e)}"
             }
 
+    async def get_food_logs_range(self, user_id: str, start_date: str, end_date: str) -> List[Dict[str, Any]]:
+        """Get food logs for a date range"""
+        if not self.food_logs_collection:
+            logger.error("Database not available for food logs range query")
+            return []
+        
+        try:
+            # Query food logs within the date range
+            query = {
+                "user_id": user_id,
+                "date": {
+                    "$gte": start_date,
+                    "$lte": end_date
+                }
+            }
+            
+            # Get all food logs in the range
+            cursor = self.food_logs_collection.find(query).sort("date", 1)
+            food_logs = []
+            
+            async for doc in cursor:
+                # Convert ObjectId to string
+                doc["_id"] = str(doc["_id"])
+                
+                # Ensure nutrition data is properly formatted
+                if "nutrition" in doc:
+                    nutrition = doc["nutrition"]
+                    # Normalize carbohydrates to carbs if needed
+                    if "carbohydrates" in nutrition and "carbs" not in nutrition:
+                        nutrition["carbs"] = nutrition["carbohydrates"]
+                
+                food_logs.append(doc)
+            
+            return food_logs
+            
+        except Exception as e:
+            logger.error(f"Error getting food logs range: {e}")
+            return []
+
 # Global food log service instance
 food_log_service = FoodLogService()
