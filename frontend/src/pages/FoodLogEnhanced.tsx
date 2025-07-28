@@ -46,6 +46,7 @@ import {
   Tab,
   TabPanel,
   IconButton,
+  useBreakpointValue,
 } from '@chakra-ui/react'
 import { useAppState } from '../contexts/AppStateContext'
 import { FoodItem, NutritionInfo } from '../types'
@@ -139,6 +140,7 @@ const ChevronRightIcon = () => (
 
 export default function FoodLog() {
   const { activeGoal, dailySummary, refreshDailySummary, loading } = useAppState()
+  const isMobile = useBreakpointValue({ base: true, lg: false })
   
   // Helper function to get local date string
   const getLocalDateString = (date = new Date()) => {
@@ -515,7 +517,7 @@ export default function FoodLog() {
   }
 
   return (
-    <Container maxW="container.xl" py={8}>
+    <Container maxW={isMobile ? "100%" : "container.xl"} py={isMobile ? 4 : 8} px={isMobile ? 2 : 8}>
       <VStack spacing={8} align="stretch">
         {/* Header */}
         <HStack justify="space-between">

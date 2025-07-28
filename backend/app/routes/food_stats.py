@@ -6,8 +6,7 @@ from typing import Dict, Any, Optional
 from .auth import get_current_user
 
 router = APIRouter(
-    prefix="/foods",
-    tags=["foods"]
+    tags=["food-stats"]
 )
 
 @router.get("/stats")

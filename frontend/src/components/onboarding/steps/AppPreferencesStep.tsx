@@ -24,7 +24,7 @@ export default function AppPreferencesStep({ onNext, onBack }: AppPreferencesSte
   const { onboardingData, updateStepData, saveStepData } = useOnboarding()
   
   const [formData, setFormData] = useState({
-    units: onboardingData.appPreferences?.units || 'metric',
+    units: onboardingData.appPreferences?.units || 'imperial',
     notifications_enabled: onboardingData.appPreferences?.notifications_enabled ?? true,
     meal_reminders: onboardingData.appPreferences?.meal_reminders ?? true,
     weekly_insights: onboardingData.appPreferences?.weekly_insights ?? true,

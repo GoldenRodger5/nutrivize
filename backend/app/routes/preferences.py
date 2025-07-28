@@ -396,3 +396,56 @@ async def export_preferences(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to export preferences: {str(e)}")
+
+
+@router.get("/onboarding-status")
+async def get_onboarding_status(current_user: UserResponse = Depends(get_current_user)):
+    """Get user's onboarding completion status"""
+    try:
+        # Get user profile to check onboarding completion
+        user_profile = await user_service.get_user_profile(current_user.uid)
+        
+        # Check if onboarding is completed
+        onboarding_completed = False
+        profile_completeness_score = 0
+        completed_steps = []
+        current_step = 1
+        
+        if user_profile:
+            # Check basic profile completion
+            if (user_profile.get("age") and user_profile.get("gender") and 
+                user_profile.get("height") and user_profile.get("current_weight")):
+                completed_steps.append(1)
+                profile_completeness_score += 25
+                current_step = 2
+                
+            # Check if they have any preferences set
+            try:
+                preferences = await user_service.get_user_preferences(current_user.uid)
+                if preferences and preferences.get("dietary"):
+                    completed_steps.append(2)
+                    profile_completeness_score += 25
+                    current_step = 3
+                    
+                if preferences and preferences.get("nutrition"):
+                    completed_steps.append(3)
+                    profile_completeness_score += 25
+                    current_step = 4
+                    
+                if preferences and preferences.get("app"):
+                    completed_steps.append(4)
+                    profile_completeness_score += 25
+                    onboarding_completed = True
+            except:
+                pass
+                
+        return {
+            "onboarding_completed": onboarding_completed,
+            "current_step": current_step,
+            "profile_completeness_score": profile_completeness_score,
+            "completed_steps": completed_steps,
+            "next_step": current_step if not onboarding_completed else None
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get onboarding status: {str(e)}")

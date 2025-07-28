@@ -47,6 +47,7 @@ import { useWeeklyProgress } from '../hooks/useWeeklyProgress'
 import { useNutritionStreak } from '../hooks/useNutritionStreak'
 import { useUserPreferences } from '../hooks/useUserPreferences'
 import TodaysNutritionDetailModal from '../components/nutrition/TodaysNutritionDetailModal'
+import UserSystemNotifications from '../components/notifications/UserSystemNotifications'
 import ErrorBoundary from '../components/ui/ErrorBoundary'
 import WaterLogModal from '../components/nutrition/WaterLogModal'
 import WeightLogModal from '../components/nutrition/WeightLogModal'
@@ -297,34 +298,56 @@ const CompactNutritionDisplay = ({
         </CircularProgressLabel>
       </CircularProgress>
 
-      {/* Compact Macros */}
-      <SimpleGrid columns={3} spacing={isMobile ? 2 : 4} w="full">
-        {['protein', 'carbs', 'fat'].map((macro) => {
+      {/* Compact Macros - Phase 1: Optimized for Mobile */}
+      <SimpleGrid columns={isMobile ? 2 : 3} spacing={isMobile ? 3 : 4} w="full">
+        {['protein', 'carbs', 'fat'].slice(0, isMobile ? 2 : 3).map((macro) => {
           const data = (nutrition as any)[macro]
           return (
             <VStack spacing={isMobile ? 1 : 2} key={macro}>
               <CircularProgress 
                 value={data.percentage} 
-                size={isMobile ? "40px" : "70px"} 
+                size={isMobile ? "50px" : "70px"} 
                 thickness={isMobile ? "6px" : "8px"}
                 color={getNutritionColor(data.percentage) + '.400'}
                 trackColor={trackColor}
               >
-                <CircularProgressLabel fontSize={isMobile ? "2xs" : "sm"} fontWeight="bold">
+                <CircularProgressLabel fontSize={isMobile ? "xs" : "sm"} fontWeight="bold">
                   {Math.round(data.percentage)}%
                 </CircularProgressLabel>
               </CircularProgress>
               <VStack spacing={0}>
-                <Text fontSize={isMobile ? "2xs" : "sm"} fontWeight="bold" textTransform="capitalize">
+                <Text fontSize={isMobile ? "xs" : "sm"} fontWeight="bold" textTransform="capitalize">
                   {macro}
                 </Text>
-                <Text fontSize={isMobile ? "2xs" : "xs"} color="gray.500">
+                <Text fontSize={isMobile ? "xs" : "xs"} color="gray.500">
                   {Math.round(data.current * 10) / 10}g
                 </Text>
               </VStack>
             </VStack>
           )
         })}
+        {/* Show fat in second row on mobile */}
+        {isMobile && (
+          <VStack spacing={1} gridColumn="1 / -1" justify="center">
+            <CircularProgress 
+              value={(nutrition as any).fat.percentage} 
+              size="50px" 
+              thickness="6px"
+              color={getNutritionColor((nutrition as any).fat.percentage) + '.400'}
+              trackColor={trackColor}
+            >
+              <CircularProgressLabel fontSize="xs" fontWeight="bold">
+                {Math.round((nutrition as any).fat.percentage)}%
+              </CircularProgressLabel>
+            </CircularProgress>
+            <VStack spacing={0}>
+              <Text fontSize="xs" fontWeight="bold">Fat</Text>
+              <Text fontSize="xs" color="gray.500">
+                {Math.round((nutrition as any).fat.current * 10) / 10}g
+              </Text>
+            </VStack>
+          </VStack>
+        )}
       </SimpleGrid>
 
       {/* Compact Fiber & Water */}
@@ -876,9 +899,7 @@ const ProgressGoalsCard = ({
   nutrition,
   grayBg,
   grayBg2,
-  purpleBg,
   blueBg,
-  greenBg,
   whiteBg
 }: {
   isMobile: boolean | undefined;
@@ -891,9 +912,7 @@ const ProgressGoalsCard = ({
   nutrition: any;
   grayBg: string;
   grayBg2: string;
-  purpleBg: string;
   blueBg: string;
-  greenBg: string;
   whiteBg: string;
 }) => {
   // Removed hooks - now using props
@@ -1021,35 +1040,37 @@ const ProgressGoalsCard = ({
         </VStack>
       )}
       
-      {/* Enhanced Progress Metrics - Show if available */}
+      {/* Enhanced Progress Metrics - Optimized for Mobile */}
       {progressAnalytics && (
-        <SimpleGrid columns={2} spacing={isMobile ? 2 : 4} w="full">
-          <Box p={3} bg={purpleBg} borderRadius="md" textAlign="center">
-            <Text fontSize="xs" color="purple.600" fontWeight="medium">Achievement Rate</Text>
-            <CircularProgress 
-              value={progressAnalytics.achievement_rate} 
-              color="purple.400"
-              size="60px"
-              thickness="8px"
-            >
-              <CircularProgressLabel fontSize="sm" fontWeight="bold">
-                {progressAnalytics.achievement_rate}%
-              </CircularProgressLabel>
-            </CircularProgress>
-          </Box>
-          <Box p={3} bg={greenBg} borderRadius="md" textAlign="center">
-            <Text fontSize="xs" color="green.600" fontWeight="medium">Consistency Score</Text>
-            <CircularProgress 
-              value={progressAnalytics.consistency_score} 
-              color="green.400"
-              size="60px"
-              thickness="8px"
-            >
-              <CircularProgressLabel fontSize="sm" fontWeight="bold">
-                {progressAnalytics.consistency_score}
-              </CircularProgressLabel>
-            </CircularProgress>
-          </Box>
+        <SimpleGrid columns={1} spacing={isMobile ? 2 : 4} w="full">
+          <HStack justify="space-around" p={3} bg={grayBg2} borderRadius="md">
+            <VStack spacing={1}>
+              <Text fontSize="xs" color="purple.600" fontWeight="medium">Achievement</Text>
+              <CircularProgress 
+                value={progressAnalytics.achievement_rate} 
+                color="purple.400"
+                size={isMobile ? "50px" : "60px"}
+                thickness="8px"
+              >
+                <CircularProgressLabel fontSize="sm" fontWeight="bold">
+                  {progressAnalytics.achievement_rate}%
+                </CircularProgressLabel>
+              </CircularProgress>
+            </VStack>
+            <VStack spacing={1}>
+              <Text fontSize="xs" color="green.600" fontWeight="medium">Consistency</Text>
+              <CircularProgress 
+                value={progressAnalytics.consistency_score} 
+                color="green.400"
+                size={isMobile ? "50px" : "60px"}
+                thickness="8px"
+              >
+                <CircularProgressLabel fontSize="sm" fontWeight="bold">
+                  {progressAnalytics.consistency_score}
+                </CircularProgressLabel>
+              </CircularProgress>
+            </VStack>
+          </HStack>
         </SimpleGrid>
       )}
 
@@ -1445,35 +1466,43 @@ const QuickLoggingButtons = ({
 
   return (
     <>
-      {/* Quick Log Buttons */}
-      <SimpleGrid columns={3} spacing={2} w="full">
+      {/* Quick Log Buttons - Phase 1 Optimized Touch Targets */}
+      <SimpleGrid columns={isMobile ? 2 : 3} spacing={3} w="full">
         <Button 
-          size={isMobile ? "sm" : "md"} 
+          size={isMobile ? "md" : "md"} 
+          minH="48px"
           colorScheme="green" 
           leftIcon={<Text fontSize="lg">🍎</Text>}
           onClick={handleLogFood}
           _hover={{ transform: "translateY(-2px)" }}
           transition="all 0.2s"
+          fontSize={isMobile ? "sm" : "md"}
         >
           Log Food
         </Button>
         <Button 
-          size={isMobile ? "sm" : "md"} 
+          size={isMobile ? "md" : "md"} 
+          minH="48px"
           colorScheme="blue" 
           leftIcon={<Text fontSize="lg">💧</Text>}
           onClick={handleLogWater}
           _hover={{ transform: "translateY(-2px)" }}
           transition="all 0.2s"
+          fontSize={isMobile ? "sm" : "md"}
         >
           Log Water
         </Button>
+        {/* Weight button in new row on mobile for better touch targets */}
         <Button 
-          size={isMobile ? "sm" : "md"} 
+          size={isMobile ? "md" : "md"} 
+          minH="48px"
           colorScheme="purple" 
           leftIcon={<Text fontSize="lg">⚖️</Text>}
           onClick={handleLogWeight}
           _hover={{ transform: "translateY(-2px)" }}
           transition="all 0.2s"
+          fontSize={isMobile ? "sm" : "md"}
+          gridColumn={isMobile ? "1 / -1" : "auto"}
         >
           Log Weight
         </Button>
@@ -1514,6 +1543,7 @@ export default function AIDashboard() {
   // ALL HOOKS MUST BE CALLED AT THE TOP LEVEL - BEFORE ANY RETURNS OR CONDITIONAL LOGIC
   const [loading, setLoading] = useState(true)
   const [isNutritionDetailModalOpen, setIsNutritionDetailModalOpen] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false) // Phase 2: Pull-to-refresh state
   const navigate = useNavigate()
   const isMobile = useBreakpointValue({ base: true, lg: false })
 
@@ -1615,6 +1645,46 @@ export default function AIDashboard() {
     navigate('/ai-chat')
   }, [navigate])
 
+  // Phase 2: Pull-to-refresh functionality
+  const handleRefresh = useCallback(async () => {
+    if (!isMobile) return
+    setIsRefreshing(true)
+    try {
+      // Refresh all data
+      await Promise.all([
+        refreshHealthScore(),
+        // Add other refresh functions as needed
+      ])
+    } catch (error) {
+      console.error('Failed to refresh data:', error)
+    } finally {
+      setIsRefreshing(false)
+    }
+  }, [isMobile, refreshHealthScore])
+
+  // Phase 2: Touch event handlers for pull-to-refresh
+  const [touchStart, setTouchStart] = useState(0)
+  const [touchEnd, setTouchEnd] = useState(0)
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    setTouchStart(e.targetTouches[0].clientY)
+  }, [])
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientY)
+  }, [])
+
+  const handleTouchEnd = useCallback(() => {
+    if (!touchStart || !touchEnd) return
+    const distance = touchStart - touchEnd
+    const isDownSwipe = distance < -50
+    
+    // Trigger refresh on downward swipe from top
+    if (isDownSwipe && window.scrollY === 0) {
+      handleRefresh()
+    }
+  }, [touchStart, touchEnd, handleRefresh])
+
   useEffect(() => {
     // Simulate initial loading
     setTimeout(() => setLoading(false), 800)
@@ -1648,7 +1718,24 @@ export default function AIDashboard() {
 
   return (
     <ErrorBoundary>
-      <Container maxW={isMobile ? "100%" : "1600px"} py={isMobile ? 2 : 6} px={isMobile ? 2 : 6}>
+      <Container 
+        maxW={isMobile ? "100%" : "1600px"} 
+        py={isMobile ? 2 : 6} 
+        px={isMobile ? 2 : 6}
+        onTouchStart={isMobile ? handleTouchStart : undefined}
+        onTouchMove={isMobile ? handleTouchMove : undefined}
+        onTouchEnd={isMobile ? handleTouchEnd : undefined}
+      >
+        {/* Phase 2: Pull-to-refresh indicator */}
+        {isRefreshing && isMobile && (
+          <Box position="fixed" top="80px" left="50%" transform="translateX(-50%)" zIndex={2000}>
+            <HStack bg="white" p={2} borderRadius="full" boxShadow="md">
+              <Spinner size="sm" color="green.500" />
+              <Text fontSize="sm" color="gray.600">Refreshing...</Text>
+            </HStack>
+          </Box>
+        )}
+        
         <VStack spacing={isMobile ? 3 : 6} align="stretch">
           {/* Compact Header */}
           <MotionBox
@@ -1697,42 +1784,52 @@ export default function AIDashboard() {
           </VStack>
         </MotionBox>
 
-        {/* Mobile Tabbed Interface */}
+        {/* System notifications and onboarding prompts */}
+        <UserSystemNotifications />
+
+        {/* Mobile Tabbed Interface - Phase 2: Enhanced with Swipe Support */}
         {isMobile ? (
-          <Tabs variant="soft-rounded" colorScheme="green" size="sm">
-            <TabList bg="white" p={2} borderRadius="xl" boxShadow="sm" overflowX="auto" overflowY="hidden">
-              <Tab fontSize="xs" minW="60px">🤖 AI</Tab>
-              <Tab fontSize="xs" minW="60px">📊 Stats</Tab>
-              <Tab fontSize="xs" minW="60px">⚡ Quick</Tab>
-            </TabList>
+          <Box position="sticky" top={0} zIndex={100} bg="white" pb={2}>
+            <Tabs 
+              variant="soft-rounded" 
+              colorScheme="green" 
+              size="md"
+              onChange={() => {
+                // Phase 2: Add haptic feedback simulation
+                if (navigator.vibrate) {
+                  navigator.vibrate(50);
+                }
+              }}
+            >
+              <TabList bg="white" p={3} borderRadius="xl" boxShadow="sm" overflowX="auto" overflowY="hidden">
+                <Tab fontSize="sm" minW="80px" minH="44px" px={4}>🤖 AI</Tab>
+                <Tab fontSize="sm" minW="80px" minH="44px" px={4}>📊 Stats</Tab>
+                <Tab fontSize="sm" minW="80px" minH="44px" px={4}>⚡ Quick</Tab>
+              </TabList>
 
             <TabPanels>
-              {/* AI Tab */}
-              <TabPanel p={2}>
-                <VStack spacing={4}>
-                  {/* Today's Nutrition - First thing user sees */}
+              {/* AI Tab - Optimized Information Density */}
+              <TabPanel p={3}>
+                <VStack spacing={3}>
+                  {/* Today's Nutrition - Compact Header */}
                   <Box w="full">
                     <Card 
                       bg={cardBg}
                       borderWidth={1}
-                      borderRadius="xl"
-                      boxShadow="md"
+                      borderRadius="lg"
+                      boxShadow="sm"
                     >
-                      <CardHeader pb={3} bg={greenHeaderBg} borderBottom="1px" borderColor={greenBorderColor}>
-                        <HStack spacing={3}>
-                          <Box w={8} h={8} borderRadius="full" bg={greenIconBg} display="flex" alignItems="center" justifyContent="center">
-                            <Icon as={FiTarget} color={greenTextColor} w={5} h={5} />
+                      <CardHeader pb={2} bg={greenHeaderBg} borderBottom="1px" borderColor={greenBorderColor}>
+                        <HStack spacing={2}>
+                          <Box w={6} h={6} borderRadius="full" bg={greenIconBg} display="flex" alignItems="center" justifyContent="center">
+                            <Icon as={FiTarget} color={greenTextColor} w={4} h={4} />
                           </Box>
-                          <Heading size="sm" color={greenTextColor}>
-                            Today's Nutrition - {new Date().toLocaleDateString('en-US', { 
-                              weekday: 'short', 
-                              month: 'short', 
-                              day: 'numeric' 
-                            })}
+                          <Heading size="xs" color={greenTextColor}>
+                            Today's Nutrition
                           </Heading>
                         </HStack>
                       </CardHeader>
-                      <CardBody>
+                      <CardBody py={3}>
                         <CompactNutritionDisplay 
                           onOpenDetailModal={() => setIsNutritionDetailModalOpen(true)}
                           nutrition={nutritionData}
@@ -1759,23 +1856,23 @@ export default function AIDashboard() {
                     onFoodModalClose={onFoodModalClose}
                   />
                   
-                  {/* AI Health Coach - Full Component */}
+                  {/* AI Health Coach - Compact Mobile Version */}
                   <Box w="full">
                     <Card 
                       bg={cardBg}
                       borderWidth={1}
-                      borderRadius="xl"
-                      boxShadow="md"
+                      borderRadius="lg"
+                      boxShadow="sm"
                     >
-                      <CardHeader pb={3} bg={purpleHeaderBg} borderBottom="1px" borderColor={purpleBorderColor}>
-                        <HStack spacing={3}>
-                          <Box w={8} h={8} borderRadius="full" bg={purpleIconBg} display="flex" alignItems="center" justifyContent="center">
-                            <Icon as={FiActivity} color={purpleTextColor} w={5} h={5} />
+                      <CardHeader pb={2} bg={purpleHeaderBg} borderBottom="1px" borderColor={purpleBorderColor}>
+                        <HStack spacing={2}>
+                          <Box w={6} h={6} borderRadius="full" bg={purpleIconBg} display="flex" alignItems="center" justifyContent="center">
+                            <Icon as={FiActivity} color={purpleTextColor} w={4} h={4} />
                           </Box>
-                          <Heading size="sm" color={purpleTextColor}>AI Health Coach</Heading>
+                          <Heading size="xs" color={purpleTextColor}>AI Coach</Heading>
                         </HStack>
                       </CardHeader>
-                      <CardBody>
+                      <CardBody py={3}>
                         <CompactAIHealthCoach 
                           coaching={coaching}
                           loading={coachingLoading}
@@ -1790,9 +1887,9 @@ export default function AIDashboard() {
                 </VStack>
               </TabPanel>
 
-              {/* Stats Tab */}
-              <TabPanel p={2}>
-                <VStack spacing={4}>
+              {/* Stats Tab - Optimized Information Density */}
+              <TabPanel p={3}>
+                <VStack spacing={3}>
                   {/* Quick Logging Buttons */}
                   <QuickLoggingButtons
                     isMobile={isMobile}
@@ -1807,23 +1904,23 @@ export default function AIDashboard() {
                     onFoodModalClose={onFoodModalClose}
                   />
                   
-                  {/* Health Score - Full Component */}
+                  {/* Health Score - Compact Version */}
                   <Box w="full">
                     <Card 
                       bg={cardBg}
                       borderWidth={1}
-                      borderRadius="xl"
-                      boxShadow="md"
+                      borderRadius="lg"
+                      boxShadow="sm"
                     >
-                      <CardHeader pb={3} bg={redHeaderBg} borderBottom="1px" borderColor={redBorderColor}>
-                        <HStack spacing={3}>
-                          <Box w={8} h={8} borderRadius="full" bg={redIconBg} display="flex" alignItems="center" justifyContent="center">
-                            <Icon as={FiHeart} color={redTextColor} w={5} h={5} />
+                      <CardHeader pb={2} bg={redHeaderBg} borderBottom="1px" borderColor={redBorderColor}>
+                        <HStack spacing={2}>
+                          <Box w={6} h={6} borderRadius="full" bg={redIconBg} display="flex" alignItems="center" justifyContent="center">
+                            <Icon as={FiHeart} color={redTextColor} w={4} h={4} />
                           </Box>
-                          <Heading size="sm" color={redTextColor}>Health Score</Heading>
+                          <Heading size="xs" color={redTextColor}>Health Score</Heading>
                         </HStack>
                       </CardHeader>
-                      <CardBody>
+                      <CardBody py={3}>
                         <CompactHealthScore 
                           healthScore={healthScore}
                           enhancedHealthScore={enhancedHealthScore}
@@ -1847,9 +1944,9 @@ export default function AIDashboard() {
                 </VStack>
               </TabPanel>
 
-              {/* Quick Actions Tab */}
-              <TabPanel p={2}>
-                <VStack spacing={4}>
+              {/* Quick Actions Tab - Optimized */}
+              <TabPanel p={3}>
+                <VStack spacing={3}>
                   {/* Quick Logging Buttons */}
                   <QuickLoggingButtons
                     isMobile={isMobile}
@@ -1864,23 +1961,23 @@ export default function AIDashboard() {
                     onFoodModalClose={onFoodModalClose}
                   />
                   
-                  {/* Quick Actions */}
+                  {/* Quick Actions - Compact Version */}
                   <Box w="full">
                     <Card 
                       bg={cardBg}
                       borderWidth={1}
-                      borderRadius="xl"
-                      boxShadow="md"
+                      borderRadius="lg"
+                      boxShadow="sm"
                     >
-                      <CardHeader pb={3} bg={orangeHeaderBg} borderBottom="1px" borderColor={orangeBorderColor}>
-                        <HStack spacing={3}>
-                          <Box w={8} h={8} borderRadius="full" bg={orangeIconBg} display="flex" alignItems="center" justifyContent="center">
-                            <Icon as={FiZap} color={orangeTextColor} w={5} h={5} />
+                      <CardHeader pb={2} bg={orangeHeaderBg} borderBottom="1px" borderColor={orangeBorderColor}>
+                        <HStack spacing={2}>
+                          <Box w={6} h={6} borderRadius="full" bg={orangeIconBg} display="flex" alignItems="center" justifyContent="center">
+                            <Icon as={FiZap} color={orangeTextColor} w={4} h={4} />
                           </Box>
-                          <Heading size="sm" color={orangeTextColor}>Quick Actions</Heading>
+                          <Heading size="xs" color={orangeTextColor}>Quick Actions</Heading>
                         </HStack>
                       </CardHeader>
-                      <CardBody>
+                      <CardBody py={3}>
                         <QuickActionsCard 
                           handleScanFood={handleScanFood}
                           handleMealPlan={handleMealPlan}
@@ -1898,6 +1995,7 @@ export default function AIDashboard() {
               </TabPanel>
             </TabPanels>
           </Tabs>
+          </Box>
         ) : (
           /* Desktop Grid Layout - Always Expanded Cards with Better Sizing */
           <VStack spacing={6}>
@@ -2036,9 +2134,7 @@ export default function AIDashboard() {
                   nutrition={nutritionData}
                   grayBg={progressGrayBg}
                   grayBg2={progressGrayBg2}
-                  purpleBg={progressPurpleBg}
                   blueBg={progressBlueBg}
-                  greenBg={progressGreenBg}
                   whiteBg={progressWhiteBg}
                 />
               </CardBody>

@@ -519,7 +519,7 @@ const SettingsEnhanced: React.FC<SettingsEnhancedProps> = () => {
                       <FormControl>
                         <FormLabel>Units</FormLabel>
                         <Select
-                          value={localPreferences.app?.units || 'metric'}
+                          value={localPreferences.app?.units || 'imperial'}
                           onChange={(e) => handlePreferenceChange('app', 'units', e.target.value)}
                         >
                           <option value="metric">Metric (kg, cm)</option>

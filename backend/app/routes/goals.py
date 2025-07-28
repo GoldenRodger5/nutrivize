@@ -75,6 +75,15 @@ async def delete_goal(
     return {"message": "Goal deleted successfully"}
 
 
+@router.get("/user-goals", response_model=List[GoalResponse])
+async def get_user_goals_alias(
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Get all goals for the current user (alias endpoint)"""
+    goals = await goals_service.get_user_goals(current_user.uid)
+    return goals
+
+
 @router.post("/calculate-targets", response_model=NutritionTargets)
 async def calculate_nutrition_targets(
     user_data: dict,

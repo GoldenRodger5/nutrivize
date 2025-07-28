@@ -1134,22 +1134,23 @@ export default function FoodIndex() {
         size="sm"
         onClick={() => handleViewFoodDetails(food)}
         bg="linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(249,252,255,0.95) 100%)"
+        minH="120px"
       >
-        <CardBody p={2}>
-          <VStack align="start" spacing={1.5} w="full">
-            {/* Food Name & Calories - Compact */}
+        <CardBody p={3}>
+          <VStack align="start" spacing={2} w="full">
+            {/* Food Name & Calories - More Readable */}
             <HStack justify="space-between" align="start" w="full">
-              <VStack align="start" spacing={0} flex={1} minW={0}>
+              <VStack align="start" spacing={0.5} flex={1} minW={0}>
                 {food.brand && (
-                  <Text fontSize="xs" color="gray.400" fontWeight="medium" textTransform="uppercase" noOfLines={1}>
+                  <Text fontSize="xs" color="gray.500" fontWeight="medium" textTransform="uppercase" noOfLines={1}>
                     {food.brand}
                   </Text>
                 )}
                 <Text 
                   fontWeight="bold" 
-                  fontSize="sm" 
+                  fontSize="md" 
                   lineHeight="tight" 
-                  noOfLines={1}
+                  noOfLines={2}
                   color="gray.800"
                 >
                   {food.name}
@@ -1158,49 +1159,50 @@ export default function FoodIndex() {
                   {food.source} • {food.serving_size} {food.serving_unit}
                 </Text>
               </VStack>
-              <VStack spacing={0} align="end" minW="fit-content" ml={2}>
-                <Text fontSize="lg" fontWeight="bold" color="green.600">
+              <VStack spacing={0} align="end" minW="fit-content" ml={3}>
+                <Text fontSize="xl" fontWeight="bold" color="green.600">
                   {Math.round(food.nutrition.calories)}
                 </Text>
                 <Text fontSize="xs" color="gray.400">cal</Text>
               </VStack>
             </HStack>
 
-            {/* Macros - Compact and Always Visible */}
-            <HStack spacing={2} fontSize="xs" color="gray.700" w="full" justify="space-between" bg="gray.50" p={1.5} borderRadius="md">
-              <VStack spacing={0} align="center" flex={1}>
-                <Text fontWeight="bold" color="blue.600" fontSize="xs">{food.nutrition.protein}g</Text>
+            {/* Macros - Better Spacing and Readability */}
+            <SimpleGrid columns={3} spacing={2} w="full" bg="gray.50" p={2} borderRadius="md">
+              <VStack spacing={0} align="center">
+                <Text fontWeight="bold" color="blue.600" fontSize="sm">{food.nutrition.protein}g</Text>
                 <Text fontSize="xs" color="gray.500">Protein</Text>
               </VStack>
-              <VStack spacing={0} align="center" flex={1}>
-                <Text fontWeight="bold" color="orange.600" fontSize="xs">{food.nutrition.carbs}g</Text>
+              <VStack spacing={0} align="center">
+                <Text fontWeight="bold" color="orange.600" fontSize="sm">{food.nutrition.carbs}g</Text>
                 <Text fontSize="xs" color="gray.500">Carbs</Text>
               </VStack>
-              <VStack spacing={0} align="center" flex={1}>
-                <Text fontWeight="bold" color="purple.600" fontSize="xs">{food.nutrition.fat}g</Text>
+              <VStack spacing={0} align="center">
+                <Text fontWeight="bold" color="purple.600" fontSize="sm">{food.nutrition.fat}g</Text>
                 <Text fontSize="xs" color="gray.500">Fat</Text>
               </VStack>
-            </HStack>
+            </SimpleGrid>
 
-            {/* Mobile: Removed dietary info - moved to details modal */}
-
-            {/* Compact Action Buttons */}
-            <HStack w="full" spacing={1} pt={1}>
+            {/* Action Buttons - Better Touch Targets */}
+            <HStack w="full" spacing={2} pt={1}>
               <Button
-                size="xs"
+                size="sm"
+                minH="40px"
                 colorScheme="green"
                 leftIcon={<AddIcon />}
                 onClick={(e) => {
                   e.stopPropagation()
                   handleLogFood(food)
                 }}
-                flex={1}
-                fontSize="xs"
+                flex={2}
+                fontSize="sm"
               >
                 Log Food
               </Button>
               <Button
-                size="xs"
+                size="sm"
+                minH="40px"
+                minW="40px"
                 colorScheme={favorites.has(food.id) ? "red" : "gray"}
                 variant={favorites.has(food.id) ? "solid" : "outline"}
                 onClick={(e) => {
@@ -1209,19 +1211,21 @@ export default function FoodIndex() {
                 }}
                 isLoading={favoritesLoading.has(food.id)}
                 aria-label={favorites.has(food.id) ? "Remove from favorites" : "Add to favorites"}
-                fontSize="xs"
+                fontSize="lg"
               >
                 {favorites.has(food.id) ? "♥" : "♡"}
               </Button>
               <Button
-                size="xs"
+                size="sm"
+                minH="40px"
                 colorScheme="blue"
                 variant="outline"
                 onClick={(e) => {
                   e.stopPropagation()
                   handleEditFood(food)
                 }}
-                fontSize="xs"
+                fontSize="sm"
+                flex={1}
               >
                 Edit
               </Button>
@@ -1660,7 +1664,7 @@ export default function FoodIndex() {
                     Search Results for "{searchQuery}" ({searchResults.length} found)
                   </Text>
                   {searchResults.length > 0 ? (
-                    <SimpleGrid columns={isMobile ? 1 : { base: 1, md: 2, lg: 3 }} spacing={isMobile ? 1 : 3}>
+                    <SimpleGrid columns={isMobile ? 1 : { base: 1, md: 2, lg: 3 }} spacing={isMobile ? 2 : 3}>
                       {searchResults.map((food) => isMobile ? renderMobileFoodCard(food) : renderFoodCard(food))}
                     </SimpleGrid>
                   ) : (
@@ -1679,7 +1683,7 @@ export default function FoodIndex() {
               ) : (
                 <VStack spacing={3} align="stretch">
                   {displayedFoods.length > 0 ? (
-                    <SimpleGrid columns={isMobile ? 1 : { base: 1, md: 2, lg: 3 }} spacing={isMobile ? 1 : 4}>
+                    <SimpleGrid columns={isMobile ? 1 : { base: 1, md: 2, lg: 3 }} spacing={isMobile ? 2 : 4}>
                       {displayedFoods.map((food: FoodItem) => isMobile ? renderMobileFoodCard(food) : renderFoodCard(food))}
                     </SimpleGrid>
                   ) : (

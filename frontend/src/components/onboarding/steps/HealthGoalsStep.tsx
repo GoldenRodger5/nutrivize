@@ -22,6 +22,7 @@ import {
 } from '@chakra-ui/react'
 import OnboardingCard from '../OnboardingCard'
 import { useOnboarding } from '../../../contexts/OnboardingContext'
+import { lbsToKg, kgToLbs } from '../../../utils/weightHeightConversions'
 
 interface HealthGoalsStepProps {
   onNext: () => void
@@ -31,9 +32,12 @@ interface HealthGoalsStepProps {
 export default function HealthGoalsStep({ onNext, onBack }: HealthGoalsStepProps) {
   const { onboardingData, updateStepData, saveStepData, calculateCalories } = useOnboarding()
   
+  // Convert existing metric target weight to imperial for display
+  const existingTargetWeight = onboardingData.healthGoals?.target_weight || 0
+  
   const [formData, setFormData] = useState({
     health_goals: onboardingData.healthGoals?.health_goals || [],
-    target_weight: onboardingData.healthGoals?.target_weight || 0,
+    target_weight: existingTargetWeight > 0 ? kgToLbs(existingTargetWeight) : 0,
     timeline: onboardingData.healthGoals?.timeline || ''
   })
   
@@ -88,7 +92,7 @@ export default function HealthGoalsStep({ onNext, onBack }: HealthGoalsStepProps
       
       const goalsData = {
         health_goals: formData.health_goals,
-        target_weight: formData.target_weight || undefined,
+        target_weight: formData.target_weight ? lbsToKg(formData.target_weight) : undefined, // Convert lbs to kg for backend
         timeline: formData.timeline || undefined
       }
 
@@ -108,6 +112,7 @@ export default function HealthGoalsStep({ onNext, onBack }: HealthGoalsStepProps
 
   const needsTargetWeight = formData.health_goals.includes('lose_weight') || formData.health_goals.includes('gain_muscle')
   const currentWeight = onboardingData.basicProfile?.current_weight
+  const currentWeightLbs = currentWeight ? kgToLbs(currentWeight) : 0
 
   return (
     <OnboardingCard title="What Are Your Health Goals?" icon="🎯">
@@ -140,21 +145,21 @@ export default function HealthGoalsStep({ onNext, onBack }: HealthGoalsStepProps
         {needsTargetWeight && (
           <FormControl>
             <FormLabel>
-              Target Weight (kg)
-              {currentWeight && (
+              Target Weight (lbs)
+              {currentWeightLbs && (
                 <Text as="span" fontSize="sm" color="gray.500" ml={2}>
-                  Current: {currentWeight} kg
+                  Current: {currentWeightLbs.toFixed(1)} lbs
                 </Text>
               )}
             </FormLabel>
             <NumberInput
               value={formData.target_weight}
               onChange={(value) => setFormData(prev => ({ ...prev, target_weight: parseFloat(value) || 0 }))}
-              min={20}
-              max={500}
+              min={45}
+              max={1100}
               precision={1}
             >
-              <NumberInputField placeholder="Enter your target weight" />
+              <NumberInputField placeholder="Enter your target weight in lbs" />
               <NumberInputStepper>
                 <NumberIncrementStepper />
                 <NumberDecrementStepper />

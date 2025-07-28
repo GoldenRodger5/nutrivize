@@ -5,7 +5,9 @@ import { ColorModeProvider } from './contexts/ColorModeContext'
 import { AppStateProvider } from './contexts/AppStateContext'
 import { FoodIndexProvider } from './contexts/FoodIndexContext'
 import { UserDataProvider } from './contexts/UserDataContext'
+import { OnboardingProvider } from './contexts/OnboardingContext'
 import LoginPage from './components/auth/LoginPage'
+import OnboardingGuard from './components/auth/OnboardingGuard'
 import MainLayout from './components/ui/MainLayout'
 import ErrorBoundary from './components/ui/ErrorBoundary'
 
@@ -66,13 +68,17 @@ function AppLayout() {
           path="/*"
           element={
             <ProtectedRoute>
-              <ColorModeProvider>
-                <AppStateProvider>
-                  <FoodIndexProvider>
-                    <MainLayout />
-                  </FoodIndexProvider>
-                </AppStateProvider>
-              </ColorModeProvider>
+              <OnboardingProvider>
+                <OnboardingGuard>
+                  <ColorModeProvider>
+                    <AppStateProvider>
+                      <FoodIndexProvider>
+                        <MainLayout />
+                      </FoodIndexProvider>
+                    </AppStateProvider>
+                  </ColorModeProvider>
+                </OnboardingGuard>
+              </OnboardingProvider>
             </ProtectedRoute>
           }
         />

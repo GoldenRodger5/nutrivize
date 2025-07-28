@@ -737,7 +737,7 @@ export default function SettingsPage({}: SettingsPageProps) {
                         <FormControl>
                           <FormLabel fontSize="sm">Units</FormLabel>
                           <Select
-                            value={localApp.units || 'metric'}
+                            value={localApp.units || 'imperial'}
                             onChange={(e) => setLocalApp(prev => ({
                               ...prev,
                               units: e.target.value

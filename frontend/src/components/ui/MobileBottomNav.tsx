@@ -29,12 +29,6 @@ const IndexIcon = () => (
   </Icon>
 )
 
-const AIIcon = () => (
-  <Icon viewBox="0 0 24 24" fill="currentColor" w={5} h={5}>
-    <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/>
-  </Icon>
-)
-
 const MenuIcon = () => (
   <Icon viewBox="0 0 24 24" fill="currentColor" w={5} h={5}>
     <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
@@ -60,7 +54,7 @@ export default function MobileBottomNav({ onMenuOpen }: MobileBottomNavProps) {
     { path: '/', label: 'Home', icon: HomeIcon },
     { path: '/food-log', label: 'Log', icon: FoodLogIcon },
     { path: '/food-index', label: 'Foods', icon: IndexIcon },
-    { path: '/ai', label: 'AI', icon: AIIcon, badge: 'AI' },
+    { path: '/favorites', label: 'Favs', icon: IndexIcon, badge: '⭐' },
     { label: 'Menu', icon: MenuIcon, action: onMenuOpen },
   ]
 
@@ -92,7 +86,7 @@ export default function MobileBottomNav({ onMenuOpen }: MobileBottomNavProps) {
       zIndex={1000}
       pb="env(safe-area-inset-bottom)"
     >
-      <HStack spacing={0} justify="space-around" py={2}>
+      <HStack spacing={0} justify="space-around" py={3}>
         {bottomNavItems.map((item, index) => {
           const IconComponent = item.icon
           const isActive = item.path ? isActivePath(item.path) : false
@@ -106,11 +100,15 @@ export default function MobileBottomNav({ onMenuOpen }: MobileBottomNavProps) {
               onClick={() => handleItemClick(item)}
               color={isActive ? activeColor : textColor}
               transition="color 0.2s"
-              py={1}
+              py={2}
               position="relative"
+              minH="52px"
+              justify="center"
             >
               <Box position="relative">
-                <IconComponent />
+                <Box w={6} h={6} display="flex" alignItems="center" justifyContent="center">
+                  <IconComponent />
+                </Box>
                 {item.badge && (
                   <Badge
                     position="absolute"
@@ -130,7 +128,7 @@ export default function MobileBottomNav({ onMenuOpen }: MobileBottomNavProps) {
                 )}
               </Box>
               <Text
-                fontSize="2xs"
+                fontSize="xs"
                 fontWeight={isActive ? 'semibold' : 'normal'}
                 lineHeight="1"
               >

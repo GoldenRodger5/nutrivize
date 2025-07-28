@@ -19,6 +19,7 @@ import {
 } from '@chakra-ui/react'
 import OnboardingCard from '../OnboardingCard'
 import { useOnboarding } from '../../../contexts/OnboardingContext'
+import { lbsToKg, inchesToCm, kgToLbs, cmToInches } from '../../../utils/weightHeightConversions'
 
 interface BasicProfileStepProps {
   onNext: () => void
@@ -28,11 +29,16 @@ interface BasicProfileStepProps {
 export default function BasicProfileStep({ onNext, onBack }: BasicProfileStepProps) {
   const { onboardingData, updateStepData, saveStepData } = useOnboarding()
   
+  // Convert existing metric values to imperial for display if they exist
+  const existingHeight = onboardingData.basicProfile?.height || 0
+  const existingWeight = onboardingData.basicProfile?.current_weight || 0
+  
   const [formData, setFormData] = useState({
     age: onboardingData.basicProfile?.age || 0,
     gender: onboardingData.basicProfile?.gender || '',
-    height: onboardingData.basicProfile?.height || 0,
-    current_weight: onboardingData.basicProfile?.current_weight || 0,
+    // Display in imperial: convert cm to inches, kg to lbs
+    height: existingHeight > 0 ? cmToInches(existingHeight) : 0,
+    current_weight: existingWeight > 0 ? kgToLbs(existingWeight) : 0,
     activity_level: onboardingData.basicProfile?.activity_level || ''
   })
   
@@ -50,12 +56,14 @@ export default function BasicProfileStep({ onNext, onBack }: BasicProfileStepPro
       newErrors.gender = 'Please select your gender'
     }
     
-    if (!formData.height || formData.height < 50 || formData.height > 300) {
-      newErrors.height = 'Please enter a valid height between 50-300 cm'
+    // Imperial validation: 20-120 inches (1'8" to 10')
+    if (!formData.height || formData.height < 20 || formData.height > 120) {
+      newErrors.height = 'Please enter a valid height between 20-120 inches'
     }
     
-    if (!formData.current_weight || formData.current_weight < 20 || formData.current_weight > 500) {
-      newErrors.current_weight = 'Please enter a valid weight between 20-500 kg'
+    // Imperial validation: 45-1100 lbs
+    if (!formData.current_weight || formData.current_weight < 45 || formData.current_weight > 1100) {
+      newErrors.current_weight = 'Please enter a valid weight between 45-1100 lbs'
     }
     
     if (!formData.activity_level) {
@@ -72,12 +80,15 @@ export default function BasicProfileStep({ onNext, onBack }: BasicProfileStepPro
     try {
       setLoading(true)
       
-      // Convert strings to numbers where needed
+      // Convert imperial values to metric for backend storage
+      const height = typeof formData.height === 'string' ? parseFloat(formData.height) : formData.height
+      const weight = typeof formData.current_weight === 'string' ? parseFloat(formData.current_weight) : formData.current_weight
+      
       const profileData = {
         age: typeof formData.age === 'string' ? parseInt(formData.age) : formData.age,
         gender: formData.gender,
-        height: typeof formData.height === 'string' ? parseFloat(formData.height) : formData.height,
-        current_weight: typeof formData.current_weight === 'string' ? parseFloat(formData.current_weight) : formData.current_weight,
+        height: inchesToCm(height), // Convert inches to cm for backend
+        current_weight: lbsToKg(weight), // Convert lbs to kg for backend
         activity_level: formData.activity_level
       }
 
@@ -154,15 +165,15 @@ export default function BasicProfileStep({ onNext, onBack }: BasicProfileStepPro
 
         <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
           <FormControl isInvalid={!!errors.height}>
-            <FormLabel>Height (cm)</FormLabel>
+            <FormLabel>Height (inches)</FormLabel>
             <NumberInput
               value={formData.height}
               onChange={(value) => handleInputChange('height', value)}
-              min={50}
-              max={300}
+              min={20}
+              max={120}
               precision={1}
             >
-              <NumberInputField placeholder="Enter height in cm" />
+              <NumberInputField placeholder="Enter height in inches" />
               <NumberInputStepper>
                 <NumberIncrementStepper />
                 <NumberDecrementStepper />
@@ -172,15 +183,15 @@ export default function BasicProfileStep({ onNext, onBack }: BasicProfileStepPro
           </FormControl>
 
           <FormControl isInvalid={!!errors.current_weight}>
-            <FormLabel>Current Weight (kg)</FormLabel>
+            <FormLabel>Current Weight (lbs)</FormLabel>
             <NumberInput
               value={formData.current_weight}
               onChange={(value) => handleInputChange('current_weight', value)}
-              min={20}
-              max={500}
+              min={45}
+              max={1100}
               precision={1}
             >
-              <NumberInputField placeholder="Enter weight in kg" />
+              <NumberInputField placeholder="Enter weight in lbs" />
               <NumberInputStepper>
                 <NumberIncrementStepper />
                 <NumberDecrementStepper />

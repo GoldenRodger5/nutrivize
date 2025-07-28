@@ -104,7 +104,7 @@ export const useUserPreferences = (): UseUserPreferencesReturn => {
           snack_frequency: 1
         },
         app: {
-          units: 'metric',
+          units: 'imperial',
           language: 'en',
           theme: 'light',
           notifications_enabled: true,

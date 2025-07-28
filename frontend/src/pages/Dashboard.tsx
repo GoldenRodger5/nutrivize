@@ -26,6 +26,8 @@ import {
 import { useAuth } from '../contexts/AuthContext'
 import { useAppState } from '../contexts/AppStateContext'
 import { getCurrentDateInTimezone, getUserTimezone } from '../utils/timezone'
+import QuickActionsWidget from '../components/dashboard/QuickActionsWidget'
+import UserSystemNotifications from '../components/notifications/UserSystemNotifications'
 
 export default function Dashboard() {
   const { user } = useAuth()
@@ -93,6 +95,9 @@ export default function Dashboard() {
             Here's your nutrition summary for today
           </Text>
         </Box>
+
+        {/* System notifications and onboarding prompts */}
+        <UserSystemNotifications />
 
         {/* Welcome message or goal status */}
         {!activeGoal && (
@@ -180,6 +185,9 @@ export default function Dashboard() {
             </CardBody>
           </Card>
         </SimpleGrid>
+
+        {/* Quick Actions Widget */}
+        <QuickActionsWidget />
 
         {/* Quick Actions */}
         <Card bg={bg} borderColor={borderColor}>

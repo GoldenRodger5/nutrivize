@@ -4,6 +4,7 @@ import NavBar from './NavBar'
 import MobileBottomNav from './MobileBottomNav'
 import PWAStatus from './PWAStatus'
 import PWAInstall from './PWAInstall'
+import FloatingActionButton from './FloatingActionButton'
 import PersistentAIChat from '../ai/PersistentAIChat'
 import Dashboard from '../../pages/Dashboard'
 import AIDashboard from '../../pages/AIDashboardNew'
@@ -24,6 +25,9 @@ import NutritionCoaching from '../../pages/NutritionCoaching'
 import ManualMealPlanner from '../../pages/ManualMealPlanner'
 import MealPlanningPage from '../../pages/MealPlanningPage'
 import FavoritesPage from '../../pages/Favorites'
+import NutritionScannerPage from '../../pages/NutritionScannerPage'
+import FoodStatsPage from '../../pages/FoodStatsPage'
+import OnboardingPage from '../../pages/OnboardingPage'
 import { useState, useEffect } from 'react'
 
 export default function MainLayout() {
@@ -59,9 +63,12 @@ export default function MainLayout() {
           <Route path="/" element={<AIDashboard />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/ai-dashboard" element={<AIDashboard />} />
+          <Route path="/onboarding" element={<OnboardingPage />} />
           <Route path="/food-log" element={<FoodLog />} />
           <Route path="/food-index" element={<FoodIndex />} />
           <Route path="/favorites" element={<FavoritesPage />} />
+          <Route path="/food-stats" element={<FoodStatsPage />} />
+          <Route path="/nutrition-scanner" element={<NutritionScannerPage />} />
           <Route path="/meal-suggestions" element={<MealSuggestions />} />
           <Route path="/meal-planning" element={<MealPlanningPage />} />
           <Route path="/meal-plans" element={<MealPlans />} />
@@ -80,6 +87,9 @@ export default function MainLayout() {
         </Routes>
       </Box>
       <MobileBottomNav onMenuOpen={onOpen} />
+      
+      {/* Floating Action Button for Mobile Quick Actions */}
+      <FloatingActionButton />
       
       {/* Persistent AI Chat - Available on all pages */}
       <PersistentAIChat />

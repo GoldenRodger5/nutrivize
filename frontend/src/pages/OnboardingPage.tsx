@@ -24,8 +24,8 @@ export default function OnboardingPage() {
   }, [user, loading, navigate])
 
   const handleOnboardingComplete = () => {
-    // Navigate to dashboard after successful onboarding
-    navigate('/dashboard')
+    // Navigate to AI dashboard after successful onboarding
+    navigate('/')
   }
 
   // Show loading state while checking authentication

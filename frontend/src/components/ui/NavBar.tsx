@@ -117,6 +117,9 @@ export default function NavBar(props: NavBarProps = {}) {
     { path: '/', label: 'AI Dashboard', icon: HomeIcon, emoji: '🚀' },
     { path: '/food-log', label: 'Food Log', icon: FoodLogIcon },
     { path: '/food-index', label: 'Food Index', icon: IndexIcon },
+    { path: '/favorites', label: 'Favorites', icon: IndexIcon, emoji: '⭐' },
+    { path: '/food-stats', label: 'Food Stats', icon: IndexIcon, emoji: '📊' },
+    { path: '/nutrition-scanner', label: 'Label Scanner', icon: IndexIcon, emoji: '📱' },
     { path: '/meal-suggestions', label: 'Meal Ideas', icon: MealIcon },
     { path: '/meal-plans', label: 'Meal Plans', icon: MealIcon },
     { path: '/manual-meal-planning', label: 'Manual Meal Planning', icon: MealIcon, emoji: '📝' },
@@ -124,6 +127,7 @@ export default function NavBar(props: NavBarProps = {}) {
     { path: '/ai', label: 'AI Chat', icon: ChatIcon },
     { path: '/goals', label: 'Goals', icon: GoalsIcon },
     { path: '/analytics', label: 'Analytics', icon: AnalyticsIcon },
+    { path: '/onboarding', label: 'Setup Wizard', icon: SettingsIcon, emoji: '🌱' },
     { path: '/settings', label: 'Settings', icon: SettingsIcon },
   ]
 
