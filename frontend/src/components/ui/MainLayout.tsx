@@ -23,7 +23,7 @@ import RestaurantMenuAnalysis from '../../pages/RestaurantMenuAnalysis'
 import HealthInsights from '../../pages/HealthInsights'
 import NutritionCoaching from '../../pages/NutritionCoaching'
 import ManualMealPlanner from '../../pages/ManualMealPlanner'
-import MealPlanningPage from '../../pages/MealPlanningPage'
+import MealPlanningHub from '../../pages/MealPlanningHub'
 import FavoritesPage from '../../pages/Favorites'
 import NutritionScannerPage from '../../pages/NutritionScannerPage'
 import FoodStatsPage from '../../pages/FoodStatsPage'
@@ -70,7 +70,7 @@ export default function MainLayout() {
           <Route path="/food-stats" element={<FoodStatsPage />} />
           <Route path="/nutrition-scanner" element={<NutritionScannerPage />} />
           <Route path="/meal-suggestions" element={<MealSuggestions />} />
-          <Route path="/meal-planning" element={<MealPlanningPage />} />
+          <Route path="/meal-planning" element={<MealPlanningHub />} />
           <Route path="/meal-plans" element={<MealPlans />} />
           <Route path="/manual-meal-planning" element={<ManualMealPlanner />} />
           <Route path="/restaurant-ai" element={<RestaurantAI />} />

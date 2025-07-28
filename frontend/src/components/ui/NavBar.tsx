@@ -114,26 +114,36 @@ export default function NavBar(props: NavBarProps = {}) {
   }
 
   const navItems = [
-    { path: '/', label: 'AI Dashboard', icon: HomeIcon, emoji: '🚀' },
+    { path: '/', label: 'Dashboard', icon: HomeIcon },
     { path: '/food-log', label: 'Food Log', icon: FoodLogIcon },
     { path: '/food-index', label: 'Food Index', icon: IndexIcon },
-    { path: '/favorites', label: 'Favorites', icon: IndexIcon, emoji: '⭐' },
-    { path: '/food-stats', label: 'Food Stats', icon: IndexIcon, emoji: '📊' },
-    { path: '/nutrition-scanner', label: 'Label Scanner', icon: IndexIcon, emoji: '📱' },
-    { path: '/meal-suggestions', label: 'Meal Ideas', icon: MealIcon },
-    { path: '/meal-plans', label: 'Meal Plans', icon: MealIcon },
-    { path: '/manual-meal-planning', label: 'Manual Meal Planning', icon: MealIcon, emoji: '📝' },
-    { path: '/restaurant-ai', label: 'RestaurantAI', icon: RestaurantIcon, emoji: '🍽️' },
+    { path: '/favorites', label: 'Favorites', icon: FoodLogIcon },
+    { 
+      path: '/meal-planning', 
+      label: 'Meal Planning', 
+      icon: MealIcon,
+      subItems: [
+        { path: '/meal-suggestions', label: 'Meal Ideas' },
+        { path: '/meal-plans', label: 'Meal Plans' },
+        { path: '/manual-meal-planning', label: 'Manual Planning' }
+      ]
+    },
+    { path: '/restaurant-ai', label: 'Restaurant AI', icon: RestaurantIcon },
+    { path: '/analytics', label: 'Analytics', icon: AnalyticsIcon },
     { path: '/ai', label: 'AI Chat', icon: ChatIcon },
     { path: '/goals', label: 'Goals', icon: GoalsIcon },
-    { path: '/analytics', label: 'Analytics', icon: AnalyticsIcon },
-    { path: '/onboarding', label: 'Setup Wizard', icon: SettingsIcon, emoji: '🌱' },
     { path: '/settings', label: 'Settings', icon: SettingsIcon },
   ]
 
   const isActivePath = (path: string) => {
     if (path === '/' || path === '/ai-dashboard') {
       return location.pathname === '/' || location.pathname === '/ai-dashboard'
+    }
+    if (path === '/meal-planning') {
+      return location.pathname === '/meal-planning' || 
+             location.pathname === '/meal-suggestions' || 
+             location.pathname === '/meal-plans' || 
+             location.pathname === '/manual-meal-planning'
     }
     return location.pathname === path
   }
@@ -156,7 +166,7 @@ export default function NavBar(props: NavBarProps = {}) {
               cursor="pointer" 
               onClick={() => navigate('/')}
             >
-              {isMobile ? "Nutrivize" : "Nutrivize V2"}
+              Nutrivize
             </Heading>
             
             <Spacer />
@@ -173,7 +183,7 @@ export default function NavBar(props: NavBarProps = {}) {
                     size="sm"
                     fontSize="xs"
                   >
-                    {item.emoji && `${item.emoji} `}{item.label}
+                    {item.label}
                   </Button>
                 ))}
               </HStack>
@@ -244,7 +254,7 @@ export default function NavBar(props: NavBarProps = {}) {
                     fontSize="md"
                     fontWeight={isActive ? 'semibold' : 'normal'}
                   >
-                    {item.emoji && `${item.emoji} `}{item.label}
+                    {item.label}
                   </Button>
                 )
               })}

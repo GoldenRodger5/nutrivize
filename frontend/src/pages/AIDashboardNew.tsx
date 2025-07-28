@@ -54,6 +54,8 @@ import WeightLogModal from '../components/nutrition/WeightLogModal'
 import FoodLogModal from '../components/food/FoodLogModal'
 import NutritionLabelScanner from '../components/nutrition/NutritionLabelScanner'
 import AIResponseFormatter from '../components/dashboard/AIResponseFormatter'
+import { WeightTrendChart, NutritionTrendChart, MacroDistributionChart } from '../components/dashboard/ChartsComponents'
+import { RecentMealsWidget, WaterIntakeWidget, StreakWidget, GoalsProgressWidget, HealthScoreWidget } from '../components/dashboard/DashboardWidgets'
 
 const MotionCard = motion(Card)
 const MotionBox = motion(Box)
@@ -299,7 +301,7 @@ const CompactNutritionDisplay = ({
       </CircularProgress>
 
       {/* Compact Macros - Phase 1: Optimized for Mobile */}
-      <SimpleGrid columns={isMobile ? 2 : 3} spacing={isMobile ? 3 : 4} w="full">
+      <SimpleGrid columns={isMobile ? 1 : 3} spacing={isMobile ? 3 : 4} w="full">
         {['protein', 'carbs', 'fat'].slice(0, isMobile ? 2 : 3).map((macro) => {
           const data = (nutrition as any)[macro]
           return (
@@ -351,7 +353,7 @@ const CompactNutritionDisplay = ({
       </SimpleGrid>
 
       {/* Compact Fiber & Water */}
-      <SimpleGrid columns={2} spacing={isMobile ? 3 : 4} w="full">
+      <SimpleGrid columns={isMobile ? 1 : 2} spacing={isMobile ? 3 : 4} w="full">
         <VStack spacing={isMobile ? 1 : 2}>
           <HStack>
             <Text fontSize={isMobile ? "sm" : "md"}>🌾</Text>
@@ -1547,11 +1549,22 @@ export default function AIDashboard() {
   const navigate = useNavigate()
   const isMobile = useBreakpointValue({ base: true, lg: false })
 
-  // User preferences for dashboard widgets
+  // User preferences for dashboard widgets - Show all components by default
   const { preferences } = useUserPreferences()
   const enabledWidgets = preferences?.app?.dashboard_widgets || [
-    'nutrition_summary', 'goals_progress', 'recent_meals', 'water_intake'
-  ] // Default widgets if no preferences
+    'nutrition_summary', 
+    'health_score', 
+    'ai_coach', 
+    'goals_progress', 
+    'recent_meals', 
+    'water_intake', 
+    'nutrition_streak',
+    'weight_trend',
+    'nutrition_trends',
+    'macro_distribution',
+    'quick_actions',
+    'weekly_progress'
+  ] // Show all widgets by default
 
   // Move hooks from child components to ensure consistent hook order
   const { nutrition: nutritionData, loading: nutritionLoading, error: nutritionError } = useSmartNutrition()
@@ -2040,7 +2053,7 @@ export default function AIDashboard() {
             )}
 
             {/* Quick Logging Buttons - Below Today's Nutrition */}
-            {enabledWidgets.includes('water_intake') && (
+            {enabledWidgets.includes('quick_actions') && (
             <Box w="full">
               <QuickLoggingButtons
                 isMobile={isMobile}
@@ -2218,6 +2231,108 @@ export default function AIDashboard() {
               </CardBody>
             </MotionCard>
 
+            {/* Recent Meals Widget */}
+            {enabledWidgets.includes('recent_meals') && (
+            <MotionCard 
+              bg={cardBg}
+              borderColor={cardBorderColor}
+              borderWidth={1} 
+              borderRadius="xl"
+              overflow="hidden"
+              boxShadow="md"
+              _hover={{ boxShadow: 'lg', transform: 'translateY(-2px)' }}
+              transition="all 0.3s ease"
+              height="100%"
+            >
+              <RecentMealsWidget />
+            </MotionCard>
+            )}
+
+            {/* Nutrition Streak Widget */}
+            {enabledWidgets.includes('nutrition_streak') && (
+            <MotionCard 
+              bg={cardBg}
+              borderColor={cardBorderColor}
+              borderWidth={1} 
+              borderRadius="xl"
+              overflow="hidden"
+              boxShadow="md"
+              _hover={{ boxShadow: 'lg', transform: 'translateY(-2px)' }}
+              transition="all 0.3s ease"
+              height="100%"
+            >
+              <StreakWidget />
+            </MotionCard>
+            )}
+
+            {/* Water Intake Widget */}
+            {enabledWidgets.includes('water_intake') && (
+            <MotionCard 
+              bg={cardBg}
+              borderColor={cardBorderColor}
+              borderWidth={1} 
+              borderRadius="xl"
+              overflow="hidden"
+              boxShadow="md"
+              _hover={{ boxShadow: 'lg', transform: 'translateY(-2px)' }}
+              transition="all 0.3s ease"
+              height="100%"
+            >
+              <WaterIntakeWidget />
+            </MotionCard>
+            )}
+
+            {/* Goals Progress Widget */}
+            {enabledWidgets.includes('goals_progress') && (
+            <MotionCard 
+              bg={cardBg}
+              borderColor={cardBorderColor}
+              borderWidth={1} 
+              borderRadius="xl"
+              overflow="hidden"
+              boxShadow="md"
+              _hover={{ boxShadow: 'lg', transform: 'translateY(-2px)' }}
+              transition="all 0.3s ease"
+              height="100%"
+            >
+              <GoalsProgressWidget />
+            </MotionCard>
+            )}
+
+            {/* Health Score Widget */}
+            {enabledWidgets.includes('health_score') && (
+            <MotionCard 
+              bg={cardBg}
+              borderColor={cardBorderColor}
+              borderWidth={1} 
+              borderRadius="xl"
+              overflow="hidden"
+              boxShadow="md"
+              _hover={{ boxShadow: 'lg', transform: 'translateY(-2px)' }}
+              transition="all 0.3s ease"
+              height="100%"
+            >
+              <HealthScoreWidget score={enhancedHealthScore?.overall_score || healthScore?.overall_score || 0} />
+            </MotionCard>
+            )}
+
+            {/* Macro Distribution Chart */}
+            {enabledWidgets.includes('macro_distribution') && (
+            <MotionCard 
+              bg={cardBg}
+              borderColor={cardBorderColor}
+              borderWidth={1} 
+              borderRadius="xl"
+              overflow="hidden"
+              boxShadow="md"
+              _hover={{ boxShadow: 'lg', transform: 'translateY(-2px)' }}
+              transition="all 0.3s ease"
+              height="100%"
+            >
+              <MacroDistributionChart nutrition={nutritionData} />
+            </MotionCard>
+            )}
+
             {/* Weekly Progress Summary - New Engaging Card */}
             {enabledWidgets.includes('goals_progress') && (
             <MotionCard 
@@ -2377,6 +2492,20 @@ export default function AIDashboard() {
             </MotionCard>
             )}
           </Grid>
+          
+          {/* Charts Section - Full Width */}
+          <VStack spacing={6} w="full">
+            {/* Weight Trend Chart */}
+            {enabledWidgets.includes('weight_trend') && (
+              <WeightTrendChart />
+            )}
+
+            {/* Nutrition Trends Chart */}
+            {enabledWidgets.includes('nutrition_trends') && (
+              <NutritionTrendChart />
+            )}
+          </VStack>
+          
           </VStack>
         )}
 
