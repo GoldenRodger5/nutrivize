@@ -167,9 +167,15 @@ export default function FoodLog() {
   const [recentFoods, setRecentFoods] = useState<AnyFoodItem[]>([])
   const [favoriteFoods, setFavoriteFoods] = useState<AnyFoodItem[]>([])
   const [foodIndexItems, setFoodIndexItems] = useState<FoodItem[]>([])
-  const [activeTab, setActiveTab] = useState<'search' | 'recent' | 'favorites' | 'index'>('search')
+  const [activeTab, setActiveTab] = useState<'search' | 'recent' | 'favorites' | 'index'>('recent')
   const [loadingData, setLoadingData] = useState(false)
+  
+  // Modal and editing states
   const { isOpen, onOpen, onClose } = useDisclosure()
+  const [modalMealType, setModalMealType] = useState<string>('breakfast')
+  const [editingLog, setEditingLog] = useState<any>(null)
+  const [isEditing, setIsEditing] = useState(false)
+  
   const toast = useToast()
 
   const [logForm, setLogForm] = useState({
@@ -181,6 +187,13 @@ export default function FoodLog() {
   useEffect(() => {
     refreshDailySummary(selectedDate)
   }, [selectedDate])
+
+  // Load recent foods when modal opens and tab is 'recent'
+  useEffect(() => {
+    if (isOpen && activeTab === 'recent' && !isEditing) {
+      loadRecentFoods()
+    }
+  }, [isOpen, activeTab, isEditing])
 
   // Auto-search when query changes (debounced)
   useEffect(() => {
@@ -413,6 +426,75 @@ export default function FoodLog() {
     return mealType.charAt(0).toUpperCase() + mealType.slice(1)
   }
 
+  // New functions for enhanced functionality
+  const openAddFoodForMeal = (mealType: string) => {
+    setModalMealType(mealType)
+    setLogForm({ ...logForm, meal_type: mealType })
+    setIsEditing(false)
+    setEditingLog(null)
+    setSelectedFood(null)
+    setActiveTab('recent') // Start with recent foods
+    onOpen()
+  }
+
+  const openEditFood = (log: any) => {
+    setEditingLog(log)
+    setIsEditing(true)
+    setLogForm({
+      meal_type: log.meal_type,
+      amount: log.amount,
+      unit: log.unit
+    })
+    onOpen()
+  }
+
+  const updateFoodLog = async () => {
+    if (!editingLog) return
+    
+    setLogging(true)
+    try {
+      const updateData = {
+        amount: logForm.amount,
+        unit: logForm.unit,
+        meal_type: logForm.meal_type
+      }
+
+      await api.put(`/food-logs/${editingLog.id}`, updateData)
+      
+      toast({
+        title: 'Food Updated',
+        description: `${editingLog.food_name} has been updated!`,
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      })
+      
+      onClose()
+      refreshDailySummary(selectedDate)
+      setEditingLog(null)
+      setIsEditing(false)
+    } catch (error) {
+      console.error('Error updating food:', error)
+      toast({
+        title: 'Update Error',
+        description: 'Failed to update food entry.',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      })
+    }
+    setLogging(false)
+  }
+
+  const closeModal = () => {
+    onClose()
+    setEditingLog(null)
+    setIsEditing(false)
+    setSelectedFood(null)
+    setSearchQuery('')
+    setSearchResults([])
+  }
+
   return (
     <Container maxW="container.xl" py={8}>
       <VStack spacing={8} align="stretch">
@@ -426,7 +508,7 @@ export default function FoodLog() {
               Track your daily nutrition like MyFitnessPal, but with AI
             </Text>
           </Box>
-          <Button colorScheme="green" onClick={onOpen}>
+          <Button colorScheme="green" onClick={() => openAddFoodForMeal('breakfast')}>
             Add Food
           </Button>
         </HStack>
@@ -600,7 +682,6 @@ export default function FoodLog() {
                     <VStack spacing={4} align="stretch">
                       {['breakfast', 'lunch', 'dinner', 'snack'].map(mealType => {
                         const mealLogs = dailySummary.meals.filter(log => log.meal_type === mealType)
-                        if (mealLogs.length === 0) return null
 
                         const mealTotals = mealLogs.reduce((totals, log) => ({
                           calories: totals.calories + (log.nutrition?.calories || 0),
@@ -615,50 +696,98 @@ export default function FoodLog() {
                               <VStack spacing={3} align="stretch">
                                 <HStack justify="space-between">
                                   <Heading size="md">{formatMealType(mealType)}</Heading>
-                                  <Badge colorScheme="blue" fontSize="sm">
-                                    {Math.round(mealTotals.calories)} calories
-                                  </Badge>
+                                  <HStack>
+                                    <Badge colorScheme="blue" fontSize="sm">
+                                      {Math.round(mealTotals.calories)} calories
+                                    </Badge>
+                                    <Button 
+                                      size="sm" 
+                                      colorScheme="green" 
+                                      variant="outline"
+                                      onClick={() => openAddFoodForMeal(mealType)}
+                                    >
+                                      + Add Food
+                                    </Button>
+                                  </HStack>
                                 </HStack>
 
                                 {/* Food Items */}
-                                <VStack spacing={2} align="stretch">
-                                  {mealLogs.map((log) => (
-                                    <HStack key={log.id} justify="space-between" p={3} bg="gray.50" borderRadius="md">
-                                      <Box flex="1">
-                                        <Text fontWeight="medium">{log.food_name}</Text>
-                                        <Text fontSize="sm" color="gray.600">
-                                          {log.amount} {log.unit}
-                                        </Text>
-                                      </Box>
-                                      <VStack spacing={0} align="end">
-                                        <Text fontWeight="bold">{Math.round(log.nutrition?.calories || 0)} cal</Text>
-                                        <Text fontSize="xs" color="gray.500">
-                                          P:{Math.round(log.nutrition?.protein || 0)} C:{Math.round(log.nutrition?.carbs || 0)} F:{Math.round(log.nutrition?.fat || 0)}
-                                        </Text>
-                                      </VStack>
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        colorScheme="red"
-                                        onClick={() => deleteFood(log.id)}
+                                {mealLogs.length > 0 ? (
+                                  <VStack spacing={2} align="stretch">
+                                    {mealLogs.map((log) => (
+                                      <HStack 
+                                        key={log.id} 
+                                        justify="space-between" 
+                                        p={3} 
+                                        bg="gray.50" 
+                                        borderRadius="md"
+                                        cursor="pointer"
+                                        _hover={{ bg: "gray.100", shadow: "sm" }}
+                                        onClick={() => openEditFood(log)}
                                       >
-                                        ✕
-                                      </Button>
-                                    </HStack>
-                                  ))}
-                                </VStack>
+                                        <Box flex="1">
+                                          <Text fontWeight="medium">{log.food_name}</Text>
+                                          <Text fontSize="sm" color="gray.600">
+                                            {log.amount} {log.unit}
+                                          </Text>
+                                        </Box>
+                                        <VStack spacing={0} align="end">
+                                          <Text fontWeight="bold">{Math.round(log.nutrition?.calories || 0)} cal</Text>
+                                          <Text fontSize="xs" color="gray.500">
+                                            P:{Math.round(log.nutrition?.protein || 0)} C:{Math.round(log.nutrition?.carbs || 0)} F:{Math.round(log.nutrition?.fat || 0)}
+                                          </Text>
+                                        </VStack>
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          colorScheme="red"
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            deleteFood(log.id)
+                                          }}
+                                        >
+                                          ✕
+                                        </Button>
+                                      </HStack>
+                                    ))}
+                                  </VStack>
+                                ) : (
+                                  <Box 
+                                    textAlign="center" 
+                                    py={6} 
+                                    color="gray.500"
+                                    border="2px dashed"
+                                    borderColor="gray.200"
+                                    borderRadius="md"
+                                  >
+                                    <Text fontSize="sm">No foods logged for {formatMealType(mealType).toLowerCase()}</Text>
+                                    <Button 
+                                      size="sm" 
+                                      colorScheme="green" 
+                                      variant="ghost"
+                                      mt={2}
+                                      onClick={() => openAddFoodForMeal(mealType)}
+                                    >
+                                      + Add First Food
+                                    </Button>
+                                  </Box>
+                                )}
 
                                 {/* Meal Totals */}
-                                <Divider />
-                                <HStack justify="space-between" fontSize="sm" color="gray.600">
-                                  <Text>Meal Total:</Text>
-                                  <Text>
-                                    {Math.round(mealTotals.calories)} cal, 
-                                    P:{Math.round(mealTotals.protein)}g, 
-                                    C:{Math.round(mealTotals.carbs)}g, 
-                                    F:{Math.round(mealTotals.fat)}g
-                                  </Text>
-                                </HStack>
+                                {mealLogs.length > 0 && (
+                                  <>
+                                    <Divider />
+                                    <HStack justify="space-between" fontSize="sm" color="gray.600">
+                                      <Text>Meal Total:</Text>
+                                      <Text>
+                                        {Math.round(mealTotals.calories)} cal, 
+                                        P:{Math.round(mealTotals.protein)}g, 
+                                        C:{Math.round(mealTotals.carbs)}g, 
+                                        F:{Math.round(mealTotals.fat)}g
+                                      </Text>
+                                    </HStack>
+                                  </>
+                                )}
                               </VStack>
                             </CardBody>
                           </Card>
@@ -689,19 +818,80 @@ export default function FoodLog() {
         </Tabs>
       </VStack>
 
-      {/* Enhanced Add Food Modal */}
-      <Modal isOpen={isOpen} onClose={onClose} size="4xl">
+      {/* Enhanced Add/Edit Food Modal */}
+      <Modal isOpen={isOpen} onClose={closeModal} size="4xl">
         <ModalOverlay />
         <ModalContent maxH="90vh">
-          <ModalHeader>Add Food to Log</ModalHeader>
+          <ModalHeader>
+            {isEditing ? `Edit ${editingLog?.food_name}` : `Add Food to ${formatMealType(modalMealType)}`}
+          </ModalHeader>
           <ModalCloseButton />
           <ModalBody pb={6} overflowY="auto">
             <VStack spacing={4} align="stretch">
-              {/* Enhanced Food Selection Interface */}
-              <Tabs variant="soft-rounded" colorScheme="green" index={activeTab === 'search' ? 0 : activeTab === 'recent' ? 1 : activeTab === 'favorites' ? 2 : 3} onChange={(index) => {
-                const tabs = ['search', 'recent', 'favorites', 'index'] as const
-                setActiveTab(tabs[index])
-              }}>
+              {isEditing ? (
+                /* Edit Mode - Show current food details */
+                <VStack spacing={4} align="stretch">
+                  <Card variant="outline" bg="blue.50">
+                    <CardBody>
+                      <VStack spacing={3} align="stretch">
+                        <HStack>
+                          <Text fontWeight="bold" fontSize="lg">{editingLog?.food_name}</Text>
+                          <Badge colorScheme="blue">Editing</Badge>
+                        </HStack>
+                        <Text fontSize="sm" color="gray.600">
+                          Current: {editingLog?.amount} {editingLog?.unit}
+                        </Text>
+                      </VStack>
+                    </CardBody>
+                  </Card>
+
+                  {/* Edit Form */}
+                  <SimpleGrid columns={2} spacing={4}>
+                    <FormControl>
+                      <FormLabel>Meal Type</FormLabel>
+                      <Select
+                        value={logForm.meal_type}
+                        onChange={(e) => setLogForm({ ...logForm, meal_type: e.target.value })}
+                      >
+                        <option value="breakfast">Breakfast</option>
+                        <option value="lunch">Lunch</option>
+                        <option value="dinner">Dinner</option>
+                        <option value="snack">Snack</option>
+                      </Select>
+                    </FormControl>
+                    <FormControl>
+                      <FormLabel>Amount</FormLabel>
+                      <NumberInputField
+                        value={logForm.amount}
+                        onChange={(value) => setLogForm({ ...logForm, amount: value })}
+                        min={0.1}
+                        step={0.1}
+                        precision={1}
+                      />
+                    </FormControl>
+                  </SimpleGrid>
+                  
+                  <HStack justify="end" spacing={3}>
+                    <Button variant="outline" onClick={closeModal}>
+                      Cancel
+                    </Button>
+                    <Button 
+                      colorScheme="blue" 
+                      onClick={updateFoodLog}
+                      isLoading={logging}
+                    >
+                      Update Food
+                    </Button>
+                  </HStack>
+                </VStack>
+              ) : (
+                /* Add Mode - Show food selection interface */
+                <>
+                  {/* Enhanced Food Selection Interface */}
+                  <Tabs variant="soft-rounded" colorScheme="green" index={activeTab === 'search' ? 0 : activeTab === 'recent' ? 1 : activeTab === 'favorites' ? 2 : 3} onChange={(index) => {
+                    const tabs = ['search', 'recent', 'favorites', 'index'] as const
+                    setActiveTab(tabs[index])
+                  }}>
                 <TabList mb={4}>
                   <Tab>🔍 Search</Tab>
                   <Tab>🕒 Recent</Tab>
@@ -1047,6 +1237,8 @@ export default function FoodLog() {
                       </VStack>
                     </CardBody>
                   </Card>
+                </>
+              )}
                 </>
               )}
             </VStack>
