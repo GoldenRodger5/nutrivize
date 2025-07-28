@@ -49,8 +49,49 @@ class AIDashboardService:
     async def get_smart_nutrition_data(self, user_id: str) -> Dict[str, Any]:
         """Get real-time smart nutrition data - NOT cached as it changes throughout the day"""
         try:
-            # Nutrition data should be real-time, so we don't cache it
-            return await self.unified_ai.get_dashboard_data(user_id, "nutrition")
+            # Use the same approach as the food log service for consistency
+            from .food_log_service import food_log_service
+            from datetime import date
+            
+            # Get today's food logs with goal progress (same data as food log page)
+            today = date.today().isoformat()
+            daily_data = await food_log_service.get_daily_logs_with_goal_progress(user_id, today)
+            
+            if not daily_data or "nutrition_summary" not in daily_data:
+                logger.warning(f"No nutrition data found for user {user_id}, using fallback")
+                # Fall back to unified AI method
+                return await self.unified_ai.get_dashboard_data(user_id, "nutrition")
+            
+            # Transform the nutrition summary to match the expected format
+            nutrition_summary = daily_data["nutrition_summary"]
+            goal_progress = daily_data["goal_progress"]
+            
+            # Format data consistently with the unified AI format
+            nutrition_data = {}
+            for nutrient in ["calories", "protein", "carbs", "fat", "fiber"]:
+                current = nutrition_summary.get(nutrient, 0)
+                target = goal_progress.get(nutrient, {}).get("target", 2000 if nutrient == "calories" else 100)
+                percentage = min(100, round((current / target) * 100)) if target > 0 else 0
+                
+                nutrition_data[nutrient] = {
+                    "current": current,
+                    "target": target,
+                    "percentage": percentage
+                }
+            
+            # Add water data if available
+            water_current = nutrition_summary.get("water", 0)
+            water_target = goal_progress.get("water", {}).get("target", 64)
+            water_percentage = min(100, round((water_current / water_target) * 100)) if water_target > 0 else 0
+            
+            nutrition_data["water"] = {
+                "current": water_current,
+                "target": water_target,
+                "percentage": water_percentage
+            }
+            
+            return nutrition_data
+            
         except Exception as e:
             logger.error(f"Error getting smart nutrition data: {e}")
             return {

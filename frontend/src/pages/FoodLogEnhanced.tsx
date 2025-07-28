@@ -251,10 +251,29 @@ export default function FoodLog() {
   const loadRecentFoods = async () => {
     try {
       setLoadingData(true)
-      const response = await api.get('/foods/recommendations/recent?limit=10')
-      setRecentFoods(response.data)
+      // Temporarily use popular foods since recent foods endpoint returns empty
+      const response = await api.get('/foods/recommendations/popular?limit=10')
+      // Transform popular foods to match expected format
+      const transformedFoods = response.data.map((food: any) => ({
+        id: food.food_name.toLowerCase().replace(/\s+/g, '-'),
+        name: food.food_name,
+        food_name: food.food_name,
+        serving_size: 100,
+        serving_unit: 'g',
+        nutrition: food.nutrition,
+        reason: food.reason,
+        benefits: food.benefits
+      }))
+      setRecentFoods(transformedFoods)
     } catch (error) {
       console.error('Error loading recent foods:', error)
+      // Fallback to recent endpoint
+      try {
+        const response = await api.get('/foods/recommendations/recent?limit=10')
+        setRecentFoods(response.data)
+      } catch (fallbackError) {
+        console.error('Error loading fallback recent foods:', fallbackError)
+      }
     } finally {
       setLoadingData(false)
     }
@@ -679,7 +698,7 @@ export default function FoodLog() {
 
                   {/* Meals Breakdown */}
                   {dailySummary && dailySummary.meals && dailySummary.meals.length > 0 ? (
-                    <VStack spacing={4} align="stretch">
+                    <VStack spacing={6} align="stretch">
                       {['breakfast', 'lunch', 'dinner', 'snack'].map(mealType => {
                         const mealLogs = dailySummary.meals.filter(log => log.meal_type === mealType)
 
@@ -690,103 +709,236 @@ export default function FoodLog() {
                           fat: totals.fat + (log.nutrition?.fat || 0),
                         }), { calories: 0, protein: 0, carbs: 0, fat: 0 })
 
+                        // Define meal-specific styling
+                        const mealStyles = {
+                          breakfast: { 
+                            gradient: "linear(to-r, orange.50, yellow.50)", 
+                            borderColor: "orange.200", 
+                            icon: "🌅", 
+                            badgeColor: "orange",
+                            addButtonColor: "orange"
+                          },
+                          lunch: { 
+                            gradient: "linear(to-r, green.50, teal.50)", 
+                            borderColor: "green.200", 
+                            icon: "☀️", 
+                            badgeColor: "green",
+                            addButtonColor: "green"
+                          },
+                          dinner: { 
+                            gradient: "linear(to-r, purple.50, blue.50)", 
+                            borderColor: "purple.200", 
+                            icon: "🌙", 
+                            badgeColor: "purple",
+                            addButtonColor: "purple"
+                          },
+                          snack: { 
+                            gradient: "linear(to-r, pink.50, rose.50)", 
+                            borderColor: "pink.200", 
+                            icon: "🍎", 
+                            badgeColor: "pink",
+                            addButtonColor: "pink"
+                          }
+                        }
+
+                        const style = mealStyles[mealType as keyof typeof mealStyles]
+
                         return (
-                          <Card key={mealType} variant="outline">
-                            <CardBody>
-                              <VStack spacing={3} align="stretch">
-                                <HStack justify="space-between">
-                                  <Heading size="md">{formatMealType(mealType)}</Heading>
-                                  <HStack>
-                                    <Badge colorScheme="blue" fontSize="sm">
-                                      {Math.round(mealTotals.calories)} calories
+                          <Card 
+                            key={mealType} 
+                            variant="outline" 
+                            borderWidth="2px"
+                            borderColor={style.borderColor}
+                            bg={style.gradient}
+                            shadow="md"
+                            _hover={{ shadow: "lg", transform: "translateY(-2px)" }}
+                            transition="all 0.2s"
+                          >
+                            <CardBody p={6}>
+                              <VStack spacing={4} align="stretch">
+                                <HStack justify="space-between" align="center">
+                                  <HStack spacing={3}>
+                                    <Text fontSize="2xl">{style.icon}</Text>
+                                    <VStack align="start" spacing={0}>
+                                      <Heading size="lg" color="gray.700">
+                                        {formatMealType(mealType)}
+                                      </Heading>
+                                      <Text fontSize="sm" color="gray.500">
+                                        {mealLogs.length} {mealLogs.length === 1 ? 'item' : 'items'}
+                                      </Text>
+                                    </VStack>
+                                  </HStack>
+                                  <HStack spacing={3}>
+                                    <Badge 
+                                      colorScheme={style.badgeColor} 
+                                      fontSize="md" 
+                                      px={4} 
+                                      py={2} 
+                                      borderRadius="full"
+                                      fontWeight="bold"
+                                    >
+                                      {Math.round(mealTotals.calories)} cal
                                     </Badge>
                                     <Button 
                                       size="sm" 
-                                      colorScheme="green" 
-                                      variant="outline"
+                                      colorScheme={style.addButtonColor} 
+                                      variant="solid"
                                       onClick={() => openAddFoodForMeal(mealType)}
+                                      borderRadius="full"
+                                      px={6}
+                                      fontWeight="bold"
+                                      _hover={{ transform: "scale(1.05)" }}
+                                      transition="all 0.2s"
                                     >
-                                      + Add Food
+                                      + Add
                                     </Button>
                                   </HStack>
                                 </HStack>
 
                                 {/* Food Items */}
                                 {mealLogs.length > 0 ? (
-                                  <VStack spacing={2} align="stretch">
+                                  <VStack spacing={3} align="stretch">
                                     {mealLogs.map((log) => (
-                                      <HStack 
-                                        key={log.id} 
-                                        justify="space-between" 
-                                        p={3} 
-                                        bg="gray.50" 
-                                        borderRadius="md"
+                                      <Card
+                                        key={log.id}
+                                        variant="solid"
+                                        bg="white"
                                         cursor="pointer"
-                                        _hover={{ bg: "gray.100", shadow: "sm" }}
+                                        _hover={{ 
+                                          shadow: "md", 
+                                          transform: "translateY(-1px)",
+                                          borderColor: style.borderColor,
+                                          borderWidth: "2px"
+                                        }}
+                                        transition="all 0.2s"
                                         onClick={() => openEditFood(log)}
+                                        position="relative"
                                       >
-                                        <Box flex="1">
-                                          <Text fontWeight="medium">{log.food_name}</Text>
-                                          <Text fontSize="sm" color="gray.600">
-                                            {log.amount} {log.unit}
-                                          </Text>
-                                        </Box>
-                                        <VStack spacing={0} align="end">
-                                          <Text fontWeight="bold">{Math.round(log.nutrition?.calories || 0)} cal</Text>
-                                          <Text fontSize="xs" color="gray.500">
-                                            P:{Math.round(log.nutrition?.protein || 0)} C:{Math.round(log.nutrition?.carbs || 0)} F:{Math.round(log.nutrition?.fat || 0)}
-                                          </Text>
-                                        </VStack>
-                                        <Button
-                                          size="sm"
-                                          variant="ghost"
-                                          colorScheme="red"
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                            deleteFood(log.id)
-                                          }}
-                                        >
-                                          ✕
-                                        </Button>
-                                      </HStack>
+                                        <CardBody p={4}>
+                                          <HStack justify="space-between" align="center">
+                                            <VStack align="start" spacing={1} flex="1">
+                                              <HStack>
+                                                <Text fontWeight="bold" fontSize="lg" color="gray.800">
+                                                  {log.food_name}
+                                                </Text>
+                                                <Badge size="sm" colorScheme="gray" variant="subtle">
+                                                  Click to edit
+                                                </Badge>
+                                              </HStack>
+                                              <Text fontSize="md" color="gray.600" fontWeight="medium">
+                                                {log.amount} {log.unit}
+                                              </Text>
+                                            </VStack>
+                                            
+                                            <VStack spacing={2} align="end" minW="200px">
+                                              <HStack spacing={4}>
+                                                <Text fontSize="2xl" fontWeight="bold" color={`${style.badgeColor}.600`}>
+                                                  {Math.round(log.nutrition?.calories || 0)}
+                                                </Text>
+                                                <Text fontSize="sm" color="gray.500" alignSelf="end" mb={1}>
+                                                  calories
+                                                </Text>
+                                              </HStack>
+                                              
+                                              <HStack spacing={4} fontSize="sm" color="gray.600">
+                                                <HStack spacing={1}>
+                                                  <Text fontWeight="medium" color="red.600">P:</Text>
+                                                  <Text fontWeight="bold">{Math.round(log.nutrition?.protein || 0)}g</Text>
+                                                </HStack>
+                                                <HStack spacing={1}>
+                                                  <Text fontWeight="medium" color="yellow.600">C:</Text>
+                                                  <Text fontWeight="bold">{Math.round(log.nutrition?.carbs || 0)}g</Text>
+                                                </HStack>
+                                                <HStack spacing={1}>
+                                                  <Text fontWeight="medium" color="purple.600">F:</Text>
+                                                  <Text fontWeight="bold">{Math.round(log.nutrition?.fat || 0)}g</Text>
+                                                </HStack>
+                                              </HStack>
+                                            </VStack>
+                                            
+                                            <IconButton
+                                              aria-label="Delete food item"
+                                              size="sm"
+                                              variant="ghost"
+                                              colorScheme="red"
+                                              icon={<Text>✕</Text>}
+                                              onClick={(e) => {
+                                                e.stopPropagation()
+                                                deleteFood(log.id)
+                                              }}
+                                              position="absolute"
+                                              top={2}
+                                              right={2}
+                                              borderRadius="full"
+                                              _hover={{ bg: "red.100" }}
+                                            />
+                                          </HStack>
+                                        </CardBody>
+                                      </Card>
                                     ))}
                                   </VStack>
                                 ) : (
-                                  <Box 
-                                    textAlign="center" 
-                                    py={6} 
-                                    color="gray.500"
+                                  <Card
+                                    bg="white"
                                     border="2px dashed"
-                                    borderColor="gray.200"
-                                    borderRadius="md"
+                                    borderColor="gray.300"
+                                    _hover={{ borderColor: style.borderColor, bg: `${style.badgeColor}.50` }}
+                                    transition="all 0.2s"
+                                    cursor="pointer"
+                                    onClick={() => openAddFoodForMeal(mealType)}
                                   >
-                                    <Text fontSize="sm">No foods logged for {formatMealType(mealType).toLowerCase()}</Text>
-                                    <Button 
-                                      size="sm" 
-                                      colorScheme="green" 
-                                      variant="ghost"
-                                      mt={2}
-                                      onClick={() => openAddFoodForMeal(mealType)}
-                                    >
-                                      + Add First Food
-                                    </Button>
-                                  </Box>
+                                    <CardBody textAlign="center" py={8}>
+                                      <VStack spacing={3}>
+                                        <Text fontSize="4xl" opacity="0.5">{style.icon}</Text>
+                                        <Text fontSize="lg" color="gray.500" fontWeight="medium">
+                                          No foods logged for {formatMealType(mealType).toLowerCase()}
+                                        </Text>
+                                        <Button 
+                                          size="md" 
+                                          colorScheme={style.addButtonColor} 
+                                          variant="solid"
+                                          borderRadius="full"
+                                          px={8}
+                                          fontWeight="bold"
+                                        >
+                                          + Add First Food
+                                        </Button>
+                                      </VStack>
+                                    </CardBody>
+                                  </Card>
                                 )}
 
-                                {/* Meal Totals */}
+                                {/* Enhanced Meal Totals */}
                                 {mealLogs.length > 0 && (
-                                  <>
-                                    <Divider />
-                                    <HStack justify="space-between" fontSize="sm" color="gray.600">
-                                      <Text>Meal Total:</Text>
-                                      <Text>
-                                        {Math.round(mealTotals.calories)} cal, 
-                                        P:{Math.round(mealTotals.protein)}g, 
-                                        C:{Math.round(mealTotals.carbs)}g, 
-                                        F:{Math.round(mealTotals.fat)}g
-                                      </Text>
-                                    </HStack>
-                                  </>
+                                  <Card bg="white" variant="outline">
+                                    <CardBody p={4}>
+                                      <HStack justify="space-between" align="center">
+                                        <Text fontSize="lg" fontWeight="bold" color="gray.700">
+                                          Meal Summary
+                                        </Text>
+                                        <HStack spacing={6} fontSize="sm" fontWeight="medium">
+                                          <HStack>
+                                            <Text color="gray.600">Total:</Text>
+                                            <Text color={`${style.badgeColor}.600`} fontWeight="bold" fontSize="md">
+                                              {Math.round(mealTotals.calories)} cal
+                                            </Text>
+                                          </HStack>
+                                          <HStack>
+                                            <Text color="red.600">P:</Text>
+                                            <Text fontWeight="bold">{Math.round(mealTotals.protein)}g</Text>
+                                          </HStack>
+                                          <HStack>
+                                            <Text color="yellow.600">C:</Text>
+                                            <Text fontWeight="bold">{Math.round(mealTotals.carbs)}g</Text>
+                                          </HStack>
+                                          <HStack>
+                                            <Text color="purple.600">F:</Text>
+                                            <Text fontWeight="bold">{Math.round(mealTotals.fat)}g</Text>
+                                          </HStack>
+                                        </HStack>
+                                      </HStack>
+                                    </CardBody>
+                                  </Card>
                                 )}
                               </VStack>
                             </CardBody>
@@ -829,60 +981,148 @@ export default function FoodLog() {
           <ModalBody pb={6} overflowY="auto">
             <VStack spacing={4} align="stretch">
               {isEditing ? (
-                /* Edit Mode - Show current food details */
-                <VStack spacing={4} align="stretch">
-                  <Card variant="outline" bg="blue.50">
+                /* Enhanced Edit Mode - Show comprehensive food details */
+                <VStack spacing={6} align="stretch">
+                  {/* Food Header Card */}
+                  <Card variant="outline" bg="gradient-to-r from-blue.50 to-purple.50" borderWidth="2px" borderColor="blue.200">
                     <CardBody>
-                      <VStack spacing={3} align="stretch">
-                        <HStack>
-                          <Text fontWeight="bold" fontSize="lg">{editingLog?.food_name}</Text>
-                          <Badge colorScheme="blue">Editing</Badge>
+                      <VStack spacing={4} align="stretch">
+                        <HStack justify="space-between">
+                          <VStack align="start" spacing={1}>
+                            <HStack>
+                              <Text fontWeight="bold" fontSize="xl" color="blue.700">{editingLog?.food_name}</Text>
+                              <Badge colorScheme="blue" fontSize="sm" px={3} py={1}>Editing</Badge>
+                            </HStack>
+                            <Text fontSize="md" color="gray.600">
+                              Current: {editingLog?.amount} {editingLog?.unit}
+                            </Text>
+                          </VStack>
+                          <Box textAlign="right">
+                            <Text fontSize="2xl" fontWeight="bold" color="blue.600">
+                              {Math.round((editingLog?.nutrition?.calories || 0) * (logForm.amount / editingLog?.amount || 1))} cal
+                            </Text>
+                            <Text fontSize="sm" color="gray.500">calories</Text>
+                          </Box>
                         </HStack>
-                        <Text fontSize="sm" color="gray.600">
-                          Current: {editingLog?.amount} {editingLog?.unit}
-                        </Text>
+
+                        {/* Real-time Nutrition Display */}
+                        <Box>
+                          <Text fontSize="lg" fontWeight="semibold" mb={3} color="gray.700">Nutrition Information</Text>
+                          <SimpleGrid columns={2} spacing={4}>
+                            {/* Macros */}
+                            <VStack spacing={3} align="stretch">
+                              <Box p={3} bg="red.50" borderRadius="lg" borderLeft="4px solid" borderColor="red.400">
+                                <HStack justify="space-between">
+                                  <Text fontSize="sm" color="red.700" fontWeight="medium">Protein</Text>
+                                  <Text fontSize="lg" fontWeight="bold" color="red.600">
+                                    {Math.round((editingLog?.nutrition?.protein || 0) * (logForm.amount / editingLog?.amount || 1))}g
+                                  </Text>
+                                </HStack>
+                              </Box>
+                              <Box p={3} bg="yellow.50" borderRadius="lg" borderLeft="4px solid" borderColor="yellow.400">
+                                <HStack justify="space-between">
+                                  <Text fontSize="sm" color="yellow.700" fontWeight="medium">Carbs</Text>
+                                  <Text fontSize="lg" fontWeight="bold" color="yellow.600">
+                                    {Math.round((editingLog?.nutrition?.carbs || 0) * (logForm.amount / editingLog?.amount || 1))}g
+                                  </Text>
+                                </HStack>
+                              </Box>
+                              <Box p={3} bg="purple.50" borderRadius="lg" borderLeft="4px solid" borderColor="purple.400">
+                                <HStack justify="space-between">
+                                  <Text fontSize="sm" color="purple.700" fontWeight="medium">Fat</Text>
+                                  <Text fontSize="lg" fontWeight="bold" color="purple.600">
+                                    {Math.round((editingLog?.nutrition?.fat || 0) * (logForm.amount / editingLog?.amount || 1))}g
+                                  </Text>
+                                </HStack>
+                              </Box>
+                            </VStack>
+                            
+                            {/* Additional Nutrients */}
+                            <VStack spacing={3} align="stretch">
+                              <Box p={3} bg="green.50" borderRadius="lg" borderLeft="4px solid" borderColor="green.400">
+                                <HStack justify="space-between">
+                                  <Text fontSize="sm" color="green.700" fontWeight="medium">Fiber</Text>
+                                  <Text fontSize="lg" fontWeight="bold" color="green.600">
+                                    {Math.round((editingLog?.nutrition?.fiber || 0) * (logForm.amount / editingLog?.amount || 1))}g
+                                  </Text>
+                                </HStack>
+                              </Box>
+                              <Box p={3} bg="orange.50" borderRadius="lg" borderLeft="4px solid" borderColor="orange.400">
+                                <HStack justify="space-between">
+                                  <Text fontSize="sm" color="orange.700" fontWeight="medium">Sugar</Text>
+                                  <Text fontSize="lg" fontWeight="bold" color="orange.600">
+                                    {Math.round((editingLog?.nutrition?.sugar || 0) * (logForm.amount / editingLog?.amount || 1))}g
+                                  </Text>
+                                </HStack>
+                              </Box>
+                              <Box p={3} bg="gray.50" borderRadius="lg" borderLeft="4px solid" borderColor="gray.400">
+                                <HStack justify="space-between">
+                                  <Text fontSize="sm" color="gray.700" fontWeight="medium">Sodium</Text>
+                                  <Text fontSize="lg" fontWeight="bold" color="gray.600">
+                                    {Math.round((editingLog?.nutrition?.sodium || 0) * (logForm.amount / editingLog?.amount || 1))}mg
+                                  </Text>
+                                </HStack>
+                              </Box>
+                            </VStack>
+                          </SimpleGrid>
+                        </Box>
                       </VStack>
                     </CardBody>
                   </Card>
 
-                  {/* Edit Form */}
-                  <SimpleGrid columns={2} spacing={4}>
-                    <FormControl>
-                      <FormLabel>Meal Type</FormLabel>
-                      <Select
-                        value={logForm.meal_type}
-                        onChange={(e) => setLogForm({ ...logForm, meal_type: e.target.value })}
-                      >
-                        <option value="breakfast">Breakfast</option>
-                        <option value="lunch">Lunch</option>
-                        <option value="dinner">Dinner</option>
-                        <option value="snack">Snack</option>
-                      </Select>
-                    </FormControl>
-                    <FormControl>
-                      <FormLabel>Amount</FormLabel>
-                      <NumberInputField
-                        value={logForm.amount}
-                        onChange={(value) => setLogForm({ ...logForm, amount: value })}
-                        min={0.1}
-                        step={0.1}
-                        precision={1}
-                      />
-                    </FormControl>
-                  </SimpleGrid>
-                  
-                  <HStack justify="end" spacing={3}>
-                    <Button variant="outline" onClick={closeModal}>
-                      Cancel
-                    </Button>
-                    <Button 
-                      colorScheme="blue" 
-                      onClick={updateFoodLog}
-                      isLoading={logging}
-                    >
-                      Update Food
-                    </Button>
-                  </HStack>
+                  {/* Edit Controls */}
+                  <Card variant="outline">
+                    <CardBody>
+                      <VStack spacing={4} align="stretch">
+                        <Text fontSize="lg" fontWeight="semibold" color="gray.700">Edit Details</Text>
+                        <SimpleGrid columns={2} spacing={4}>
+                          <FormControl>
+                            <FormLabel color="gray.600" fontWeight="medium">Meal Type</FormLabel>
+                            <Select
+                              value={logForm.meal_type}
+                              onChange={(e) => setLogForm({ ...logForm, meal_type: e.target.value })}
+                              bg="white"
+                              borderColor="gray.200"
+                              _hover={{ borderColor: "blue.300" }}
+                              _focus={{ borderColor: "blue.500", boxShadow: "0 0 0 1px #3182CE" }}
+                            >
+                              <option value="breakfast">🌅 Breakfast</option>
+                              <option value="lunch">☀️ Lunch</option>
+                              <option value="dinner">🌙 Dinner</option>
+                              <option value="snack">🍎 Snack</option>
+                            </Select>
+                          </FormControl>
+                          <FormControl>
+                            <FormLabel color="gray.600" fontWeight="medium">
+                              Amount ({editingLog?.unit})
+                            </FormLabel>
+                            <NumberInputField
+                              value={logForm.amount}
+                              onChange={(value) => setLogForm({ ...logForm, amount: value })}
+                              min={0.1}
+                              step={0.1}
+                              precision={1}
+                            />
+                          </FormControl>
+                        </SimpleGrid>
+                        
+                        <HStack justify="end" spacing={3} pt={4}>
+                          <Button variant="outline" onClick={closeModal} size="lg">
+                            Cancel
+                          </Button>
+                          <Button 
+                            colorScheme="blue" 
+                            onClick={updateFoodLog}
+                            isLoading={logging}
+                            size="lg"
+                            px={8}
+                          >
+                            Update Food
+                          </Button>
+                        </HStack>
+                      </VStack>
+                    </CardBody>
+                  </Card>
                 </VStack>
               ) : (
                 /* Add Mode - Show food selection interface */
