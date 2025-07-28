@@ -36,6 +36,35 @@ async def search_foods(
     return results
 
 
+@router.get("/user-index", response_model=List[FoodItemResponse])
+async def get_user_foods_index(
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Get all foods specific to a user for the food index with Redis caching"""
+    try:
+        # Use the cached get_user_food_index method for optimal performance
+        cached_foods = await food_service.get_user_food_index(current_user.uid)
+        
+        # Convert to FoodItemResponse objects
+        results = []
+        for food_data in cached_foods:
+            results.append(FoodItemResponse(
+                id=food_data["id"],
+                name=food_data["name"],
+                serving_size=food_data["serving_size"],
+                serving_unit=food_data["serving_unit"],
+                nutrition=food_data["nutrition"],
+                source=food_data["source"],
+                barcode=food_data.get("barcode"),
+                brand=food_data.get("brand"),
+                dietary_attributes=food_data.get("dietary_attributes")
+            ))
+        
+        return results
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to retrieve user foods: {str(e)}")
+
+
 @router.get("/{food_id}", response_model=FoodItemResponse)
 async def get_food_item(
     food_id: str,
@@ -160,32 +189,3 @@ async def get_foods(
         return results
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to retrieve foods: {str(e)}")
-
-
-@router.get("/user-index", response_model=List[FoodItemResponse])
-async def get_user_foods_index(
-    current_user: UserResponse = Depends(get_current_user)
-):
-    """Get all foods specific to a user for the food index with Redis caching"""
-    try:
-        # Use the cached get_user_food_index method for optimal performance
-        cached_foods = await food_service.get_user_food_index(current_user.uid)
-        
-        # Convert to FoodItemResponse objects
-        results = []
-        for food_data in cached_foods:
-            results.append(FoodItemResponse(
-                id=food_data["id"],
-                name=food_data["name"],
-                serving_size=food_data["serving_size"],
-                serving_unit=food_data["serving_unit"],
-                nutrition=food_data["nutrition"],
-                source=food_data["source"],
-                barcode=food_data.get("barcode"),
-                brand=food_data.get("brand"),
-                dietary_attributes=food_data.get("dietary_attributes")
-            ))
-        
-        return results
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to retrieve user foods: {str(e)}")

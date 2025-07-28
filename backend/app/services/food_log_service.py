@@ -190,11 +190,14 @@ class FoodLogService:
             meal_breakdown[meal_type].fat += nutrition.get("fat", 0)
             meal_breakdown[meal_type].fiber += nutrition.get("fiber", 0)
         
+        # Get unique meal types for the meals field
+        unique_meals = list(set(log["meal_type"] for log in logs))
+        
         result = DailyNutritionSummary(
             date=target_date,
             total_nutrition=total_nutrition,
-            meals=meal_entries,
-            meal_breakdown=dict(meal_breakdown)
+            meals=unique_meals,
+            total_foods=len(meal_entries)
         )
         
         # Cache the result in Redis with smart TTL based on date recency
