@@ -603,10 +603,10 @@ export default function FoodLog() {
                         if (mealLogs.length === 0) return null
 
                         const mealTotals = mealLogs.reduce((totals, log) => ({
-                          calories: totals.calories + log.nutrition.calories,
-                          protein: totals.protein + log.nutrition.protein,
-                          carbs: totals.carbs + log.nutrition.carbs,
-                          fat: totals.fat + log.nutrition.fat,
+                          calories: totals.calories + (log.nutrition?.calories || 0),
+                          protein: totals.protein + (log.nutrition?.protein || 0),
+                          carbs: totals.carbs + (log.nutrition?.carbs || 0),
+                          fat: totals.fat + (log.nutrition?.fat || 0),
                         }), { calories: 0, protein: 0, carbs: 0, fat: 0 })
 
                         return (
@@ -631,9 +631,9 @@ export default function FoodLog() {
                                         </Text>
                                       </Box>
                                       <VStack spacing={0} align="end">
-                                        <Text fontWeight="bold">{Math.round(log.nutrition.calories)} cal</Text>
+                                        <Text fontWeight="bold">{Math.round(log.nutrition?.calories || 0)} cal</Text>
                                         <Text fontSize="xs" color="gray.500">
-                                          P:{Math.round(log.nutrition.protein)} C:{Math.round(log.nutrition.carbs)} F:{Math.round(log.nutrition.fat)}
+                                          P:{Math.round(log.nutrition?.protein || 0)} C:{Math.round(log.nutrition?.carbs || 0)} F:{Math.round(log.nutrition?.fat || 0)}
                                         </Text>
                                       </VStack>
                                       <Button

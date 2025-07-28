@@ -305,13 +305,14 @@ async def create_comprehensive_food_logs(food_ids: List[str]):
                 food = foods_data[meal["food_idx"]]
                 amount = food["serving_size"] * meal["multiplier"]
                 
-                # Calculate nutrition based on actual amount
+                # Calculate nutrition based on actual amount - ensure proper field mapping
                 nutrition = {}
                 for key, value in food["nutrition"].items():
+                    calculated_value = round(value * meal["multiplier"], 1)
                     if key == "carbohydrates":
-                        nutrition["carbs"] = round(value * meal["multiplier"], 1)
+                        nutrition["carbs"] = calculated_value
                     else:
-                        nutrition[key] = round(value * meal["multiplier"], 1)
+                        nutrition[key] = calculated_value
                 
                 log_data = {
                     "date": log_date.isoformat(),

@@ -326,6 +326,46 @@ class FoodLogService:
             try:
                 daily_summary = await self.get_daily_logs(user_id, target_date)
                 logger.info(f"✅ Successfully got daily logs: {len(daily_summary.meals)} meals")
+                
+                # Get detailed food log entries for the frontend
+                logs = list(self.food_logs_collection.find({
+                    "user_id": user_id,
+                    "date": target_date.isoformat()
+                }).sort("logged_at", 1))
+                
+                # Convert to response models with detailed entries
+                detailed_entries = []
+                for log in logs:
+                    # Handle date parsing (could be string or date object)
+                    log_date = log["date"]
+                    if isinstance(log_date, str):
+                        from datetime import datetime as dt
+                        log_date = dt.fromisoformat(log_date).date()
+                    
+                    # Standardize nutrition field names for frontend consistency
+                    nutrition = log["nutrition"].copy()
+                    if "carbohydrates" in nutrition and "carbs" not in nutrition:
+                        nutrition["carbs"] = nutrition.pop("carbohydrates")
+                    elif "carbohydrates" in nutrition and "carbs" in nutrition:
+                        # If both exist, use carbohydrates value and remove the field
+                        nutrition["carbs"] = nutrition.pop("carbohydrates")
+                    
+                    entry = {
+                        "id": str(log["_id"]),
+                        "date": log_date.isoformat(),
+                        "meal_type": log["meal_type"],
+                        "food_id": log.get("food_id", ""),
+                        "food_name": log["food_name"],
+                        "amount": self._parse_amount(log["amount"]),
+                        "unit": log["unit"],
+                        "nutrition": nutrition,
+                        "notes": log.get("notes", ""),
+                        "logged_at": log["logged_at"].isoformat() if hasattr(log["logged_at"], 'isoformat') else str(log["logged_at"])
+                    }
+                    detailed_entries.append(entry)
+                    
+                logger.info(f"✅ Successfully prepared {len(detailed_entries)} detailed food log entries")
+                
             except Exception as e:
                 logger.error(f"❌ Error getting daily logs for {user_id} on {target_date}: {e}")
                 # Create empty summary as fallback
@@ -336,6 +376,7 @@ class FoodLogService:
                     total_nutrition=NutritionInfo(),
                     meal_breakdown={}
                 )
+                detailed_entries = []
             
             # Get water summary - wrap in try-catch
             try:
@@ -360,7 +401,7 @@ class FoodLogService:
             
             result = {
                 "date": target_date.isoformat(),
-                "food_logs": daily_summary.meals,
+                "food_logs": detailed_entries,  # Return detailed entries instead of just meal names
                 "nutrition_summary": daily_summary.total_nutrition.dict(),
                 "water_summary": {
                     "current": water_summary.total_amount,
