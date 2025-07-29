@@ -19,7 +19,7 @@ REDIS_URL=redis://your-redis-instance
 FIREBASE_PROJECT_ID=food-tracker-6096d
 FIREBASE_PRIVATE_KEY=your-firebase-private-key
 FIREBASE_CLIENT_EMAIL=your-firebase-client-email
-CORS_ORIGINS=https://your-frontend-domain.com
+CORS_ORIGINS=https://nutrivize.app,https://www.nutrivize.app
 ```
 
 #### Frontend Environment Variables (if needed)

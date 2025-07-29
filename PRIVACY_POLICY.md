@@ -79,10 +79,11 @@ If you're outside the United States, your information may be transferred to and 
 
 We may update this policy periodically. We'll notify users of significant changes through the app or email.
 
-## Contact Us
+## Contact Information
 
-For privacy questions or requests:
-- **Email**: privacy@nutrivize.com
+If you have any questions about this Privacy Policy, please contact us:
+
+- **Email**: privacy@nutrivize.app
 - **Address**: [Your Business Address]
 - **Phone**: [Your Phone Number]
 

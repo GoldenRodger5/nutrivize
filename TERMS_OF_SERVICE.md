@@ -163,7 +163,7 @@ You agree to indemnify and hold harmless Nutrivize from claims arising from:
 ## 16. Contact Information
 
 For questions about these Terms:
-- **Email**: legal@nutrivize.com
+- **Email**: legal@nutrivize.app
 - **Address**: [Your Business Address]
 - **Phone**: [Your Phone Number]
 

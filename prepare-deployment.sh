@@ -78,7 +78,7 @@ FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nYOUR_PRIVATE_KEY_HERE\n-----E
 FIREBASE_CLIENT_EMAIL=firebase-adminsdk-xxxxx@food-tracker-6096d.iam.gserviceaccount.com
 
 # CORS Configuration
-CORS_ORIGINS=https://your-frontend-domain.com,https://www.your-domain.com
+CORS_ORIGINS=https://nutrivize.app,https://www.nutrivize.app
 
 # API Configuration
 API_URL=https://your-backend.onrender.com

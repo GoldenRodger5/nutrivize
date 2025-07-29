@@ -78,7 +78,7 @@ Your beta account will continue to work seamlessly with all your existing data.
 
 Continue your nutrition journey: [your-app-url]
 
-Questions? Reply to this email or contact support@nutrivize.com
+Questions? Reply to this email or contact support@nutrivize.app
 
 Best regards,
 The Nutrivize Team
@@ -153,7 +153,7 @@ We apologize for any inconvenience.
 ```
 We recently identified and resolved a security issue. User data remains secure, and we've implemented additional safeguards. We take security seriously and will continue to monitor and improve our systems.
 
-For questions: security@nutrivize.com
+For questions: security@nutrivize.app
 ```
 
 ## Success Metrics
@@ -176,15 +176,15 @@ For questions: security@nutrivize.com
 ## Support Resources
 
 ### Internal Team Contacts
-- Technical Issues: tech@nutrivize.com
-- Business Questions: business@nutrivize.com
-- Media Inquiries: press@nutrivize.com
-- General Support: support@nutrivize.com
+- Technical Issues: tech@nutrivize.app
+- Business Questions: business@nutrivize.app
+- Media Inquiries: press@nutrivize.app
+- General Support: support@nutrivize.app
 
 ### External Resources
-- Status Page: status.nutrivize.com
-- Documentation: docs.nutrivize.com
-- Help Center: help.nutrivize.com
+- Status Page: status.nutrivize.app
+- Documentation: docs.nutrivize.app
+- Help Center: help.nutrivize.app
 - Social Media: @nutrivize
 
 ---
