@@ -210,7 +210,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       const token = await userCredential.user.getIdToken()
       
       // Call our backend registration endpoint
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'}/auth/register`, {
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'https://api.nutrivize.app'}/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

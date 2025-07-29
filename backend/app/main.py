@@ -124,6 +124,8 @@ is_production = os.getenv("ENVIRONMENT", "development") == "production"
 if is_production:
     # Production CORS - more restrictive
     origins = [
+        "https://nutrivize.app",
+        "https://www.nutrivize.app",
         "https://nutrivize-frontend.onrender.com",
         "https://nutrivize.onrender.com",
     ]

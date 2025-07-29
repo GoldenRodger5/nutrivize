@@ -1,7 +1,7 @@
 import axios from 'axios'
 import { auth } from './firebase'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://nutrivize.onrender.com'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.nutrivize.app'
 
 // Create axios instance
 const api = axios.create({

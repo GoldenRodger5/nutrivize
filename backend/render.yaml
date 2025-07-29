@@ -24,9 +24,9 @@ services:
       - key: GOOGLE_CLOUD_VISION_CREDENTIALS_JSON
         sync: false
       - key: FRONTEND_URL
-        value: https://nutrivize-frontend.onrender.com
+        value: https://nutrivize.app
       - key: BACKEND_URL
-        value: https://nutrivize.onrender.com
+        value: https://api.nutrivize.app
       - key: SECRET_KEY
         generateValue: true
       - key: PORT
