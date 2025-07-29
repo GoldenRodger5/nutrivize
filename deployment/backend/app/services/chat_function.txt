@@ -1,0 +1,84 @@
+    async def chat_with_context(self, request: ChatRequest, user_id: str) -> ChatResponse:
+        """
+        Enhanced chat with full context awareness and smart operations
+        """
+        try:
+            # Get user context for personalized responses
+                            user_context = await self._get_comprehensive_user_context(user_id)
+
+            # Process any embedded operations in the message
+            processed_request, operations_results = await self._process_smart_operations(
+                request, user_id, user_context
+            )
+
+            # Check if the message is about the food index
+            if any(term in processed_request.message.lower() for term in ["food index", "my foods", "foods i have", "foods in my"]):
+                # Update the food index summary for immediate use
+                user_context["food_index_summary"] = await self.get_food_index_summary(user_id)
+                logger.info(f"Food index query detected. Retrieved food index for user {user_id}")
+
+            # Build enhanced system prompt with user context
+            system_prompt = await self._build_contextual_system_prompt(user_context)
+
+            # Prepare conversation history
+            messages = []
+            for msg in processed_request.conversation_history:
+                messages.append({
+                    "role": msg.role,
+                    "content": msg.content
+                })
+
+            # Add current message with any operation results
+            current_message = processed_request.message
+            if operations_results:
+                current_message += f"\n\nOperation Results: {operations_results}"
+
+            messages.append({
+                "role": "user", 
+                "content": current_message
+            })
+
+            # Call Claude with enhanced context
+            response = self.client.messages.create(
+                model="claude-3-5-sonnet-20241022",
+                max_tokens=3000,
+                system=system_prompt,
+                messages=messages
+            )
+
+            assistant_response = response.content[0].text
+
+            # Process any AI-initiated operations in the response
+            assistant_response = await self._process_ai_operations(
+                assistant_response, user_id, user_context
+            )
+
+            # Detect and process disliked foods mentioned in user message
+            await self._detect_and_add_disliked_foods(processed_request.message, user_id)
+
+            # Update conversation history
+            updated_history = processed_request.conversation_history.copy()
+            updated_history.append(ChatMessage(role="user", content=processed_request.message))
+            updated_history.append(ChatMessage(role="assistant", content=assistant_response))
+
+            # Store conversation context
+            self.conversation_contexts[user_id] = {
+                "last_updated": datetime.now(),
+                "context": user_context,
+                "recent_topics": self._extract_topics(assistant_response)
+            }
+
+            return ChatResponse(
+                response=assistant_response,
+                conversation_history=updated_history
+            )
+
+        except Exception as e:
+            logger.error(f"Unified AI chat error: {e}")
+            logger.error(traceback.format_exc())
+
+            return ChatResponse(
+                response="I'm experiencing some technical difficulties. Please try again in a moment.",
+                conversation_history=request.conversation_history
+            )
+

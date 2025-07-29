@@ -1,0 +1,18 @@
+    async def chat_with_context(self, request: ChatRequest, user_id: str) -> ChatResponse:
+        """
+        Enhanced chat with full context awareness and smart operations
+        """
+        try:
+            # Get user context for personalized responses
+            user_context = await self._get_comprehensive_user_context(user_id)
+            
+            # Process any embedded operations in the message
+            processed_request, operations_results = await self._process_smart_operations(
+                request, user_id, user_context
+            )
+            
+            # Check if the message is about the food index
+            if any(term in processed_request.message.lower() for term in ["food index", "my foods", "foods i have", "foods in my"]):
+                # Update the food index summary for immediate use
+                user_context["food_index_summary"] = await self.get_food_index_summary(user_id)
+                logger.info(f"Food index query detected. Retrieved food index for user {user_id}")

@@ -1,0 +1,1024 @@
+"""
+Restaurant AI Service - Menu analysis and meal recommendations
+"""
+
+import logging
+import uuid
+import base64
+import json
+import os
+import re
+from datetime import datetime, timedelta
+from typing import List, Dict, Optional, Any
+from pydantic import BaseModel
+import requests
+from io import BytesIO
+import PyPDF2
+from PIL import Image
+import openai
+
+# Import AI service for menu analysis and OCR service for image text extraction
+from .ai_service import AIService
+from .ocr_service import ocr_service
+from ..core.config import get_database
+from ..core.redis_client import redis_client
+
+logger = logging.getLogger(__name__)
+
+# Pydantic models for menu analysis
+class MenuAnalysisRequest(BaseModel):
+    source_type: str  # 'url', 'image', 'pdf', 'multi_image', 'multi_pdf', 'text'
+    source_data: List[str]  # List of URLs or base64 encoded data for multiple files
+    restaurant_name: Optional[str] = None
+    menu_name: Optional[str] = None
+
+class EstimatedNutrition(BaseModel):
+    calories: float
+    protein: float
+    carbs: float
+    fat: float
+    fiber: Optional[float] = None
+    sodium: Optional[float] = None
+    sugar: Optional[float] = None
+    confidence_score: float  # 0-100
+
+class MenuRecommendation(BaseModel):
+    id: str
+    name: str
+    description: str
+    category: str  # 'appetizer', 'main_course', 'side', 'dessert', 'beverage', 'other'
+    estimated_nutrition: EstimatedNutrition
+    dietary_attributes: Dict[str, List[str]]
+    price: Optional[str] = None
+    recommendations_score: float  # 0-100 based on user filters
+    reasoning: str  # AI explanation for recommendation
+    modifications_suggested: Optional[List[str]] = None
+
+class MenuAnalysisResult(BaseModel):
+    id: str
+    restaurant_name: str
+    menu_name: str
+    source_type: str
+    recommendations: List[MenuRecommendation]
+    total_items_found: int
+    analysis_confidence: float
+    created_at: str
+    user_id: str
+    processing_method: Optional[str] = None  # 'standard', 'medium', 'batch_processing'
+    chunks_processed: Optional[int] = None  # Number of chunks processed (for batch processing)
+
+class VisualNutritionRequest(BaseModel):
+    item_id: str
+    image_data: str  # base64 encoded image
+    menu_analysis_id: str
+
+class VisualNutritionResult(BaseModel):
+    item_id: str
+    calories: float
+    protein: float
+    carbs: float
+    fat: float
+    fiber: Optional[float] = None
+    sodium: Optional[float] = None
+    confidence_score: float  # 0-100
+    portion_notes: str  # AI explanation of portion size estimation
+    reference_objects: List[str]  # Objects used for scale reference
+
+class RestaurantAIService:
+    """Service for restaurant menu analysis and meal recommendations"""
+    
+    def __init__(self):
+        self.db = get_database()
+        self.collection = self.db["restaurant_ai_analyses"] if self.db is not None else None
+        self.ai_service = AIService()
+        
+        # Create indexes
+        if self.collection is not None:
+            try:
+                self.collection.create_index([("user_id", 1), ("created_at", -1)])
+                self.collection.create_index([("id", 1)])
+            except Exception as e:
+                logger.warning(f"Failed to create indexes: {e}")
+    
+    async def analyze_menu(self, request: MenuAnalysisRequest, user_id: str) -> MenuAnalysisResult:
+        """Analyze a restaurant menu and provide recommendations"""
+        try:
+            # Extract menu text based on source type
+            menu_text = await self._extract_menu_text(request)
+            
+            if not menu_text or len(menu_text.strip()) < 50:
+                raise ValueError("Could not extract sufficient menu content. Please check your source and try again.")
+            
+            # Use AI to analyze menu and generate recommendations
+            analysis_result = await self._analyze_menu_with_ai(menu_text, request)
+            
+            # Create result object
+            result = MenuAnalysisResult(
+                id=str(uuid.uuid4()),
+                restaurant_name=request.restaurant_name or analysis_result.get('restaurant_name', 'Unknown Restaurant'),
+                menu_name=request.menu_name or analysis_result.get('menu_name', 'Menu'),
+                source_type=request.source_type,
+                recommendations=analysis_result['recommendations'],
+                total_items_found=len(analysis_result['recommendations']),
+                analysis_confidence=analysis_result.get('confidence_score', 85),
+                created_at=datetime.utcnow().isoformat(),
+                user_id=user_id,
+                processing_method=analysis_result.get('processing_method', 'standard'),
+                chunks_processed=analysis_result.get('chunks_processed', None)
+            )
+            
+            # Save to database
+            if self.collection is not None:
+                await self._save_analysis(result)
+            
+            # Invalidate user analyses cache since we added a new analysis
+            if redis_client.is_connected():
+                # Clear user analyses cache patterns
+                cache_patterns = [f"user_analyses:{user_id}:*"]
+                for pattern in cache_patterns:
+                    redis_client.flush_pattern(pattern)
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error analyzing menu: {e}")
+            raise Exception(f"Failed to analyze menu: {str(e)}")
+    
+    async def get_user_analyses(self, user_id: str, limit: int = 20) -> List[MenuAnalysisResult]:
+        """Get user's previous menu analyses with Redis caching"""
+        try:
+            # Try to get from Redis cache first
+            cache_key = f"user_analyses:{user_id}:{limit}"
+            if redis_client.is_connected():
+                cached_data = redis_client.get(cache_key)
+                if cached_data:
+                    return [MenuAnalysisResult(**analysis) for analysis in cached_data]
+            
+            if self.collection is None:
+                return []
+            
+            analyses = list(self.collection.find(
+                {"user_id": user_id}
+            ).sort("created_at", -1).limit(limit))
+            
+            result = [
+                MenuAnalysisResult(**analysis) for analysis in analyses
+            ]
+            
+            # Cache the result for 1 hour
+            if redis_client.is_connected() and result:
+                redis_client.set(cache_key, [analysis.dict() for analysis in result], timedelta(hours=1))
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error getting user analyses: {e}")
+            return []
+    
+    async def get_analysis_by_id(self, analysis_id: str, user_id: str) -> Optional[MenuAnalysisResult]:
+        """Get a specific analysis by ID with Redis caching"""
+        try:
+            # Try to get from Redis cache first
+            cache_key = f"menu_analysis:{user_id}:{analysis_id}"
+            if redis_client.is_connected():
+                cached_data = redis_client.get(cache_key)
+                if cached_data:
+                    return MenuAnalysisResult(**cached_data)
+            
+            if self.collection is None:
+                return None
+            
+            analysis = self.collection.find_one({
+                "id": analysis_id,
+                "user_id": user_id
+            })
+            
+            if analysis:
+                result = MenuAnalysisResult(**analysis)
+                
+                # Cache the result for 6 hours (analyses don't change)
+                if redis_client.is_connected():
+                    redis_client.set(cache_key, result.dict(), timedelta(hours=6))
+                
+                return result
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error getting analysis: {e}")
+            return None
+    
+    async def _extract_menu_text(self, request: MenuAnalysisRequest) -> str:
+        """Extract text from different menu sources, including multiple files"""
+        try:
+            if request.source_type in ['text']:
+                # Handle direct text input
+                return "\n".join(request.source_data)
+            elif request.source_type in ['url']:
+                # Handle URLs (single URL)
+                return await self._extract_from_url(request.source_data[0])
+            elif request.source_type in ['image', 'multi_image']:
+                # Handle single or multiple images
+                all_text = ""
+                for i, image_data in enumerate(request.source_data):
+                    text = await self._extract_from_image(image_data)
+                    all_text += f"\n--- PAGE {i+1} ---\n{text}"
+                return all_text
+            elif request.source_type in ['pdf', 'multi_pdf']:
+                # Handle single or multiple PDFs
+                all_text = ""
+                for i, pdf_data in enumerate(request.source_data):
+                    text = await self._extract_from_pdf(pdf_data)
+                    all_text += f"\n--- DOCUMENT {i+1} ---\n{text}"
+                return all_text
+            else:
+                raise ValueError(f"Unsupported source type: {request.source_type}")
+                
+        except Exception as e:
+            logger.error(f"Error extracting menu text: {e}")
+            raise Exception(f"Failed to extract menu content: {str(e)}")
+    
+    async def _extract_from_url(self, url: str) -> str:
+        """Extract menu text from website URL"""
+        try:
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+            
+            response = requests.get(url, headers=headers, timeout=120)
+            response.raise_for_status()
+            
+            # Basic HTML content extraction
+            html_content = response.text
+            
+            # Remove script and style elements
+            html_content = re.sub(r'<script[^>]*>.*?</script>', '', html_content, flags=re.DOTALL | re.IGNORECASE)
+            html_content = re.sub(r'<style[^>]*>.*?</style>', '', html_content, flags=re.DOTALL | re.IGNORECASE)
+            
+            # Extract text content
+            text_content = re.sub(r'<[^>]+>', ' ', html_content)
+            text_content = re.sub(r'\s+', ' ', text_content)
+            
+            # Focus on likely menu content
+            menu_keywords = ['menu', 'appetizer', 'entree', 'main', 'dessert', 'price', '$']
+            menu_sections = []
+            
+            sentences = text_content.split('.')
+            for sentence in sentences:
+                if any(keyword.lower() in sentence.lower() for keyword in menu_keywords):
+                    menu_sections.append(sentence.strip())
+            
+            if menu_sections:
+                return '. '.join(menu_sections)
+            
+            # Fallback to first 3000 characters
+            return text_content[:3000]
+            
+        except Exception as e:
+            logger.error(f"Error extracting from URL: {e}")
+            raise Exception(f"Failed to extract content from URL: {str(e)}")
+    
+    async def _extract_from_image(self, base64_data: str) -> str:
+        """Extract text from image using Google Cloud Vision OCR"""
+        try:
+            # Remove data URL prefix if present
+            if ',' in base64_data:
+                base64_data = base64_data.split(',')[1]
+            
+            # Decode base64 image
+            image_data = base64.b64decode(base64_data)
+            
+            # Use Google Cloud Vision OCR service
+            logger.info("Using Google Cloud Vision OCR for menu text extraction")
+            text = ocr_service.extract_text_from_image(image_data)
+            
+            if not text or len(text.strip()) < 20:
+                raise ValueError("Could not extract sufficient text from image. Please ensure the image is clear and contains menu text.")
+            
+            logger.info(f"Successfully extracted {len(text)} characters from menu image")
+            return text
+            
+        except Exception as e:
+            logger.error(f"Error extracting from image: {e}")
+            raise Exception(f"Failed to extract text from image: {str(e)}")
+    
+    async def _extract_from_pdf(self, base64_data: str) -> str:
+        """Extract text from PDF"""
+        try:
+            # Remove data URL prefix if present
+            if ',' in base64_data:
+                base64_data = base64_data.split(',')[1]
+            
+            # Decode base64 PDF
+            pdf_data = base64.b64decode(base64_data)
+            pdf_file = BytesIO(pdf_data)
+            
+            # Extract text from PDF
+            pdf_reader = PyPDF2.PdfReader(pdf_file)
+            text = ""
+            
+            for page in pdf_reader.pages:
+                text += page.extract_text() + "\n"
+            
+            if not text or len(text.strip()) < 20:
+                raise ValueError("Could not extract text from PDF. Please ensure the PDF contains readable text.")
+            
+            return text
+            
+        except Exception as e:
+            logger.error(f"Error extracting from PDF: {e}")
+            raise Exception(f"Failed to extract text from PDF: {str(e)}")
+    
+    async def _analyze_menu_with_ai(self, menu_text: str, request: MenuAnalysisRequest) -> Dict[str, Any]:
+        """Use AI to analyze menu text and generate recommendations with batch processing for large menus"""
+        try:
+            # Calculate text size and determine if we need batch processing
+            text_length = len(menu_text)
+            logger.info(f"Menu text length: {text_length} characters")
+            
+            # For very large menus (>50k chars), use batch processing
+            if text_length > 50000:
+                logger.info("Large menu detected - using batch processing")
+                return await self._analyze_large_menu_batch(menu_text, request)
+            
+            # For medium menus (>20k chars), use higher token limit
+            elif text_length > 20000:
+                logger.info("Medium menu detected - using increased token limit")
+                return await self._analyze_medium_menu(menu_text, request)
+            
+            # For smaller menus, use standard processing
+            else:
+                logger.info("Standard menu size - using normal processing")
+                return await self._analyze_standard_menu(menu_text, request)
+                
+        except Exception as e:
+            logger.error(f"Error in AI menu analysis: {e}")
+            return self._create_fallback_analysis(menu_text, request)
+    
+    async def _analyze_standard_menu(self, menu_text: str, request: MenuAnalysisRequest) -> Dict[str, Any]:
+        """Analyze standard-sized menu with full text"""
+        prompt = f"""Analyze the following comprehensive restaurant menu text and provide a detailed analysis with meal recommendations.
+
+MENU TEXT:
+{menu_text}
+
+Please provide your analysis in the following JSON format:
+
+{{
+  "restaurant_name": "Restaurant name if mentioned, otherwise use provided name",
+  "menu_name": "Menu name if mentioned (e.g., 'Dinner Menu', 'Lunch Specials')",
+  "confidence_score": 85,
+  "recommendations": [
+    {{
+      "id": "unique_id",
+      "name": "Dish name",
+      "description": "Detailed description of the dish",
+      "category": "appetizer|main_course|side|dessert|beverage|other",
+      "estimated_nutrition": {{
+        "calories": 450,
+        "protein": 25,
+        "carbs": 35,
+        "fat": 20,
+        "fiber": 8,
+        "sodium": 650,
+        "sugar": 5,
+        "confidence_score": 75
+      }},
+      "dietary_attributes": {{
+        "dietary_restrictions": ["vegetarian", "gluten-free", "high-protein"],
+        "allergens": ["dairy", "nuts"],
+        "food_categories": ["protein", "vegetables"]
+      }},
+      "price": "$12.99",
+      "recommendations_score": 85,
+      "reasoning": "This dish is recommended because it provides high protein content with moderate calories, includes vegetables, and can be made gluten-free upon request.",
+      "modifications_suggested": [
+        "Ask for dressing on the side to reduce calories",
+        "Request extra vegetables for more fiber"
+      ]
+    }}
+  ]
+}}
+
+ANALYSIS GUIDELINES:
+
+1. NUTRITION ESTIMATION:
+   - Estimate calories, protein, carbs, fat, fiber, sodium, and sugar per serving
+   - Base estimates on typical restaurant portions and ingredients
+   - Set confidence_score (0-100) based on how certain you are about the nutrition
+   - Consider cooking methods (fried = higher calories/fat, grilled = lower)
+
+2. CATEGORIZATION:
+   - appetizer: Starters, apps, small plates
+   - main_course: Entrees, main dishes, large meals
+   - side: Side dishes, accompaniments
+   - dessert: Sweets, desserts
+   - beverage: Drinks, cocktails, etc.
+   - other: Items that don't fit other categories
+
+3. DIETARY ATTRIBUTES:
+   - dietary_restrictions: vegetarian, vegan, pescatarian, gluten-free, dairy-free, keto, paleo, low-carb, high-protein, etc.
+   - allergens: nuts, peanuts, dairy, eggs, soy, shellfish, fish, wheat, sesame
+   - food_categories: meat, seafood, vegetable, fruit, grain, dairy, etc.
+
+4. RECOMMENDATION SCORING (0-100):
+   - 90-100: Exceptional choice (healthy, balanced, great ingredients)
+   - 80-89: Very good choice (mostly healthy with minor concerns)
+   - 70-79: Good choice (balanced but may have some less healthy aspects)
+   - 60-69: Okay choice (some health concerns but not terrible)
+   - 50-59: Poor choice (high calories, sodium, or unhealthy preparation)
+   - Below 50: Very poor choice (avoid for health reasons)
+
+5. MODIFICATIONS:
+   - Suggest realistic modifications that restaurants can typically accommodate
+   - Focus on health improvements (reduce calories, increase nutrition)
+   - Consider common substitutions and preparation changes
+
+6. PRICING:
+   - Extract exact prices if mentioned in the menu
+   - If no price, leave as null
+
+IMPORTANT: Analyze ALL menu items found across all sections comprehensively. Pay attention to section headers and categories. Extract ALL identifiable dishes, not just a subset.
+
+Please analyze all identifiable menu items and provide detailed, accurate recommendations.
+Return ONLY the JSON object, no additional text."""
+
+        # Use enhanced AI service with standard token limit
+        response = await self.ai_service.generate_response(
+            prompt, 
+            max_tokens=8000,  # Increased for comprehensive menu analysis
+            model="claude-sonnet-4-20250514"
+        )
+        
+        return await self._parse_ai_response(response, request, 'standard')
+    
+    async def _analyze_medium_menu(self, menu_text: str, request: MenuAnalysisRequest) -> Dict[str, Any]:
+        """Analyze medium-sized menu with increased token limit"""
+        prompt = f"""Analyze the following comprehensive restaurant menu text and provide a detailed analysis with meal recommendations.
+
+MENU TEXT (Medium-sized menu):
+{menu_text}
+
+Please provide your analysis in the following JSON format. This menu is larger than average, so please be thorough and extract ALL menu items:
+
+{{
+  "restaurant_name": "Restaurant name if mentioned, otherwise use provided name",
+  "menu_name": "Menu name if mentioned (e.g., 'Dinner Menu', 'Lunch Specials')",
+  "confidence_score": 85,
+  "recommendations": [
+    {{
+      "id": "unique_id",
+      "name": "Dish name",
+      "description": "Detailed description of the dish",
+      "category": "appetizer|main_course|side|dessert|beverage|other",
+      "estimated_nutrition": {{
+        "calories": 450,
+        "protein": 25,
+        "carbs": 35,
+        "fat": 20,
+        "fiber": 8,
+        "sodium": 650,
+        "sugar": 5,
+        "confidence_score": 75
+      }},
+      "dietary_attributes": {{
+        "dietary_restrictions": ["vegetarian", "gluten-free", "high-protein"],
+        "allergens": ["dairy", "nuts"],
+        "food_categories": ["protein", "vegetables"]
+      }},
+      "price": "$12.99",
+      "recommendations_score": 85,
+      "reasoning": "This dish is recommended because it provides high protein content with moderate calories, includes vegetables, and can be made gluten-free upon request.",
+      "modifications_suggested": [
+        "Ask for dressing on the side to reduce calories",
+        "Request extra vegetables for more fiber"
+      ]
+    }}
+  ]
+}}
+
+CRITICAL: This is a medium-sized menu with many items. Please extract ALL identifiable dishes from ALL sections. Don't limit to just a few items - analyze the entire menu comprehensively.
+
+Return ONLY the JSON object, no additional text."""
+
+        # Use enhanced AI service with higher token limit for medium menus
+        response = await self.ai_service.generate_response(
+            prompt, 
+            max_tokens=16000,  # Higher limit for medium menus
+            model="claude-sonnet-4-20250514"
+        )
+        
+        return await self._parse_ai_response(response, request, 'medium')
+    
+    async def _analyze_large_menu_batch(self, menu_text: str, request: MenuAnalysisRequest) -> Dict[str, Any]:
+        """Analyze very large menu using batch processing"""
+        try:
+            logger.info("Starting batch processing for large menu")
+            
+            # Split menu into chunks of approximately 40k characters
+            chunk_size = 40000
+            chunks = [menu_text[i:i+chunk_size] for i in range(0, len(menu_text), chunk_size)]
+            
+            logger.info(f"Split menu into {len(chunks)} chunks for batch processing")
+            
+            # Process each chunk
+            all_recommendations = []
+            restaurant_name = request.restaurant_name
+            menu_name = None
+            total_confidence = 0
+            
+            for i, chunk in enumerate(chunks):
+                logger.info(f"Processing chunk {i+1}/{len(chunks)}")
+                
+                chunk_result = await self._analyze_menu_chunk(chunk, request, i+1, len(chunks))
+                
+                if chunk_result:
+                    # Extract restaurant name and menu name from first chunk
+                    if i == 0:
+                        restaurant_name = chunk_result.get('restaurant_name', restaurant_name)
+                        menu_name = chunk_result.get('menu_name', menu_name)
+                    
+                    # Add recommendations
+                    chunk_recommendations = chunk_result.get('recommendations', [])
+                    all_recommendations.extend(chunk_recommendations)
+                    
+                    # Track confidence
+                    total_confidence += chunk_result.get('confidence_score', 0)
+            
+            # Calculate average confidence
+            avg_confidence = total_confidence / len(chunks) if chunks else 0
+            
+            # Create combined analysis
+            combined_analysis = {
+                'restaurant_name': restaurant_name,
+                'menu_name': menu_name,
+                'confidence_score': int(avg_confidence),
+                'recommendations': all_recommendations,
+                'processing_method': 'batch_processing',
+                'chunks_processed': len(chunks),
+                'total_items_found': len(all_recommendations)
+            }
+            
+            logger.info(f"Batch processing complete. Found {len(all_recommendations)} total items across {len(chunks)} chunks")
+            
+            # Validate and enhance the combined analysis
+            return self._validate_and_enhance_analysis(combined_analysis, request)
+            
+        except Exception as e:
+            logger.error(f"Error in batch processing: {e}")
+            return self._create_fallback_analysis(menu_text, request)
+    
+    async def _analyze_menu_chunk(self, chunk_text: str, request: MenuAnalysisRequest, chunk_num: int, total_chunks: int) -> Dict[str, Any]:
+        """Analyze a single chunk of menu text"""
+        prompt = f"""Analyze the following restaurant menu text chunk ({chunk_num}/{total_chunks}) and extract ALL menu items.
+
+MENU TEXT CHUNK {chunk_num}/{total_chunks}:
+{chunk_text}
+
+Please provide your analysis in the following JSON format:
+
+{{
+  "restaurant_name": "Restaurant name if mentioned",
+  "menu_name": "Menu name if mentioned",
+  "confidence_score": 85,
+  "recommendations": [
+    {{
+      "id": "unique_id_{chunk_num}",
+      "name": "Dish name",
+      "description": "Detailed description of the dish",
+      "category": "appetizer|main_course|side|dessert|beverage|other",
+      "estimated_nutrition": {{
+        "calories": 450,
+        "protein": 25,
+        "carbs": 35,
+        "fat": 20,
+        "fiber": 8,
+        "sodium": 650,
+        "sugar": 5,
+        "confidence_score": 75
+      }},
+      "dietary_attributes": {{
+        "dietary_restrictions": ["vegetarian", "gluten-free", "high-protein"],
+        "allergens": ["dairy", "nuts"],
+        "food_categories": ["protein", "vegetables"]
+      }},
+      "price": "$12.99",
+      "recommendations_score": 85,
+      "reasoning": "This dish is recommended because it provides high protein content with moderate calories, includes vegetables, and can be made gluten-free upon request.",
+      "modifications_suggested": [
+        "Ask for dressing on the side to reduce calories",
+        "Request extra vegetables for more fiber"
+      ]
+    }}
+  ]
+}}
+
+CRITICAL INSTRUCTIONS:
+1. This is chunk {chunk_num} of {total_chunks} - extract ALL menu items from this chunk
+2. Don't skip any items - even if they seem incomplete due to chunk boundaries
+3. Use unique IDs with chunk number: "item_{chunk_num}_1", "item_{chunk_num}_2", etc.
+4. Extract ALL identifiable dishes, drinks, appetizers, desserts, etc.
+5. Pay attention to prices, descriptions, and categories
+
+Return ONLY the JSON object, no additional text."""
+
+        try:
+            response = await self.ai_service.generate_response(
+                prompt, 
+                max_tokens=12000,  # High limit for chunk processing
+                model="claude-sonnet-4-20250514"
+            )
+            
+            return await self._parse_ai_response(response, request, 'batch_chunk')
+            
+        except Exception as e:
+            logger.error(f"Error processing chunk {chunk_num}: {e}")
+            return None
+    
+    async def _parse_ai_response(self, response: str, request: MenuAnalysisRequest, processing_method: str = 'standard') -> Dict[str, Any]:
+        """Parse AI response and handle JSON extraction"""
+        try:
+            # Extract JSON from response if wrapped in text
+            json_match = re.search(r'\{.*\}', response, re.DOTALL)
+            if json_match:
+                json_str = json_match.group()
+            else:
+                json_str = response
+            
+            analysis_data = json.loads(json_str)
+            
+            # Add processing method
+            analysis_data['processing_method'] = processing_method
+            
+            # Validate and enhance the analysis
+            analysis_data = self._validate_and_enhance_analysis(analysis_data, request)
+            
+            return analysis_data
+            
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse AI response JSON: {e}")
+            logger.error(f"Response content: {response[:500]}...")
+            # Return fallback analysis
+            return self._create_fallback_analysis("Failed to parse AI response", request)
+    
+    def _validate_and_enhance_analysis(self, analysis_data: Dict[str, Any], request: MenuAnalysisRequest) -> Dict[str, Any]:
+        """Validate and enhance the AI analysis results"""
+        try:
+            # Use provided names if AI didn't find them
+            if not analysis_data.get('restaurant_name') and request.restaurant_name:
+                analysis_data['restaurant_name'] = request.restaurant_name
+            
+            if not analysis_data.get('menu_name') and request.menu_name:
+                analysis_data['menu_name'] = request.menu_name
+            
+            # Ensure all recommendations have required fields
+            valid_recommendations = []
+            for i, rec in enumerate(analysis_data.get('recommendations', [])):
+                try:
+                    # Add ID if missing
+                    if not rec.get('id'):
+                        rec['id'] = f"item_{i+1}_{uuid.uuid4().hex[:8]}"
+                    
+                    # Validate nutrition
+                    nutrition = rec.get('estimated_nutrition', {})
+                    if not isinstance(nutrition, dict):
+                        nutrition = {}
+                    
+                    # Ensure all nutrition fields exist
+                    nutrition.setdefault('calories', 400)
+                    nutrition.setdefault('protein', 15)
+                    nutrition.setdefault('carbs', 30)
+                    nutrition.setdefault('fat', 18)
+                    nutrition.setdefault('confidence_score', 70)
+                    
+                    rec['estimated_nutrition'] = nutrition
+                    
+                    # Validate dietary attributes
+                    dietary_attrs = rec.get('dietary_attributes', {})
+                    if not isinstance(dietary_attrs, dict):
+                        dietary_attrs = {}
+                    
+                    dietary_attrs.setdefault('dietary_restrictions', [])
+                    dietary_attrs.setdefault('allergens', [])
+                    dietary_attrs.setdefault('food_categories', [])
+                    
+                    rec['dietary_attributes'] = dietary_attrs
+                    
+                    # Set defaults for missing fields
+                    rec.setdefault('name', f'Menu Item {i+1}')
+                    rec.setdefault('description', 'Restaurant menu item')
+                    rec.setdefault('category', 'other')
+                    rec.setdefault('recommendations_score', 75)
+                    rec.setdefault('reasoning', 'Standard restaurant menu item')
+                    
+                    valid_recommendations.append(rec)
+                    
+                except Exception as e:
+                    logger.warning(f"Skipping invalid recommendation {i}: {e}")
+                    continue
+            
+            analysis_data['recommendations'] = valid_recommendations
+            analysis_data.setdefault('confidence_score', 80)
+            
+            return analysis_data
+            
+        except Exception as e:
+            logger.error(f"Error validating analysis: {e}")
+            return analysis_data
+    
+    def _create_fallback_analysis(self, menu_text: str, request: MenuAnalysisRequest) -> Dict[str, Any]:
+        """Create a basic fallback analysis when AI fails"""
+        try:
+            # Simple text-based item extraction
+            lines = menu_text.split('\n')
+            items = []
+            
+            for i, line in enumerate(lines[:20]):  # Limit to first 20 lines
+                line = line.strip()
+                if len(line) > 10 and len(line) < 100:  # Reasonable item length
+                    # Try to detect prices
+                    price_match = re.search(r'\$[\d.,]+', line)
+                    price = price_match.group() if price_match else None
+                    
+                    # Remove price from name
+                    name = re.sub(r'\s*\$[\d.,]+\s*', '', line).strip()
+                    
+                    if name:
+                        items.append({
+                            'id': f"fallback_{i}_{uuid.uuid4().hex[:8]}",
+                            'name': name,
+                            'description': 'Menu item - nutritional information estimated',
+                            'category': 'other',
+                            'estimated_nutrition': {
+                                'calories': 450,
+                                'protein': 20,
+                                'carbs': 35,
+                                'fat': 22,
+                                'confidence_score': 50
+                            },
+                            'dietary_attributes': {
+                                'dietary_restrictions': [],
+                                'allergens': [],
+                                'food_categories': []
+                            },
+                            'price': price,
+                            'recommendations_score': 70,
+                            'reasoning': 'Basic menu item - consider asking restaurant about ingredients and preparation methods'
+                        })
+            
+            return {
+                'restaurant_name': request.restaurant_name or 'Restaurant',
+                'menu_name': request.menu_name or 'Menu',
+                'confidence_score': 50,
+                'recommendations': items[:10]  # Limit to 10 items
+            }
+            
+        except Exception as e:
+            logger.error(f"Error creating fallback analysis: {e}")
+            return {
+                'restaurant_name': request.restaurant_name or 'Restaurant',
+                'menu_name': request.menu_name or 'Menu',
+                'confidence_score': 30,
+                'recommendations': []
+            }
+    
+    async def analyze_visual_nutrition(self, request: VisualNutritionRequest, user_id: str) -> VisualNutritionResult:
+        """Analyze meal image for more accurate portion-based nutrition estimation using GPT-4 Vision"""
+        try:
+            # Get the original menu item analysis
+            analysis = await self.get_analysis_by_id(request.menu_analysis_id, user_id)
+            if not analysis:
+                raise ValueError("Menu analysis not found")
+            
+            # Find the specific menu item
+            menu_item = None
+            for item in analysis.recommendations:
+                if item.id == request.item_id:
+                    menu_item = item
+                    break
+            
+            if not menu_item:
+                raise ValueError("Menu item not found in analysis")
+            
+            # Initialize OpenAI client
+            openai_api_key = os.getenv('OPENAI_API_KEY')
+            if not openai_api_key:
+                raise ValueError("OpenAI API key not configured")
+            
+            client = openai.OpenAI(api_key=openai_api_key)
+            
+            # Prepare the image data for OpenAI
+            image_data = request.image_data
+            if ',' in image_data:
+                # Remove data URL prefix if present
+                image_data = image_data.split(',')[1]
+            
+            # Create the visual analysis prompt
+            prompt = f"""Analyze this meal image for accurate portion size and nutrition estimation.
+
+ORIGINAL MENU ITEM DETAILS:
+• Name: {menu_item.name}
+• Description: {menu_item.description}
+• Category: {menu_item.category}
+• Original Nutrition Estimates (standard restaurant portion):
+  - Calories: {menu_item.estimated_nutrition.calories}
+  - Protein: {menu_item.estimated_nutrition.protein}g
+  - Carbs: {menu_item.estimated_nutrition.carbs}g
+  - Fat: {menu_item.estimated_nutrition.fat}g
+
+VISUAL ANALYSIS INSTRUCTIONS:
+
+1. PORTION SIZE ASSESSMENT:
+   - Compare this actual portion to typical restaurant servings
+   - Look for reference objects (utensils, plate, hands, coins) for scale
+   - Estimate if portion is larger/smaller than standard (give percentage)
+
+2. INGREDIENT IDENTIFICATION:
+   - Identify all visible food components
+   - Estimate the quantity/weight of each component
+   - Note any cooking methods visible (grilled, fried, etc.)
+   - Look for added fats, sauces, or oils
+
+3. NUTRITIONAL ADJUSTMENT:
+   - Adjust calories, protein, carbs, and fat based on actual portion
+   - Consider cooking methods that affect nutrition
+   - Account for any visible modifications
+
+4. CONFIDENCE ASSESSMENT:
+   - Rate your confidence (60-95%) based on image quality and detail
+   - Consider lighting, angle, and visibility of food components
+
+Provide your analysis in this exact JSON format:
+{{
+  "calories": 380,
+  "protein": 22,
+  "carbs": 28,
+  "fat": 15,
+  "fiber": 5,
+  "sodium": 620,
+  "confidence_score": 82,
+  "portion_notes": "Portion appears to be about 80% of typical restaurant serving. Grilled chicken breast estimated at 3.5oz, vegetables appear generous (~1 cup), rice portion is smaller than usual (~0.4 cup). Minimal visible oil or sauce.",
+  "reference_objects": ["fork", "dinner plate"],
+  "portion_size_factor": 0.8,
+  "adjustments_made": [
+    "Reduced overall portion by 20% based on visual comparison",
+    "Increased vegetable content due to generous serving",
+    "Reduced fat content due to minimal visible oil/sauce"
+  ]
+}}
+
+IMPORTANT: 
+- Be precise with nutritional estimates
+- Use reference objects for accurate scaling
+- Set confidence based on image clarity (60-95%)
+- Provide helpful portion analysis in portion_notes
+- Return ONLY the JSON object, no other text"""
+
+            try:
+                # Call GPT-4 Vision API
+                response = client.chat.completions.create(
+                    model="gpt-4o",  # Latest GPT-4 Vision model
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": prompt
+                                },
+                                {
+                                    "type": "image_url",
+                                    "image_url": {
+                                        "url": f"data:image/jpeg;base64,{image_data}",
+                                        "detail": "high"  # High detail for accurate analysis
+                                    }
+                                }
+                            ]
+                        }
+                    ],
+                    max_tokens=1000,
+                    temperature=0.1  # Low temperature for consistent analysis
+                )
+                
+                vision_response = response.choices[0].message.content
+                logger.info(f"GPT-4 Vision response received: {len(vision_response)} characters")
+                
+            except Exception as e:
+                logger.error(f"GPT-4 Vision API error: {e}")
+                # Fallback to text-based AI analysis
+                logger.info("Falling back to text-based AI analysis")
+                vision_response = await self.ai_service.generate_response(prompt)
+            
+            try:
+                # Parse JSON response
+                json_match = re.search(r'\{.*\}', vision_response, re.DOTALL)
+                if json_match:
+                    json_str = json_match.group()
+                else:
+                    json_str = vision_response
+                
+                visual_data = json.loads(json_str)
+                
+                # Create result with validation
+                result = VisualNutritionResult(
+                    item_id=request.item_id,
+                    calories=max(50, float(visual_data.get('calories', menu_item.estimated_nutrition.calories))),
+                    protein=max(0, float(visual_data.get('protein', menu_item.estimated_nutrition.protein))),
+                    carbs=max(0, float(visual_data.get('carbs', menu_item.estimated_nutrition.carbs))),
+                    fat=max(0, float(visual_data.get('fat', menu_item.estimated_nutrition.fat))),
+                    fiber=visual_data.get('fiber'),
+                    sodium=visual_data.get('sodium'),
+                    confidence_score=min(95, max(60, float(visual_data.get('confidence_score', 75)))),
+                    portion_notes=visual_data.get('portion_notes', 'Visual portion analysis completed with GPT-4 Vision'),
+                    reference_objects=visual_data.get('reference_objects', [])
+                )
+                
+                logger.info(f"Visual nutrition analysis completed for item {request.item_id}: {result.calories} cal, {result.confidence_score}% confidence")
+                
+                # Save/cache the visual nutrition analysis
+                await self._save_visual_nutrition(result, user_id, request.menu_analysis_id)
+                
+                return result
+                
+            except (json.JSONDecodeError, ValueError, KeyError) as e:
+                logger.error(f"Failed to parse visual nutrition response: {e}")
+                logger.debug(f"Raw response: {vision_response}")
+                
+                # Return conservative estimate based on original
+                return VisualNutritionResult(
+                    item_id=request.item_id,
+                    calories=menu_item.estimated_nutrition.calories * 0.85,  # Slightly conservative
+                    protein=menu_item.estimated_nutrition.protein * 0.85,
+                    carbs=menu_item.estimated_nutrition.carbs * 0.85,
+                    fat=menu_item.estimated_nutrition.fat * 0.85,
+                    confidence_score=65,
+                    portion_notes="Visual analysis had parsing issues, using conservative estimate based on typical portions",
+                    reference_objects=[]
+                )
+                
+        except Exception as e:
+            logger.error(f"Error in visual nutrition analysis: {e}")
+            raise Exception(f"Failed to analyze meal image: {str(e)}")
+    
+    async def _save_analysis(self, result: MenuAnalysisResult):
+        """Save analysis result to database"""
+        try:
+            if self.collection is not None:
+                self.collection.insert_one(result.dict())
+                logger.info(f"Saved menu analysis {result.id} for user {result.user_id}")
+        except Exception as e:
+            logger.error(f"Error saving analysis: {e}")
+
+    async def _save_visual_nutrition(self, result: VisualNutritionResult, user_id: str, menu_analysis_id: str):
+        """Save visual nutrition analysis to database for caching"""
+        try:
+            if self.db is not None:
+                visual_collection = self.db["visual_nutrition_analyses"]
+                
+                # Create visual nutrition document
+                visual_doc = {
+                    "id": str(uuid.uuid4()),
+                    "user_id": user_id,
+                    "menu_analysis_id": menu_analysis_id,
+                    "item_id": result.item_id,
+                    "visual_nutrition": result.dict(),
+                    "created_at": datetime.utcnow().isoformat(),
+                    "updated_at": datetime.utcnow().isoformat()
+                }
+                
+                # Upsert (update if exists, insert if not) based on user, menu analysis, and item
+                visual_collection.replace_one(
+                    {
+                        "user_id": user_id,
+                        "menu_analysis_id": menu_analysis_id,
+                        "item_id": result.item_id
+                    },
+                    visual_doc,
+                    upsert=True
+                )
+                
+                logger.info(f"Saved visual nutrition analysis for item {result.item_id}")
+        except Exception as e:
+            logger.error(f"Error saving visual nutrition analysis: {e}")
+
+    async def get_cached_visual_nutrition(self, user_id: str, menu_analysis_id: str, item_id: str) -> Optional[VisualNutritionResult]:
+        """Get cached visual nutrition analysis"""
+        try:
+            if self.db is not None:
+                visual_collection = self.db["visual_nutrition_analyses"]
+                
+                doc = visual_collection.find_one({
+                    "user_id": user_id,
+                    "menu_analysis_id": menu_analysis_id,
+                    "item_id": item_id
+                })
+                
+                if doc and doc.get("visual_nutrition"):
+                    return VisualNutritionResult(**doc["visual_nutrition"])
+                    
+            return None
+        except Exception as e:
+            logger.error(f"Error getting cached visual nutrition: {e}")
+            return None
+
+# Create singleton instance
+restaurant_ai_service = RestaurantAIService()
