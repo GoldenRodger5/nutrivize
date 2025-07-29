@@ -28,6 +28,8 @@ import { useAppState } from '../contexts/AppStateContext'
 import { getCurrentDateInTimezone, getUserTimezone } from '../utils/timezone'
 import QuickActionsWidget from '../components/dashboard/QuickActionsWidget'
 import UserSystemNotifications from '../components/notifications/UserSystemNotifications'
+import SEO from '../components/SEO'
+import { seoConfigs } from '../utils/seoConfig'
 
 export default function Dashboard() {
   const { user } = useAuth()
@@ -84,7 +86,9 @@ export default function Dashboard() {
   }
 
   return (
-    <Container maxW={isMobile ? "100%" : "container.xl"} py={isMobile ? 4 : 8} px={isMobile ? 3 : 8}>
+    <>
+      <SEO {...seoConfigs.home} />
+      <Container maxW={isMobile ? "100%" : "container.xl"} py={isMobile ? 4 : 8} px={isMobile ? 3 : 8}>
       <VStack spacing={isMobile ? 4 : 8} align="stretch">
         {/* Header */}
         <Box textAlign={isMobile ? "center" : "left"}>
@@ -263,5 +267,6 @@ export default function Dashboard() {
         )}
       </VStack>
     </Container>
+    </>
   )
 }

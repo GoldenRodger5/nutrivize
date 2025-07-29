@@ -3,11 +3,23 @@
   <head>
     <meta charset="UTF-8" />
     
-    <!-- Basic Meta Tags -->
+    <!-- SEO Meta Tags -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-    <meta name="description" content="AI-powered nutrition tracking and meal planning app. Track your meals, get personalized insights, and achieve your health goals." />
+    <meta name="description" content="Nutrivize - Smart nutrition tracking and AI-powered meal planning. Track calories, macros, and nutrients. Get personalized meal suggestions and achieve your health goals with Nutrivize." />
+    <meta name="keywords" content="nutrivize, nutrivize app, nutrivize nutrition tracker, nutrivize meal planner, nutrition tracker, calorie counter, meal planning, diet app, health app, food diary, macro tracker, nutrition app, AI meal planner, healthy eating" />
+    <meta name="author" content="Nutrivize" />
+    <meta name="robots" content="index, follow" />
     <meta name="theme-color" content="#48bb78" />
     <meta name="background-color" content="#ffffff" />
+    
+    <!-- Brand-specific meta tags -->
+    <meta name="application-name" content="Nutrivize" />
+    <meta property="og:site_name" content="Nutrivize" />
+    <meta name="twitter:site" content="@nutrivize" />
+    <meta name="publisher" content="Nutrivize" />
+    
+    <!-- Canonical URL -->
+    <link rel="canonical" href="https://nutrivize.app" />
     
     <!-- PWA Meta Tags -->
     <meta name="application-name" content="Nutrivize" />
@@ -59,16 +71,22 @@
     
     <!-- Open Graph / Social Media -->
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="Nutrivize - Smart Nutrition Tracker" />
-    <meta property="og:description" content="AI-powered nutrition tracking and meal planning app" />
-    <meta property="og:image" content="/icons/icon-512x512.png" />
-    <meta property="og:url" content="https://nutrivize-frontend.onrender.com" />
+    <meta property="og:site_name" content="Nutrivize" />
+    <meta property="og:title" content="Nutrivize - Smart Nutrition Tracker & AI Meal Planner" />
+    <meta property="og:description" content="Track nutrition, count calories, and get AI-powered meal suggestions. The smart way to achieve your health and fitness goals." />
+    <meta property="og:image" content="https://nutrivize.app/icons/icon-512x512.png" />
+    <meta property="og:image:width" content="512" />
+    <meta property="og:image:height" content="512" />
+    <meta property="og:url" content="https://nutrivize.app" />
+    <meta property="og:locale" content="en_US" />
     
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Nutrivize - Smart Nutrition Tracker" />
-    <meta name="twitter:description" content="AI-powered nutrition tracking and meal planning app" />
-    <meta name="twitter:image" content="/icons/icon-512x512.png" />
+    <meta name="twitter:site" content="@nutrivize" />
+    <meta name="twitter:creator" content="@nutrivize" />
+    <meta name="twitter:title" content="Nutrivize - Smart Nutrition Tracker & AI Meal Planner" />
+    <meta name="twitter:description" content="Track nutrition, count calories, and get AI-powered meal suggestions. The smart way to achieve your health and fitness goals." />
+    <meta name="twitter:image" content="https://nutrivize.app/icons/icon-512x512.png" />
     
     <!-- CSS for Dynamic Island optimization -->
     <style>
@@ -94,10 +112,10 @@
       }
     </style>
     
-    <title>Nutrivize V2 - Smart Nutrition Tracker</title>
-    <script type="module" crossorigin src="/assets/index-0uOn4qZj.js"></script>
+    <title>Nutrivize - Smart Nutrition Tracker & AI Meal Planner | Official Nutrivize App</title>
+    <script type="module" crossorigin src="/assets/index-Dm_drgnv.js"></script>
     <link rel="modulepreload" crossorigin href="/assets/vendor-BTukGEff.js">
-    <link rel="modulepreload" crossorigin href="/assets/chakra-CUYaOWQ4.js">
+    <link rel="modulepreload" crossorigin href="/assets/chakra-DcC1z1R2.js">
     <link rel="modulepreload" crossorigin href="/assets/router-DLIK_EF6.js">
     <link rel="stylesheet" crossorigin href="/assets/index-Bs7tFQHA.css">
   <link rel="manifest" href="/manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="/registerSW.js"></script></head>
@@ -142,6 +160,52 @@
           }
         } catch (e) {}
       })();
+    </script>
+    
+    <!-- Structured Data for Organization -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "Nutrivize",
+      "alternateName": ["Nutrivize App", "Nutrivize Nutrition Tracker", "Nutrivize AI"],
+      "url": "https://nutrivize.app",
+      "logo": "https://nutrivize.app/icons/icon-512x512.png",
+      "description": "Official Nutrivize - Smart nutrition tracking and AI-powered meal planning platform",
+      "foundingDate": "2024",
+      "sameAs": [
+        "https://twitter.com/nutrivize",
+        "https://facebook.com/nutrivize",
+        "https://instagram.com/nutrivize"
+      ],
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "telephone": "+1-555-NUTRIVIZE",
+        "contactType": "customer service",
+        "email": "support@nutrivize.app"
+      },
+      "brand": {
+        "@type": "Brand",
+        "name": "Nutrivize"
+      }
+    }
+    </script>
+    
+    <!-- Structured Data for WebSite -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "Nutrivize",
+      "alternateName": ["Nutrivize Official", "Nutrivize App", "Nutrivize Website"],
+      "url": "https://nutrivize.app",
+      "description": "Official Nutrivize website - Smart nutrition tracking and AI-powered meal planning",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": "https://nutrivize.app/food-index?q={search_term_string}",
+        "query-input": "required name=search_term_string"
+      }
+    }
     </script>
   </body>
 </html>

@@ -13,21 +13,15 @@ import {
   Card,
   CardHeader,
   CardBody,
-  Tabs,
-  TabList,
-  TabPanels,
-  Tab,
-  TabPanel,
 } from '@chakra-ui/react'
 import { useAuth } from '../../contexts/AuthContext'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [name, setName] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const { login, register } = useAuth()
+  const { login } = useAuth()
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -42,19 +36,6 @@ export default function LoginPage() {
     } catch (error: any) {
       console.error('❌ Login failed:', error)
       setError(error.message || 'Login failed')
-    }
-    setLoading(false)
-  }
-
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    setLoading(true)
-
-    try {
-      await register(email, password, name)
-    } catch (error: any) {
-      setError(error.message || 'Registration failed')
     }
     setLoading(false)
   }
@@ -79,110 +60,51 @@ export default function LoginPage() {
         </CardHeader>
         
         <CardBody>
-          <Tabs isFitted variant="enclosed">
-            <TabList mb={4}>
-              <Tab>Login</Tab>
-              <Tab>Register</Tab>
-            </TabList>
-            
-            <TabPanels>
-              <TabPanel p={0}>
-                <form onSubmit={handleLogin}>
-                  <VStack spacing={4}>
-                    {error && (
-                      <Alert status="error">
-                        <AlertIcon />
-                        {error}
-                      </Alert>
-                    )}
-                    
-                    <FormControl isRequired>
-                      <FormLabel>Email</FormLabel>
-                      <Input
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="Enter your email"
-                      />
-                    </FormControl>
-                    
-                    <FormControl isRequired>
-                      <FormLabel>Password</FormLabel>
-                      <Input
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="Enter your password"
-                      />
-                    </FormControl>
-                    
-                    <Button
-                      type="submit"
-                      colorScheme="green"
-                      size="lg"
-                      w="full"
-                      isLoading={loading}
-                    >
-                      Sign In
-                    </Button>
-                  </VStack>
-                </form>
-              </TabPanel>
+          <form onSubmit={handleLogin}>
+            <VStack spacing={4}>
+              {error && (
+                <Alert status="error">
+                  <AlertIcon />
+                  {error}
+                </Alert>
+              )}
               
-              <TabPanel p={0}>
-                <form onSubmit={handleRegister}>
-                  <VStack spacing={4}>
-                    {error && (
-                      <Alert status="error">
-                        <AlertIcon />
-                        {error}
-                      </Alert>
-                    )}
-                    
-                    <FormControl isRequired>
-                      <FormLabel>Name</FormLabel>
-                      <Input
-                        type="text"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        placeholder="Enter your name"
-                      />
-                    </FormControl>
-                    
-                    <FormControl isRequired>
-                      <FormLabel>Email</FormLabel>
-                      <Input
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="Enter your email"
-                      />
-                    </FormControl>
-                    
-                    <FormControl isRequired>
-                      <FormLabel>Password</FormLabel>
-                      <Input
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="Enter your password"
-                      />
-                    </FormControl>
-                    
-                    <Button
-                      type="submit"
-                      colorScheme="green"
-                      size="lg"
-                      w="full"
-                      isLoading={loading}
-                    >
-                      Sign Up
-                    </Button>
-                  </VStack>
-                </form>
-              </TabPanel>
-            </TabPanels>
-          </Tabs>
+              <FormControl isRequired>
+                <FormLabel>Email</FormLabel>
+                <Input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Enter your email"
+                />
+              </FormControl>
+              
+              <FormControl isRequired>
+                <FormLabel>Password</FormLabel>
+                <Input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                />
+              </FormControl>
+              
+              <Button
+                type="submit"
+                colorScheme="green"
+                size="lg"
+                w="full"
+                isLoading={loading}
+              >
+                Sign In
+              </Button>
+              
+              <Text fontSize="sm" color="gray.500" textAlign="center">
+                Registration is currently invite-only. <br />
+                Contact us at hello@nutrivize.app for access.
+              </Text>
+            </VStack>
+          </form>
         </CardBody>
       </Card>
     </Box>
