@@ -98,6 +98,7 @@ test_*.py
 **/build/**/*.js
 frontend/dist/
 backend/dist/
+backend/backups/frontend_dist/
 
 # Cache and temporary build files
 .cache/

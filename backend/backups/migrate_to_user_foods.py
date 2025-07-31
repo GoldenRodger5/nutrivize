@@ -15,7 +15,7 @@ def migrate_to_user_foods():
     """
     
     # MongoDB connection
-    mongo_uri = os.getenv('MONGODB_URI', 'mongodb+srv://isaacmineo:Buddydog41@cluster0.kq7ul8z.mongodb.net/nutrivize?retryWrites=true&w=majority')
+    mongo_uri = os.getenv('MONGODB_URI', 'mongodb+srv://username:password@cluster.mongodb.net/nutrivize?retryWrites=true&w=majority')
     client = MongoClient(mongo_uri)
     db = client['nutrivize']
     

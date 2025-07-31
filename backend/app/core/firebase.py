@@ -12,7 +12,7 @@ class FirebaseManager:
     
     def __init__(self):
         self.app = None
-        self.api_key = "AIzaSyAORKm-1yynaNrSomVU0P18HyS_4HSzHks"  # From frontend env
+        self.api_key = os.getenv('VITE_FIREBASE_API_KEY', 'your-firebase-api-key')  # Load from environment
         self._initialize()
     
     def _initialize(self):
