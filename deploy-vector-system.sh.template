@@ -1,7 +1,10 @@
 #!/bin/bash
 
-# Nutrivize V2 - Pinecone Vector Database Deployment Script
+# Nutrivize V2 - Pinecone Vector Database Deployment Script Template
 # This script helps deploy the new vector-enhanced AI features
+# 
+# IMPORTANT: Copy this to deploy-vector-system.sh and configure your environment variables
+# The actual deploy-vector-system.sh is gitignored for security
 
 echo "🚀 Deploying Nutrivize V2 with Pinecone Vector Database"
 echo "========================================================="
@@ -57,9 +60,8 @@ if [ $PINECONE_OK -ne 0 ] || [ $OPENAI_OK -ne 0 ]; then
         echo "4. Go to API Keys and copy your API key"
         echo "5. Set environment variable: PINECONE_API_KEY=your_api_key_here"
         echo ""
-        echo "Your provided API key: pcsk_3tMbDL_83ZTXkuaganqN1rXGXx6Lpk2z9FXeNhFsn9CdQkdmmnyQYtozsvRAjjyiJXTgcS"
-        echo "Add this to your environment:"
-        echo "export PINECONE_API_KEY=pcsk_3tMbDL_83ZTXkuaganqN1rXGXx6Lpk2z9FXeNhFsn9CdQkdmmnyQYtozsvRAjjyiJXTgcS"
+        echo "Please add your Pinecone API key to your environment:"
+        echo "export PINECONE_API_KEY=your_pinecone_api_key_here"
     fi
     
     if [ $OPENAI_OK -ne 0 ]; then

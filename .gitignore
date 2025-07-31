@@ -11,10 +11,51 @@ backend/*.pyc
 .env
 .env.local
 .env.development
+.env.production
+*.env
+*.env.*
 
 # Firebase credentials
 *firebase*.json
 firebase-adminsdk*.json
+food-tracker-*.json
+
+# API Keys and secrets (any file containing credentials)
+*credentials*.json
+*service-account*.json
+*.key
+*.pem
+
+# Additional secret patterns
+*secret*
+*password*
+*apikey*
+*api-key*
+*token*
+*auth*
+
+# Backup files that may contain secrets
+*.old
+*.backup
+*.bak
+*backup*
+.env.production.old
+.env.*.old
+
+# Scripts that may contain hardcoded secrets
+*setup*.sh
+*start*.sh
+*deploy*.sh
+deploy-vector-system.sh
+scripts/setup/
+scripts/development/
+create_*.sh
+check-*.sh
+
+# Documentation with potential secrets
+docs/*SECRET*
+docs/*API*
+docs/*DEPLOYMENT*
 
 # Logs
 *.log
@@ -46,3 +87,25 @@ Thumbs.db
 # Test files
 test_*.py
 *_test.py
+
+# Production and sensitive data files
+*production*
+*prod*
+*staging*
+
+# Compiled assets that may contain keys
+**/dist/**/*.js
+**/build/**/*.js
+frontend/dist/
+backend/dist/
+
+# Cache and temporary build files
+.cache/
+*.cache
+node_modules/.cache/
+
+# Any file starting with sensitive prefixes
+sk-*
+pcsk_*
+AIza*
+mongodb+srv*
