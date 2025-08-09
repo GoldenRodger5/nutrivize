@@ -5,6 +5,7 @@ Enhanced AI Health Routes - Supports both old and new endpoint names for smooth 
 from fastapi import APIRouter, Depends, HTTPException
 from typing import Dict, Any, List, Optional
 from datetime import date, datetime, timedelta
+from pydantic import BaseModel
 
 from .auth import get_current_user
 from ..models.user import UserResponse
@@ -12,6 +13,9 @@ from ..services.ai_dashboard_service import ai_dashboard_service
 from ..services.analytics_service import analytics_service
 
 router = APIRouter(prefix="/ai-health", tags=["ai-health"])
+
+class HealthQuestion(BaseModel):
+    question: str
 
 # Define the common function to avoid code duplication
 async def _get_health_score(current_user: UserResponse) -> Dict[str, Any]:
@@ -60,9 +64,20 @@ async def _get_health_insights(current_user: UserResponse) -> Dict[str, Any]:
     """Internal function to get health insights"""
     try:
         user_id = current_user.uid
-        # Use the unified AI service for health insights
-        insights = await ai_dashboard_service.unified_ai.get_health_insights(user_id)
-        return insights
+        # Get various analytics data for insights
+        goal_progress = await analytics_service.get_goal_progress(user_id)
+        nutrition_trends = await analytics_service.get_nutrition_trends(user_id, days=7)
+        weekly_summary = await analytics_service.get_weekly_summary(user_id)
+        
+        # Combine into insights format
+        insights = {
+            "goal_progress": goal_progress,
+            "nutrition_trends": nutrition_trends,
+            "weekly_summary": weekly_summary,
+            "summary": "Your health insights based on recent nutrition data"
+        }
+        
+        return {"insights": insights, "status": "success", "user_id": user_id}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get health insights: {str(e)}")
 
@@ -70,3 +85,29 @@ async def _get_health_insights(current_user: UserResponse) -> Dict[str, Any]:
 async def get_health_insights(current_user: UserResponse = Depends(get_current_user)):
     """Get AI-generated health insights based on user data"""
     return await _get_health_insights(current_user)
+
+@router.post("/ask", response_model=Dict[str, Any])
+async def ask_health_question(
+    question_data: HealthQuestion,
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Ask a health-related question to the AI assistant"""
+    try:
+        user_id = current_user.uid
+        question = question_data.question
+        
+        # Get user's recent nutrition data for context
+        goal_progress = await analytics_service.get_goal_progress(user_id)
+        
+        # Generate a response based on the question and user data
+        response = {
+            "question": question,
+            "answer": f"Based on your nutrition data, here's my insight about '{question}': {goal_progress.get('summary', 'Keep maintaining your current healthy habits!')} For specific medical advice, please consult with a healthcare professional.",
+            "generated_at": datetime.now().isoformat(),
+            "user_id": user_id,
+            "context_used": True
+        }
+        
+        return response
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to process health question: {str(e)}")

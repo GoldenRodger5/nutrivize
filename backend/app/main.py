@@ -32,7 +32,7 @@ from .core.error_handling import (
 from .core.exceptions import NutrivizeException
 
 # Import routes safely
-from .routes import auth, foods, food_logs, ai, ai_coaching, meal_planning, preferences, goals, weight_logs, water_logs, nutrition_labels, dietary, ai_dashboard, restaurant_ai, ai_health, food_stats, user_favorites, user_foods, user, onboarding
+from .routes import auth, foods, food_logs, ai, ai_coaching, meal_planning, preferences, goals, weight_logs, water_logs, nutrition_labels, dietary, ai_dashboard, restaurant_ai, ai_health, food_stats, user_favorites, user_foods, user, onboarding, users
 
 # Import vector routes
 try:
@@ -219,6 +219,7 @@ app.include_router(food_stats.router, prefix="/food-stats", tags=["food-stats"])
 app.include_router(user_favorites.router, tags=["favorites"])                  # user_favorites.router has /favorites prefix
 app.include_router(user_foods.router, tags=["user-foods"])                     # user_foods.router has /user-foods prefix
 app.include_router(user.router, tags=["user"])                                 # user.router has /user prefix
+app.include_router(users.router, tags=["users"])                               # users.router has /users prefix
 app.include_router(vectors.router, tags=["vectors"])                           # vectors.router has /vectors prefix
 
 logger.info("API routes configured successfully")

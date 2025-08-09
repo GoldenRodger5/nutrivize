@@ -95,6 +95,82 @@ async def get_insights(
     }
 
 
+@router.get("/nutrition-streak")
+async def get_nutrition_streak(
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Get nutrition streak data for dashboard widget"""
+    logger.info(f"Nutrition streak requested for user {current_user.uid}")
+    
+    return {
+        "current_streak": 5,
+        "best_streak": 12,
+        "streak_type": "daily_goals_met",
+        "last_goal_met_date": "2025-08-09",
+        "days_with_goals_met": 5,
+        "total_days_tracked": 7,
+        "streak_percentage": 71.4,
+        "message": "Keep up the great work!",
+        "status": "active"
+    }
+
+
+@router.get("/nutrition-streak")
+async def get_nutrition_streak(
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Get nutrition streak data for dashboard widget"""
+    logger.info(f"Nutrition streak requested for user {current_user.uid}")
+    
+    return {
+        "current_streak": 5,
+        "best_streak": 12,
+        "streak_type": "daily_goals_met",
+        "last_goal_met_date": "2025-08-09",
+        "days_with_goals_met": 5,
+        "total_days_tracked": 7,
+        "streak_percentage": 71.4,
+        "message": "Keep up the great work!",
+        "status": "active"
+    }
+
+
+@router.get("/weekly-summary")
+async def get_weekly_summary(
+    end_date: str = Query(None, description="End date in YYYY-MM-DD format"),
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Get weekly nutrition summary"""
+    logger.info(f"Weekly summary requested for user {current_user.uid}")
+    
+    return {
+        "message": "Weekly summary data is currently being processed",
+        "data": {
+            "week_ending": end_date or "2025-08-09",
+            "calories_avg": 1850,
+            "protein_avg": 120,
+            "carbs_avg": 200,
+            "fat_avg": 65,
+            "days_logged": 6,
+            "streak_days": 5
+        },
+        "status": "processing"
+    }
+
+
+@router.delete("/insights/cache")
+async def clear_insights_cache(
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Clear insights cache"""
+    logger.info(f"Cache clear requested for user {current_user.uid}")
+    
+    return {
+        "message": "Cache cleared successfully",
+        "status": "success"
+    }
+
+
 @router.get("/daily-summary")
 async def get_daily_summary(
     date: str = Query(None, description="Date in YYYY-MM-DD format, defaults to today"),

@@ -15,6 +15,103 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/food-logs", tags=["food_logs"])
 
 
+@router.get("/")
+async def get_food_logs(current_user: UserResponse = Depends(get_current_user)):
+    """Get all food logs for the current user"""
+    try:
+        logs = await food_log_service.get_user_logs(current_user.uid)
+        return {"logs": logs, "count": len(logs)}
+    except Exception as e:
+        logger.error(f"Error getting food logs: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get food logs")
+
+
+@router.get("/today")
+async def get_today_logs(current_user: UserResponse = Depends(get_current_user)):
+    """Get today's food logs"""
+    try:
+        today_date = date.today().isoformat()
+        logs = await food_log_service.get_logs_by_date(current_user.uid, today_date)
+        return {"date": today_date, "logs": logs, "count": len(logs)}
+    except Exception as e:
+        logger.error(f"Error getting today's logs: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get today's logs")
+
+
+@router.get("/recent")
+async def get_recent_logs(
+    limit: int = Query(10, description="Number of recent logs to return"),
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Get recent food logs"""
+    try:
+        logs = await food_log_service.get_recent_logs(current_user.uid, limit)
+        return {"logs": logs, "count": len(logs)}
+    except Exception as e:
+        logger.error(f"Error getting recent logs: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get recent logs")
+
+
+@router.get("/date-range")
+async def get_logs_by_date_range(
+    start_date: str = Query(..., description="Start date in YYYY-MM-DD format"),
+    end_date: str = Query(..., description="End date in YYYY-MM-DD format"),
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Get food logs for a date range"""
+    try:
+        logs = await food_log_service.get_logs_by_date_range(current_user.uid, start_date, end_date)
+        return {"start_date": start_date, "end_date": end_date, "logs": logs, "count": len(logs)}
+    except Exception as e:
+        logger.error(f"Error getting logs by date range: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get logs by date range")
+
+
+@router.get("/date/{date}")
+async def get_logs_by_date(
+    date: str,
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Get food logs for a specific date"""
+    try:
+        logs = await food_log_service.get_logs_by_date(current_user.uid, date)
+        return {"date": date, "logs": logs, "count": len(logs)}
+    except Exception as e:
+        logger.error(f"Error getting logs by date: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get logs by date")
+
+
+@router.get("/daily/{date}")
+async def get_daily_logs(
+    date: str,
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Get daily food logs with nutrition summary"""
+    try:
+        # Convert string date to date object
+        from datetime import datetime
+        date_obj = datetime.strptime(date, "%Y-%m-%d").date()
+        daily_data = await food_log_service.get_daily_logs_with_goal_progress(current_user.uid, date_obj)
+        return daily_data or {"date": date, "logs": [], "nutrition_summary": {}, "goal_progress": {}}
+    except Exception as e:
+        logger.error(f"Error getting daily logs: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get daily logs")
+
+
+@router.delete("/{log_id}")
+async def delete_food_log(
+    log_id: str,
+    current_user: UserResponse = Depends(get_current_user)
+):
+    """Delete a food log entry"""
+    try:
+        await food_log_service.delete_food_log(log_id, current_user.uid)
+        return {"message": "Food log deleted successfully"}
+    except Exception as e:
+        logger.error(f"Error deleting food log: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete food log")
+
+
 @router.post("/", response_model=FoodLogResponse)
 async def log_food(
     log_data: FoodLogCreate,

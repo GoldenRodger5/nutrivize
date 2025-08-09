@@ -1,0 +1,6 @@
+export { default as HealthScoreDetailModal } from './HealthScoreDetailModal'
+export { default as WeeklyProgressDetailModal } from './WeeklyProgressDetailModal'
+export { default as NutritionStreakDetailModal } from './NutritionStreakDetailModal'
+export { default as WaterIntakeDetailModal } from './WaterIntakeDetailModal'
+export { default as RecentMealsDetailModal } from './RecentMealsDetailModal'
+export { default as GoalsProgressDetailModal } from './GoalsProgressDetailModal'

@@ -49,13 +49,15 @@ import { useUserPreferences } from '../hooks/useUserPreferences'
 import TodaysNutritionDetailModal from '../components/nutrition/TodaysNutritionDetailModal'
 import UserSystemNotifications from '../components/notifications/UserSystemNotifications'
 import ErrorBoundary from '../components/ui/ErrorBoundary'
+import AIHealthAssistant from '../components/ai/AIHealthAssistant'
+import EnhancedAIInsights from '../components/ai/EnhancedAIInsights'
 import WaterLogModal from '../components/nutrition/WaterLogModal'
 import WeightLogModal from '../components/nutrition/WeightLogModal'
 import FoodLogModal from '../components/food/FoodLogModal'
 import NutritionLabelScanner from '../components/nutrition/NutritionLabelScanner'
 import AIResponseFormatter from '../components/dashboard/AIResponseFormatter'
 import { WeightTrendChart, NutritionTrendChart, MacroDistributionChart } from '../components/dashboard/ChartsComponents'
-import { RecentMealsWidget, WaterIntakeWidget, StreakWidget, GoalsProgressWidget, HealthScoreWidget } from '../components/dashboard/DashboardWidgets'
+import { RecentMealsWidget, WaterIntakeWidget, StreakWidget, GoalsProgressWidget, HealthScoreWidget, WeeklyProgressWidget } from '../components/dashboard/DashboardWidgets'
 
 const MotionCard = motion(Card)
 const MotionBox = motion(Box)
@@ -1817,6 +1819,7 @@ export default function AIDashboard() {
               <TabList bg="white" p={3} borderRadius="xl" boxShadow="sm" overflowX="auto" overflowY="hidden">
                 <Tab fontSize="sm" minW="80px" minH="44px" px={4}>🤖 AI</Tab>
                 <Tab fontSize="sm" minW="80px" minH="44px" px={4}>📊 Stats</Tab>
+                <Tab fontSize="sm" minW="80px" minH="44px" px={4}>💬 Chat</Tab>
                 <Tab fontSize="sm" minW="80px" minH="44px" px={4}>⚡ Quick</Tab>
               </TabList>
 
@@ -1954,6 +1957,17 @@ export default function AIDashboard() {
                       </CardBody>
                     </Card>
                   </Box>
+                </VStack>
+              </TabPanel>
+
+              {/* Chat Tab - AI Assistant */}
+              <TabPanel p={3}>
+                <VStack spacing={4}>
+                  {/* AI Health Assistant */}
+                  <AIHealthAssistant />
+                  
+                  {/* Enhanced AI Insights */}
+                  <EnhancedAIInsights />
                 </VStack>
               </TabPanel>
 
@@ -2313,6 +2327,23 @@ export default function AIDashboard() {
               height="100%"
             >
               <HealthScoreWidget score={enhancedHealthScore?.overall_score || healthScore?.overall_score || 0} />
+            </MotionCard>
+            )}
+
+            {/* Weekly Progress Widget */}
+            {enabledWidgets.includes('weekly_progress') && (
+            <MotionCard 
+              bg={cardBg}
+              borderColor={cardBorderColor}
+              borderWidth={1} 
+              borderRadius="xl"
+              overflow="hidden"
+              boxShadow="md"
+              _hover={{ boxShadow: 'lg', transform: 'translateY(-2px)' }}
+              transition="all 0.3s ease"
+              height="100%"
+            >
+              <WeeklyProgressWidget />
             </MotionCard>
             )}
 

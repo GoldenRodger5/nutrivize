@@ -36,6 +36,35 @@ async def search_foods(
     return results
 
 
+@router.get("/categories")
+async def get_food_categories():
+    """Get available food categories"""
+    try:
+        categories = [
+            "fruits", "vegetables", "grains", "protein", "dairy", 
+            "nuts", "beverages", "snacks", "desserts", "condiments"
+        ]
+        return {"categories": categories}
+    except Exception as e:
+        return {"categories": []}
+
+
+@router.get("/popular")
+async def get_popular_foods(limit: int = Query(20, description="Number of popular foods to return")):
+    """Get popular foods"""
+    try:
+        popular_foods = [
+            {"id": "apple", "name": "Apple", "category": "fruits"},
+            {"id": "banana", "name": "Banana", "category": "fruits"},
+            {"id": "chicken", "name": "Chicken Breast", "category": "protein"},
+            {"id": "rice", "name": "White Rice", "category": "grains"},
+            {"id": "broccoli", "name": "Broccoli", "category": "vegetables"}
+        ]
+        return {"foods": popular_foods[:limit], "count": len(popular_foods[:limit])}
+    except Exception as e:
+        return {"foods": [], "count": 0}
+
+
 @router.get("/user-index", response_model=List[FoodItemResponse])
 async def get_user_foods_index(
     current_user: UserResponse = Depends(get_current_user)

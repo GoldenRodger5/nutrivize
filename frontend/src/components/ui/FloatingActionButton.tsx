@@ -76,8 +76,8 @@ const FloatingActionButton: React.FC = () => {
       <Portal>
         <Box
           position="fixed"
-          bottom="110px" // Above bottom nav with more space
-          right="20px"
+          bottom="120px" // Above bottom nav with more breathing room
+          right="24px"
           zIndex={1500}
         >
           {/* Quick Actions Menu */}

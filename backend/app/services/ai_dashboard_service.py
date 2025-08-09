@@ -5,6 +5,7 @@ AI Dashboard Service - Powers the AI-first dashboard with intelligent insights
 import logging
 from datetime import datetime, timedelta, date
 from typing import Dict, List, Any, Optional
+from fastapi import HTTPException
 from ..services.unified_ai_service import unified_ai_service
 from ..services.ai_dashboard_cache_service import ai_dashboard_cache_service
 from ..core.config import get_database
@@ -38,13 +39,8 @@ class AIDashboardService:
             
             return fresh_data
         except Exception as e:
-            logger.error(f"Error getting AI health coaching: {e}")
-            return {
-                "personalizedInsight": "Keep tracking your nutrition for personalized insights!",
-                "urgentAction": None,
-                "weeklyTrend": "Building healthy habits",
-                "aiConfidence": 75
-            }
+            logger.error(f"Error getting AI health coaching for user {user_id}: {e}")
+            raise HTTPException(status_code=500, detail="Unable to generate health coaching insights. Please ensure you have logged nutrition data.")
     
     async def get_smart_nutrition_data(self, user_id: str) -> Dict[str, Any]:
         """Get real-time smart nutrition data - NOT cached as it changes throughout the day"""
@@ -58,9 +54,8 @@ class AIDashboardService:
             daily_data = await food_log_service.get_daily_logs_with_goal_progress(user_id, today)
             
             if not daily_data or "nutrition_summary" not in daily_data:
-                logger.warning(f"No nutrition data found for user {user_id}, using fallback")
-                # Fall back to unified AI method
-                return await self.unified_ai.get_dashboard_data(user_id, "nutrition")
+                logger.error(f"No nutrition data found for user {user_id}")
+                raise HTTPException(status_code=404, detail="No nutrition data found. Please log some food entries first.")
             
             # Transform the nutrition summary to match the expected format
             nutrition_summary = daily_data["nutrition_summary"]
@@ -93,15 +88,8 @@ class AIDashboardService:
             return nutrition_data
             
         except Exception as e:
-            logger.error(f"Error getting smart nutrition data: {e}")
-            return {
-                "calories": {"current": 1500, "target": 2000, "percentage": 75},
-                "protein": {"current": 120, "target": 150, "percentage": 80},
-                "carbs": {"current": 180, "target": 250, "percentage": 72},
-                "fat": {"current": 50, "target": 65, "percentage": 77},
-                "fiber": {"current": 20, "target": 25, "percentage": 80},
-                "water": {"current": 32, "target": 64, "percentage": 50}
-            }
+            logger.error(f"Error getting smart nutrition data for user {user_id}: {e}")
+            raise HTTPException(status_code=500, detail="Unable to retrieve nutrition data. Please try again.")
     
     async def get_predictive_analytics(self, user_id: str) -> Dict[str, Any]:
         """Get AI-powered predictive health analytics with caching"""
@@ -121,12 +109,8 @@ class AIDashboardService:
             
             return fresh_data
         except Exception as e:
-            logger.error(f"Error getting predictive analytics: {e}")
-            return {
-                "weightTrend": {"direction": "stable", "rate": "N/A", "confidence": 75},
-                "healthScore": {"current": 75, "predicted": 80, "timeframe": "30 days"},
-                "goals": {"weightLoss": {"progress": 50, "daysRemaining": 60}}
-            }
+            logger.error(f"Error getting predictive analytics for user {user_id}: {e}")
+            raise HTTPException(status_code=500, detail="Unable to generate predictions. Please ensure you have sufficient data history.")
     
     async def get_live_optimizations(self, user_id: str) -> Dict[str, Any]:
         """Get real-time meal and nutrition optimizations"""
@@ -148,12 +132,8 @@ class AIDashboardService:
             
             return optimization_data
         except Exception as e:
-            logger.error(f"Error getting live optimizations: {e}")
-            return {
-                "meal_timing": "Keep consistent meal times",
-                "nutrient_balance": "Focus on balanced nutrition",
-                "hydration": "Stay hydrated throughout the day"
-            }
+            logger.error(f"Error getting live optimizations for user {user_id}: {e}")
+            raise HTTPException(status_code=500, detail="Unable to generate optimization suggestions. Please try again.")
     
     async def invalidate_user_cache(self, user_id: str, cache_type: Optional[str] = None) -> bool:
         """Invalidate cached data for a user (useful when new data is logged)"""

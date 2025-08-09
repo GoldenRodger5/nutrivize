@@ -506,8 +506,19 @@ async def get_health_insights(
 ):
     """Generate comprehensive health insights and recommendations"""
     try:
-        # Get comprehensive health insights using the unified AI service
-        insights = await ai_dashboard_service.unified_ai.get_health_insights(current_user.uid)
+        # Get comprehensive health insights using analytics service
+        from ..services.analytics_service import analytics_service
+        goal_progress = await analytics_service.get_goal_progress(current_user.uid)
+        nutrition_trends = await analytics_service.get_nutrition_trends(current_user.uid, days=7)
+        weekly_summary = await analytics_service.get_weekly_summary(current_user.uid)
+        
+        insights = {
+            "goal_progress": goal_progress,
+            "nutrition_trends": nutrition_trends,
+            "weekly_summary": weekly_summary,
+            "summary": "Comprehensive health insights based on your recent data"
+        }
+        
         return {
             "success": True,
             "insights": insights,
@@ -591,7 +602,7 @@ async def get_todays_nutrition_detail(
             # Add to totals
             nutrition = clean_log["nutrition"]
             for nutrient in overall_totals:
-                amount = nutrition.get(nutrient, 0)
+                amount = nutrition.get(nutrient, 0) or 0  # Handle None values
                 overall_totals[nutrient] += amount
                 
                 # Add to meal totals
@@ -603,6 +614,8 @@ async def get_todays_nutrition_detail(
         target_percentages = {}
         for nutrient, total in overall_totals.items():
             target = targets.get(nutrient, 100)
+            total = total or 0  # Handle None values
+            target = target or 100  # Handle None targets
             percentage = round((total / target) * 100, 1) if target > 0 else 0
             target_percentages[nutrient] = {
                 "current": round(total, 1),

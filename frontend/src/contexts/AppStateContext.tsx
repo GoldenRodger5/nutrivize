@@ -92,33 +92,37 @@ export function AppStateProvider({ children }: AppStateProviderProps) {
       console.log('🔍 Fetching daily summary for date:', targetDate, 'using timezone:', getUserTimezone())
       
       const response = await deduplicateRequest(`daily-summary-${targetDate}`, 
-        () => api.get(`/food-logs/daily/${targetDate}/with-goals`)
+        () => api.get(`/food-logs/date/${targetDate}`)
       )
       console.log('✅ Daily summary response:', response.data)
       console.log('🔍 Response keys:', Object.keys(response.data))
-      console.log('🔍 Food logs count:', response.data.food_logs?.length || 0)
-      console.log('🔍 Nutrition summary:', response.data.nutrition_summary)
+      console.log('🔍 Food logs count:', response.data.logs?.length || 0)
+      
+      // Calculate nutrition summary from logs
+      const logs = response.data.logs || []
+      const nutritionSummary = {
+        calories: logs.reduce((sum: number, log: any) => sum + (log.nutrition?.calories || 0), 0),
+        protein: logs.reduce((sum: number, log: any) => sum + (log.nutrition?.protein || 0), 0),
+        carbs: logs.reduce((sum: number, log: any) => sum + (log.nutrition?.carbs || 0), 0),
+        fat: logs.reduce((sum: number, log: any) => sum + (log.nutrition?.fat || 0), 0),
+        fiber: logs.reduce((sum: number, log: any) => sum + (log.nutrition?.fiber || 0), 0),
+        sugar: logs.reduce((sum: number, log: any) => sum + (log.nutrition?.sugar || 0), 0),
+        sodium: logs.reduce((sum: number, log: any) => sum + (log.nutrition?.sodium || 0), 0),
+      }
+      console.log('🔍 Calculated nutrition summary:', nutritionSummary)
       
       // Transform the response to match the expected format
       const transformedData = {
         date: targetDate,
         total_nutrition: {
-          ...(response.data.nutrition_summary || {
-            calories: 0,
-            protein: 0,
-            carbs: 0,
-            fat: 0,
-            fiber: 0,
-            sugar: 0,
-            sodium: 0
-          }),
-          water: response.data.water_summary || {
+          ...nutritionSummary,
+          water: {
             current: 0,
             target: 64,
             percentage: 0
           }
         },
-        meals: response.data.food_logs || [],
+        meals: logs,
         meal_breakdown: {},
         goal_progress: response.data.goal_progress
       }

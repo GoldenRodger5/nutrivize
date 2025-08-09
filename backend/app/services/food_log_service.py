@@ -71,51 +71,65 @@ class FoodLogService:
         
         # Write-through caching: immediately update cache with new log
         if redis_client.is_connected():
-            date_str = log_data.date.isoformat() if isinstance(log_data.date, date) else log_data.date
-            cached_summary = redis_client.get_food_logs(user_id, date_str)
-            if cached_summary:
-                # Create new log entry
-                new_log_entry = {
-                    "id": str(result.inserted_id),
-                    "date": log_data.date,
-                    "meal_type": log_data.meal_type,
-                    "food_id": log_data.food_id,
-                    "food_name": log_data.food_name,
-                    "amount": self._parse_amount(log_data.amount),
-                    "unit": log_data.unit,
-                    "nutrition": log_data.nutrition.dict(),
-                    "notes": log_data.notes or "",
-                    "logged_at": log_dict["logged_at"]
-                }
-                
-                # Add to cached meals
-                cached_summary["meals"].append(new_log_entry)
-                
-                # Update totals
-                nutrition = log_data.nutrition.dict()
-                cached_summary["total_nutrition"]["calories"] += nutrition.get("calories", 0)
-                cached_summary["total_nutrition"]["protein"] += nutrition.get("protein", 0)
-                cached_summary["total_nutrition"]["carbs"] += nutrition.get("carbs", 0)
-                cached_summary["total_nutrition"]["fat"] += nutrition.get("fat", 0)
-                cached_summary["total_nutrition"]["fiber"] += nutrition.get("fiber", 0)
-                cached_summary["total_nutrition"]["sugar"] += nutrition.get("sugar", 0)
-                cached_summary["total_nutrition"]["sodium"] += nutrition.get("sodium", 0)
-                
-                # Update meal breakdown
-                meal_type = log_data.meal_type
-                if meal_type not in cached_summary["meal_breakdown"]:
-                    cached_summary["meal_breakdown"][meal_type] = {
-                        "calories": 0, "protein": 0, "carbs": 0, "fat": 0, "fiber": 0, "sugar": 0, "sodium": 0
+            try:
+                date_str = log_data.date.isoformat() if isinstance(log_data.date, date) else log_data.date
+                cached_summary = redis_client.get_food_logs(user_id, date_str)
+                if cached_summary and isinstance(cached_summary, dict):
+                    # Ensure all required keys exist
+                    if "meals" not in cached_summary:
+                        cached_summary["meals"] = []
+                    if "total_nutrition" not in cached_summary:
+                        cached_summary["total_nutrition"] = {
+                            "calories": 0, "protein": 0, "carbs": 0, "fat": 0, 
+                            "fiber": 0, "sugar": 0, "sodium": 0
+                        }
+                    if "meal_breakdown" not in cached_summary:
+                        cached_summary["meal_breakdown"] = {}
+                    
+                    # Create new log entry
+                    new_log_entry = {
+                        "id": str(result.inserted_id),
+                        "date": log_data.date,
+                        "meal_type": log_data.meal_type,
+                        "food_id": log_data.food_id,
+                        "food_name": log_data.food_name,
+                        "amount": self._parse_amount(log_data.amount),
+                        "unit": log_data.unit,
+                        "nutrition": log_data.nutrition.dict(),
+                        "notes": log_data.notes or "",
+                        "logged_at": log_dict["logged_at"]
                     }
-                
-                cached_summary["meal_breakdown"][meal_type]["calories"] += nutrition.get("calories", 0)
-                cached_summary["meal_breakdown"][meal_type]["protein"] += nutrition.get("protein", 0)
-                cached_summary["meal_breakdown"][meal_type]["carbs"] += nutrition.get("carbs", 0)
-                cached_summary["meal_breakdown"][meal_type]["fat"] += nutrition.get("fat", 0)
-                cached_summary["meal_breakdown"][meal_type]["fiber"] += nutrition.get("fiber", 0)
-                
-                # Update cache with new summary
-                redis_client.cache_food_logs_smart(user_id, date_str, cached_summary)
+                    
+                    # Add to cached meals
+                    cached_summary["meals"].append(new_log_entry)
+                    
+                    # Update totals
+                    nutrition = log_data.nutrition.dict()
+                    cached_summary["total_nutrition"]["calories"] += nutrition.get("calories", 0)
+                    cached_summary["total_nutrition"]["protein"] += nutrition.get("protein", 0)
+                    cached_summary["total_nutrition"]["carbs"] += nutrition.get("carbs", 0)
+                    cached_summary["total_nutrition"]["fat"] += nutrition.get("fat", 0)
+                    cached_summary["total_nutrition"]["fiber"] += nutrition.get("fiber", 0)
+                    cached_summary["total_nutrition"]["sugar"] += nutrition.get("sugar", 0)
+                    cached_summary["total_nutrition"]["sodium"] += nutrition.get("sodium", 0)
+                    
+                    # Update meal breakdown
+                    meal_type = log_data.meal_type
+                    if meal_type not in cached_summary["meal_breakdown"]:
+                        cached_summary["meal_breakdown"][meal_type] = {
+                            "calories": 0, "protein": 0, "carbs": 0, "fat": 0, "fiber": 0, "sugar": 0, "sodium": 0
+                        }
+                    
+                    cached_summary["meal_breakdown"][meal_type]["calories"] += nutrition.get("calories", 0)
+                    cached_summary["meal_breakdown"][meal_type]["protein"] += nutrition.get("protein", 0)
+                    cached_summary["meal_breakdown"][meal_type]["carbs"] += nutrition.get("carbs", 0)
+                    cached_summary["meal_breakdown"][meal_type]["fat"] += nutrition.get("fat", 0)
+                    cached_summary["meal_breakdown"][meal_type]["fiber"] += nutrition.get("fiber", 0)
+                    
+                    # Update cache with new summary
+                    redis_client.cache_food_logs_smart(user_id, date_str, cached_summary)
+            except Exception as cache_error:
+                logger.warning(f"Cache update failed, but food log was saved: {cache_error}")
         
         return FoodLogResponse(
             id=str(result.inserted_id),
@@ -502,6 +516,76 @@ class FoodLogService:
         except Exception as e:
             logger.error(f"Error getting food logs range: {e}")
             return []
+
+    async def get_user_logs(self, user_id: str, limit: int = 100) -> List[Dict]:
+        """Get all food logs for a user"""
+        if self.food_logs_collection is None:
+            return []
+        
+        try:
+            cursor = self.food_logs_collection.find({"user_id": user_id}).sort("logged_at", -1).limit(limit)
+            logs = []
+            for log in cursor:
+                log["id"] = str(log["_id"])
+                del log["_id"]
+                logs.append(log)
+            return logs
+        except Exception as e:
+            logger.error(f"Error getting user logs: {e}")
+            return []
+
+    async def get_logs_by_date(self, user_id: str, target_date: str) -> List[Dict]:
+        """Get food logs for a specific date"""
+        if self.food_logs_collection is None:
+            return []
+        
+        try:
+            cursor = self.food_logs_collection.find({
+                "user_id": user_id, 
+                "date": target_date
+            }).sort("logged_at", 1)
+            
+            logs = []
+            for log in cursor:
+                log["id"] = str(log["_id"])
+                del log["_id"]
+                logs.append(log)
+            return logs
+        except Exception as e:
+            logger.error(f"Error getting logs by date: {e}")
+            return []
+
+    async def get_recent_logs(self, user_id: str, limit: int = 10) -> List[Dict]:
+        """Get recent food logs"""
+        if self.food_logs_collection is None:
+            return []
+        
+        try:
+            cursor = self.food_logs_collection.find({"user_id": user_id}).sort("logged_at", -1).limit(limit)
+            logs = []
+            for log in cursor:
+                log["id"] = str(log["_id"])
+                del log["_id"]
+                logs.append(log)
+            return logs
+        except Exception as e:
+            logger.error(f"Error getting recent logs: {e}")
+            return []
+
+    async def delete_food_log(self, log_id: str, user_id: str) -> bool:
+        """Delete a food log entry"""
+        if self.food_logs_collection is None:
+            return False
+        
+        try:
+            result = self.food_logs_collection.delete_one({
+                "_id": ObjectId(log_id),
+                "user_id": user_id
+            })
+            return result.deleted_count > 0
+        except Exception as e:
+            logger.error(f"Error deleting food log: {e}")
+            return False
 
 # Global food log service instance
 food_log_service = FoodLogService()

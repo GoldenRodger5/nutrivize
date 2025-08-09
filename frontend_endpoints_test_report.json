@@ -1,0 +1,561 @@
+{
+  "test_timestamp": "2025-08-09T16:03:33.659952",
+  "total_endpoints": 92,
+  "success_count": 55,
+  "failure_count": 37,
+  "success_rate": 59.8,
+  "tested_endpoints": [
+    {
+      "method": "GET",
+      "endpoint": "/auth/me",
+      "success": true,
+      "message": "\u2705 GET /auth/me - 200"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/onboarding/status",
+      "success": true,
+      "message": "\u2705 GET /onboarding/status - 200"
+    },
+    {
+      "method": "POST",
+      "endpoint": "/onboarding/start",
+      "success": true,
+      "message": "\u2705 POST /onboarding/start - 200"
+    },
+    {
+      "method": "POST",
+      "endpoint": "/onboarding/step/1",
+      "success": true,
+      "message": "\u2705 POST /onboarding/step/1 - 200"
+    },
+    {
+      "method": "POST",
+      "endpoint": "/onboarding/complete",
+      "success": true,
+      "message": "\u2705 POST /onboarding/complete - 200"
+    },
+    {
+      "method": "POST",
+      "endpoint": "/onboarding/skip",
+      "success": true,
+      "message": "\u2705 POST /onboarding/skip - 200"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/onboarding/recommendations",
+      "success": true,
+      "message": "\u2705 GET /onboarding/recommendations - 200"
+    },
+    {
+      "method": "POST",
+      "endpoint": "/onboarding/calculate-calories",
+      "success": true,
+      "message": "\u2705 POST /onboarding/calculate-calories - 422"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/preferences",
+      "success": true,
+      "message": "\u2705 GET /preferences - 200"
+    },
+    {
+      "method": "PUT",
+      "endpoint": "/preferences",
+      "success": true,
+      "message": "\u2705 PUT /preferences - 200"
+    },
+    {
+      "method": "PUT",
+      "endpoint": "/preferences/dietary",
+      "success": true,
+      "message": "\u2705 PUT /preferences/dietary - 200"
+    },
+    {
+      "method": "PUT",
+      "endpoint": "/preferences/nutrition",
+      "success": true,
+      "message": "\u2705 PUT /preferences/nutrition - 200"
+    },
+    {
+      "method": "PUT",
+      "endpoint": "/preferences/app",
+      "success": true,
+      "message": "\u2705 PUT /preferences/app - 200"
+    },
+    {
+      "method": "DELETE",
+      "endpoint": "/preferences",
+      "success": true,
+      "message": "\u2705 DELETE /preferences - 200"
+    },
+    {
+      "method": "POST",
+      "endpoint": "/preferences/disliked-foods/add",
+      "success": true,
+      "message": "\u2705 POST /preferences/disliked-foods/add - 200"
+    },
+    {
+      "method": "POST",
+      "endpoint": "/preferences/disliked-foods/remove",
+      "success": true,
+      "message": "\u2705 POST /preferences/disliked-foods/remove - 200"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/preferences/onboarding-status",
+      "success": true,
+      "message": "\u2705 GET /preferences/onboarding-status - 200"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/goals/",
+      "success": true,
+      "message": "\u2705 GET /goals/ - 200"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/goals/active",
+      "success": true,
+      "message": "\u2705 GET /goals/active - 200"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/goals/user-goals",
+      "success": true,
+      "message": "\u2705 GET /goals/user-goals - 200"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/food-logs/daily/2025-08-09",
+      "success": true,
+      "message": "\u2705 GET /food-logs/daily/2025-08-09 - 200"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/food-logs/date/2025-08-09",
+      "success": false,
+      "message": "\u274c GET /food-logs/date/2025-08-09 - 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/food-logs/daily/2025-08-09/with-goals",
+      "success": true,
+      "message": "\u2705 GET /food-logs/daily/2025-08-09/with-goals - 200"
+    },
+    {
+      "method": "POST",
+      "endpoint": "/food-logs/",
+      "success": true,
+      "message": "\u2705 POST /food-logs/ - 422"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/food-logs/range",
+      "success": true,
+      "message": "\u2705 GET /food-logs/range - 200"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/water-logs/",
+      "success": true,
+      "message": "\u2705 GET /water-logs/ - 200"
+    },
+    {
+      "method": "POST",
+      "endpoint": "/water-logs/",
+      "success": true,
+      "message": "\u2705 POST /water-logs/ - 422"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/water-logs/range",
+      "success": true,
+      "message": "\u2705 GET /water-logs/range - 200"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/weight-logs/",
+      "success": true,
+      "message": "\u2705 GET /weight-logs/ - 200"
+    },
+    {
+      "method": "POST",
+      "endpoint": "/weight-logs/",
+      "success": false,
+      "message": "\u274c POST /weight-logs/ - 400: {\"error\":true,\"error_code\":\"BAD_REQUEST\",\"message\":\"'<' not supported between instances of 'str' and"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/weight-logs/range",
+      "success": true,
+      "message": "\u2705 GET /weight-logs/range - 200"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/foods",
+      "success": true,
+      "message": "\u2705 GET /foods - 200"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/foods/search",
+      "success": true,
+      "message": "\u2705 GET /foods/search - 200"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/foods/user-index",
+      "success": true,
+      "message": "\u2705 GET /foods/user-index - 200"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/user-foods/recent",
+      "success": true,
+      "message": "\u2705 GET /user-foods/recent - 200"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/analytics/insights",
+      "success": true,
+      "message": "\u2705 GET /analytics/insights - 200"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/analytics/nutrition-trends",
+      "success": true,
+      "message": "\u2705 GET /analytics/nutrition-trends - 200"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/analytics/goal-progress",
+      "success": true,
+      "message": "\u2705 GET /analytics/goal-progress - 200"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/analytics/food-patterns",
+      "success": true,
+      "message": "\u2705 GET /analytics/food-patterns - 200"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/analytics/macro-breakdown",
+      "success": true,
+      "message": "\u2705 GET /analytics/macro-breakdown - 200"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/analytics/weekly-summary",
+      "success": false,
+      "message": "\u274c GET /analytics/weekly-summary - 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/analytics/nutrition-streak",
+      "success": true,
+      "message": "\u2705 GET /analytics/nutrition-streak - 200"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/analytics/daily-summary",
+      "success": true,
+      "message": "\u2705 GET /analytics/daily-summary - 200"
+    },
+    {
+      "method": "DELETE",
+      "endpoint": "/analytics/insights/cache",
+      "success": false,
+      "message": "\u274c DELETE /analytics/insights/cache - 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/ai-dashboard/coaching",
+      "success": true,
+      "message": "\u2705 GET /ai-dashboard/coaching - 200"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/ai-dashboard/weekly-progress",
+      "success": true,
+      "message": "\u2705 GET /ai-dashboard/weekly-progress - 200"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/ai-dashboard/predictions",
+      "success": true,
+      "message": "\u2705 GET /ai-dashboard/predictions - 200"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/ai-dashboard/optimizations",
+      "success": true,
+      "message": "\u2705 GET /ai-dashboard/optimizations - 200"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/ai-dashboard/health-score",
+      "success": false,
+      "message": "\u274c GET /ai-dashboard/health-score - 429: {\"error\":true,\"error_code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests. Please slow down.\",\"t"
+    },
+    {
+      "method": "POST",
+      "endpoint": "/ai-dashboard/health-score/refresh",
+      "success": false,
+      "message": "\u274c POST /ai-dashboard/health-score/refresh - 429: {\"error\":true,\"error_code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests. Please slow down.\",\"t"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/ai-dashboard/progress-analytics",
+      "success": false,
+      "message": "\u274c GET /ai-dashboard/progress-analytics - 429: {\"error\":true,\"error_code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests. Please slow down.\",\"t"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/ai-dashboard/nutrition-streak",
+      "success": false,
+      "message": "\u274c GET /ai-dashboard/nutrition-streak - 429: {\"error\":true,\"error_code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests. Please slow down.\",\"t"
+    },
+    {
+      "method": "POST",
+      "endpoint": "/ai-health/ask",
+      "success": false,
+      "message": "\u274c POST /ai-health/ask - 429: {\"error\":true,\"error_code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests. Please slow down.\",\"t"
+    },
+    {
+      "method": "POST",
+      "endpoint": "/ai/chat",
+      "success": false,
+      "message": "\u274c POST /ai/chat - 429: {\"error\":true,\"error_code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests. Please slow down.\",\"t"
+    },
+    {
+      "method": "POST",
+      "endpoint": "/ai/meal-suggestions",
+      "success": false,
+      "message": "\u274c POST /ai/meal-suggestions - 429: {\"error\":true,\"error_code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests. Please slow down.\",\"t"
+    },
+    {
+      "method": "POST",
+      "endpoint": "/ai/analyze-restaurant-menu",
+      "success": false,
+      "message": "\u274c POST /ai/analyze-restaurant-menu - 429: {\"error\":true,\"error_code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests. Please slow down.\",\"t"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/meal-planning/plans",
+      "success": false,
+      "message": "\u274c GET /meal-planning/plans - 429: {\"error\":true,\"error_code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests. Please slow down.\",\"t"
+    },
+    {
+      "method": "POST",
+      "endpoint": "/meal-planning/generate-plan",
+      "success": false,
+      "message": "\u274c POST /meal-planning/generate-plan - 429: {\"error\":true,\"error_code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests. Please slow down.\",\"t"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/meal-planning/plans/1",
+      "success": false,
+      "message": "\u274c GET /meal-planning/plans/1 - 429: {\"error\":true,\"error_code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests. Please slow down.\",\"t"
+    },
+    {
+      "method": "PUT",
+      "endpoint": "/meal-planning/plans/1",
+      "success": false,
+      "message": "\u274c PUT /meal-planning/plans/1 - 429: {\"error\":true,\"error_code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests. Please slow down.\",\"t"
+    },
+    {
+      "method": "DELETE",
+      "endpoint": "/meal-planning/plans/1",
+      "success": false,
+      "message": "\u274c DELETE /meal-planning/plans/1 - 429: {\"error\":true,\"error_code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests. Please slow down.\",\"t"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/meal-planning/plans/1/shopping-list",
+      "success": false,
+      "message": "\u274c GET /meal-planning/plans/1/shopping-list - 429: {\"error\":true,\"error_code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests. Please slow down.\",\"t"
+    },
+    {
+      "method": "POST",
+      "endpoint": "/meal-planning/plans/1/shopping-list",
+      "success": false,
+      "message": "\u274c POST /meal-planning/plans/1/shopping-list - 429: {\"error\":true,\"error_code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests. Please slow down.\",\"t"
+    },
+    {
+      "method": "POST",
+      "endpoint": "/meal-planning/plans/1/add-meal",
+      "success": false,
+      "message": "\u274c POST /meal-planning/plans/1/add-meal - 429: {\"error\":true,\"error_code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests. Please slow down.\",\"t"
+    },
+    {
+      "method": "POST",
+      "endpoint": "/meal-planning/extract-ingredients",
+      "success": false,
+      "message": "\u274c POST /meal-planning/extract-ingredients - 429: {\"error\":true,\"error_code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests. Please slow down.\",\"t"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/meal-planning/nutrition-optimization",
+      "success": false,
+      "message": "\u274c GET /meal-planning/nutrition-optimization - 429: {\"error\":true,\"error_code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests. Please slow down.\",\"t"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/meal-planning/manual/plans",
+      "success": false,
+      "message": "\u274c GET /meal-planning/manual/plans - 429: {\"error\":true,\"error_code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests. Please slow down.\",\"t"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/meal-planning/manual/plans/1",
+      "success": false,
+      "message": "\u274c GET /meal-planning/manual/plans/1 - 429: {\"error\":true,\"error_code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests. Please slow down.\",\"t"
+    },
+    {
+      "method": "POST",
+      "endpoint": "/meal-planning/manual/plans/1/insights",
+      "success": false,
+      "message": "\u274c POST /meal-planning/manual/plans/1/insights - 429: {\"error\":true,\"error_code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests. Please slow down.\",\"t"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/meal-planning/manual/suggestions",
+      "success": false,
+      "message": "\u274c GET /meal-planning/manual/suggestions - 422: {\"detail\":[{\"type\":\"missing\",\"loc\":[\"query\",\"plan_id\"],\"msg\":\"Field required\",\"input\":null,\"url\":\"ht"
+    },
+    {
+      "method": "POST",
+      "endpoint": "/meal-planning/manual/plans/1/add-food",
+      "success": true,
+      "message": "\u2705 POST /meal-planning/manual/plans/1/add-food - 422"
+    },
+    {
+      "method": "DELETE",
+      "endpoint": "/meal-planning/manual/plans/1/remove-food",
+      "success": false,
+      "message": "\u274c DELETE /meal-planning/manual/plans/1/remove-food - 422: {\"detail\":[{\"type\":\"missing\",\"loc\":[\"query\",\"day_number\"],\"msg\":\"Field required\",\"input\":null,\"url\":"
+    },
+    {
+      "method": "POST",
+      "endpoint": "/meal-planning/meal-suggestions/log",
+      "success": true,
+      "message": "\u2705 POST /meal-planning/meal-suggestions/log - 422"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/user/recent-foods",
+      "success": true,
+      "message": "\u2705 GET /user/recent-foods - 200"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/user/favorite-foods",
+      "success": true,
+      "message": "\u2705 GET /user/favorite-foods - 200"
+    },
+    {
+      "method": "POST",
+      "endpoint": "/user/recent-foods",
+      "success": false,
+      "message": "\u274c POST /user/recent-foods - 429: {\"error\":true,\"error_code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests. Please slow down.\",\"t"
+    },
+    {
+      "method": "POST",
+      "endpoint": "/user/favorite-foods",
+      "success": true,
+      "message": "\u2705 POST /user/favorite-foods - 422"
+    },
+    {
+      "method": "DELETE",
+      "endpoint": "/user/favorite-foods/1",
+      "success": false,
+      "message": "\u274c DELETE /user/favorite-foods/1 - 500: {\"error\":true,\"error_code\":\"INTERNAL_SERVER_ERROR\",\"message\":\"Failed to remove from favorites\",\"time"
+    },
+    {
+      "method": "POST",
+      "endpoint": "/user-favorites/",
+      "success": false,
+      "message": "\u274c POST /user-favorites/ - 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/user-favorites/",
+      "success": false,
+      "message": "\u274c GET /user-favorites/ - 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "method": "PUT",
+      "endpoint": "/user-favorites/1",
+      "success": true,
+      "message": "\u2705 PUT /user-favorites/1 - 404"
+    },
+    {
+      "method": "DELETE",
+      "endpoint": "/user-favorites/1",
+      "success": false,
+      "message": "\u274c DELETE /user-favorites/1 - 429: {\"error\":true,\"error_code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests. Please slow down.\",\"t"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/user-favorites/stats",
+      "success": false,
+      "message": "\u274c GET /user-favorites/stats - 404: {\"detail\":\"Not Found\"}"
+    },
+    {
+      "method": "POST",
+      "endpoint": "/nutrition-labels/scan",
+      "success": false,
+      "message": "\u274c POST /nutrition-labels/scan - 429: {\"error\":true,\"error_code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests. Please slow down.\",\"t"
+    },
+    {
+      "method": "POST",
+      "endpoint": "/nutrition-labels/scan-and-create",
+      "success": true,
+      "message": "\u2705 POST /nutrition-labels/scan-and-create - 422"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/restaurant-ai/analyses",
+      "success": false,
+      "message": "\u274c GET /restaurant-ai/analyses - 429: {\"error\":true,\"error_code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests. Please slow down.\",\"t"
+    },
+    {
+      "method": "POST",
+      "endpoint": "/restaurant-ai/analyze",
+      "success": true,
+      "message": "\u2705 POST /restaurant-ai/analyze - 422"
+    },
+    {
+      "method": "POST",
+      "endpoint": "/restaurant-ai/visual-nutrition",
+      "success": false,
+      "message": "\u274c POST /restaurant-ai/visual-nutrition - 429: {\"error\":true,\"error_code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests. Please slow down.\",\"t"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/food-stats/stats",
+      "success": true,
+      "message": "\u2705 GET /food-stats/stats - 200"
+    },
+    {
+      "method": "GET",
+      "endpoint": "/vectors/stats",
+      "success": false,
+      "message": "\u274c GET /vectors/stats - 429: {\"error\":true,\"error_code\":\"RATE_LIMIT_EXCEEDED\",\"message\":\"Too many requests. Please slow down.\",\"t"
+    },
+    {
+      "method": "POST",
+      "endpoint": "/vectors/query",
+      "success": true,
+      "message": "\u2705 POST /vectors/query - 200"
+    },
+    {
+      "method": "POST",
+      "endpoint": "/vectors/bulk-vectorize",
+      "success": true,
+      "message": "\u2705 POST /vectors/bulk-vectorize - 200"
+    }
+  ]
+}

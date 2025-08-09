@@ -16,8 +16,7 @@ class AIService:
     
     def __init__(self):
         self.client = anthropic.Anthropic(
-            api_key=os.getenv("ANTHROPIC_API_KEY"),
-            timeout=90.0  # 90 second timeout for AI requests
+            api_key=os.getenv("ANTHROPIC_API_KEY")
         )
     
     async def chat(self, request: ChatRequest) -> ChatResponse:

@@ -2,6 +2,7 @@ import { Routes, Route } from 'react-router-dom'
 import { Box, useBreakpointValue, useDisclosure } from '@chakra-ui/react'
 import NavBar from './NavBar'
 import MobileBottomNav from './MobileBottomNav'
+import MobileHeader from './MobileHeader'
 import PWAStatus from './PWAStatus'
 import PWAInstall from './PWAInstall'
 import FloatingActionButton from './FloatingActionButton'
@@ -57,8 +58,19 @@ export default function MainLayout() {
   return (
     <Box minH="100vh" bg="linear-gradient(135deg, #f6f9fc 0%, #e9f4f9 100%)">
       <PWAStatus />
+      
+      {/* Mobile Header */}
+      <MobileHeader 
+        showNotifications={true}
+        showSearch={false}
+        showMenu={true}
+        onMenuOpen={onOpen}
+      />
+      
+      {/* Desktop Navigation */}
       <NavBar isDrawerOpen={isOpen} onDrawerOpen={onOpen} onDrawerClose={onClose} />
-      <Box pb={isMobile ? "80px" : 0}>
+      
+      <Box pb={isMobile ? "80px" : 0} pt={isMobile ? "60px" : 0}>
         <Routes>
           <Route path="/" element={<AIDashboard />} />
           <Route path="/dashboard" element={<Dashboard />} />

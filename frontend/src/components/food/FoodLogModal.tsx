@@ -29,7 +29,8 @@ import {
   useColorModeValue,
   Divider,
   IconButton,
-  Tooltip
+  Tooltip,
+  useBreakpointValue
 } from '@chakra-ui/react'
 import { FaHeart, FaRegHeart } from 'react-icons/fa'
 import api from '../../utils/api'
@@ -113,8 +114,8 @@ export default function FoodLogModal({ isOpen, onClose, onSuccess }: FoodLogModa
   const fetchUserFoods = async () => {
     setFoodIndexLoading(true)
     try {
-      const response = await api.get('/foods/user-foods/')
-      setUserFoods(response.data)
+      const response = await api.get('/foods/')
+      setUserFoods(response.data.foods || response.data)
     } catch (error) {
       console.error('Error fetching user foods:', error)
       setUserFoods([])
@@ -127,8 +128,8 @@ export default function FoodLogModal({ isOpen, onClose, onSuccess }: FoodLogModa
   const fetchPopularFoods = async () => {
     setPopularLoading(true)
     try {
-      const response = await api.get('/foods/popular/')
-      setPopularFoods(response.data)
+      const response = await api.get('/foods/popular')
+      setPopularFoods(response.data.foods || response.data)
     } catch (error) {
       console.error('Error fetching popular foods:', error)
       setPopularFoods([])
@@ -141,8 +142,8 @@ export default function FoodLogModal({ isOpen, onClose, onSuccess }: FoodLogModa
   const fetchRecentFoods = async () => {
     setRecentLoading(true)
     try {
-      const response = await api.get('/food-logs/recent/')
-      setRecentFoods(response.data)
+      const response = await api.get('/user-foods/recent')
+      setRecentFoods(response.data.recent_foods || response.data)
     } catch (error) {
       console.error('Error fetching recent foods:', error)
       setRecentFoods([])
@@ -182,7 +183,7 @@ export default function FoodLogModal({ isOpen, onClose, onSuccess }: FoodLogModa
   const searchFoods = async () => {
     setSearchLoading(true)
     try {
-      const response = await api.get(`/foods/search/?q=${encodeURIComponent(searchQuery)}`)
+      const response = await api.get(`/foods/search?q=${encodeURIComponent(searchQuery)}`)
       setFoods(response.data)
     } catch (error) {
       console.error('Error searching foods:', error)
@@ -342,14 +343,14 @@ export default function FoodLogModal({ isOpen, onClose, onSuccess }: FoodLogModa
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="4xl" scrollBehavior="inside">
+    <Modal isOpen={isOpen} onClose={onClose} size={useBreakpointValue({ base: "full", md: "4xl" })} scrollBehavior="inside">
       <ModalOverlay bg="blackAlpha.300" backdropFilter="blur(10px)" zIndex={1200} />
-      <ModalContent maxH="90vh" bg={cardBg} zIndex={1300}>
-        <ModalHeader>
+      <ModalContent maxH="90vh" bg={cardBg} zIndex={1300} borderRadius={useBreakpointValue({ base: "none", md: "lg" })}>
+        <ModalHeader fontSize={useBreakpointValue({ base: "lg", md: "xl" })} pb={4}>
           <HStack>
-            <Text fontSize="xl">🍎 Log Food</Text>
+            <Text fontSize={useBreakpointValue({ base: "lg", md: "xl" })}>🍎 Log Food</Text>
             {selectedFood && (
-              <Badge colorScheme="green" variant="solid">
+              <Badge colorScheme="green" variant="solid" fontSize={useBreakpointValue({ base: "xs", md: "sm" })}>
                 {selectedFood.name} selected
               </Badge>
             )}
@@ -357,8 +358,8 @@ export default function FoodLogModal({ isOpen, onClose, onSuccess }: FoodLogModa
         </ModalHeader>
         <ModalCloseButton />
         
-        <ModalBody pb={6}>
-          <VStack spacing={6} align="stretch">
+        <ModalBody pb={6} px={useBreakpointValue({ base: 4, md: 6 })}>
+          <VStack spacing={useBreakpointValue({ base: 4, md: 6 })} align="stretch">
             {/* Search Section */}
             <FormControl>
               <FormLabel>Search for food</FormLabel>

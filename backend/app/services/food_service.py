@@ -35,59 +35,6 @@ class FoodService:
         """Check if database is available"""
         return self.db is not None and self.food_collection is not None
     
-    def _get_mock_food_data(self):
-        """Get mock food data for development when database is unavailable"""
-        return [
-            {
-                "id": "mock_1",
-                "name": "Chicken Breast",
-                "serving_size": 100,
-                "serving_unit": "g",
-                "nutrition": {
-                    "calories": 165,
-                    "protein": 31.0,
-                    "carbs": 0.0,
-                    "fat": 3.6,
-                    "fiber": 0.0,
-                    "sugar": 0.0,
-                    "sodium": 74.0
-                },
-                "source": "mock"
-            },
-            {
-                "id": "mock_2",
-                "name": "Apple",
-                "serving_size": 1,
-                "serving_unit": "medium",
-                "nutrition": {
-                    "calories": 95,
-                    "protein": 0.5,
-                    "carbs": 25.0,
-                    "fat": 0.3,
-                    "fiber": 4.0,
-                    "sugar": 19.0,
-                    "sodium": 2.0
-                },
-                "source": "mock"
-            },
-            {
-                "id": "mock_3",
-                "name": "Brown Rice",
-                "serving_size": 100,
-                "serving_unit": "g",
-                "nutrition": {
-                    "calories": 123,
-                    "protein": 2.6,
-                    "carbs": 23.0,
-                    "fat": 0.9,
-                    "fiber": 1.8,
-                    "sugar": 0.4,
-                    "sodium": 7.0
-                },
-                "source": "mock"
-            }
-        ]
-    
     async def create_food_item(self, food_data: FoodItemCreate, user_id: str) -> FoodItemResponse:
         """Create a new food item with auto-generated dietary attributes"""
         
@@ -484,20 +431,23 @@ class FoodService:
             
             # Convert to list of food items
             food_items = []
-            # Check if we're using motor (async) or pymongo (sync)
-            if hasattr(cursor, 'to_list'):
-                # Using motor/async
-                docs = await cursor.to_list(length=limit)
-                for doc in docs:
-                    # Convert MongoDB _id to string
-                    doc["_id"] = str(doc["_id"])
-                    food_items.append(FoodItemResponse(**doc))
-            else:
-                # Using pymongo/sync
-                for doc in cursor:
-                    # Convert MongoDB _id to string
-                    doc["_id"] = str(doc["_id"])
-                    food_items.append(FoodItemResponse(**doc))
+            # Using synchronous pymongo
+            for doc in cursor:
+                try:
+                    # Convert MongoDB _id to id string for Pydantic model
+                    doc["id"] = str(doc["_id"])
+                    del doc["_id"]
+                    
+                    # Validate required fields exist before creating FoodItemResponse
+                    required_fields = ['name', 'serving_size', 'serving_unit', 'nutrition', 'source']
+                    if all(field in doc for field in required_fields):
+                        food_items.append(FoodItemResponse(**doc))
+                    else:
+                        missing_fields = [field for field in required_fields if field not in doc]
+                        logger.warning(f"Skipping food with missing fields: {missing_fields}")
+                except Exception as e:
+                    logger.warning(f"Skipping invalid food document: {e}")
+                    continue
             
             return food_items
         
