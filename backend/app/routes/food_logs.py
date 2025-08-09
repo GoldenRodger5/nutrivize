@@ -81,21 +81,7 @@ async def get_logs_by_date(
         raise HTTPException(status_code=500, detail="Failed to get logs by date")
 
 
-@router.get("/daily/{date}")
-async def get_daily_logs(
-    date: str,
-    current_user: UserResponse = Depends(get_current_user)
-):
-    """Get daily food logs with nutrition summary"""
-    try:
-        # Convert string date to date object
-        from datetime import datetime
-        date_obj = datetime.strptime(date, "%Y-%m-%d").date()
-        daily_data = await food_log_service.get_daily_logs_with_goal_progress(current_user.uid, date_obj)
-        return daily_data or {"date": date, "logs": [], "nutrition_summary": {}, "goal_progress": {}}
-    except Exception as e:
-        logger.error(f"Error getting daily logs: {e}")
-        raise HTTPException(status_code=500, detail="Failed to get daily logs")
+# Removed duplicate route - using the better implementation below at line 170
 
 
 @router.delete("/{log_id}")
