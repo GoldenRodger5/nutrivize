@@ -153,7 +153,14 @@ class FoodLogService:
         if redis_client.is_connected():
             cached_data = redis_client.get_food_logs(user_id, target_date_str)
             if cached_data:
-                return DailyNutritionSummary(**cached_data)
+                # Validate cached data structure to prevent errors from old cache format
+                try:
+                    return DailyNutritionSummary(**cached_data)
+                except Exception as e:
+                    # Clear invalid cached data and continue with fresh query
+                    logger.warning(f"Invalid cached data for {user_id} on {target_date_str}, clearing cache: {e}")
+                    redis_client.delete(f"food_logs:{user_id}:{target_date_str}")
+                    pass
         
         logs = list(self.food_logs_collection.find({
             "user_id": user_id,
@@ -388,7 +395,7 @@ class FoodLogService:
                     date=target_date,
                     meals=[],
                     total_nutrition=NutritionInfo(),
-                    meal_breakdown={}
+                    total_foods=0
                 )
                 detailed_entries = []
             
@@ -415,7 +422,7 @@ class FoodLogService:
             
             result = {
                 "date": target_date.isoformat(),
-                "food_logs": detailed_entries,  # Return detailed entries instead of just meal names
+                "logs": detailed_entries,  # Fixed: using logs field name consistently
                 "nutrition_summary": daily_summary.total_nutrition.dict(),
                 "water_summary": {
                     "current": water_summary.total_amount,
@@ -472,7 +479,7 @@ class FoodLogService:
             daily_summary = await self.get_daily_logs(user_id, target_date)
             return {
                 "date": target_date.isoformat(),
-                "food_logs": daily_summary.meals,  # Changed from food_logs to meals
+                "logs": daily_summary.meals,  # Fixed: using logs field name consistently
                 "nutrition_summary": daily_summary.total_nutrition.dict(),
                 "goal_progress": None,
                 "error": f"Goal integration failed: {str(e)}"
