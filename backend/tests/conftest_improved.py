@@ -20,9 +20,9 @@ from app.main import app
 from app.models.user import UserResponse, OnboardingBasicProfile
 
 # Test configuration
-TEST_BASE_URL = "http://localhost:8000"
-TEST_USER_EMAIL = "isaacmineo@gmail.com"
-TEST_USER_PASSWORD = "Buddydog41"
+TEST_BASE_URL = os.getenv("TEST_BASE_URL", "http://localhost:8000")
+TEST_USER_EMAIL = os.getenv("TEST_USER_EMAIL", "test@example.com")
+TEST_USER_PASSWORD = os.getenv("TEST_USER_PASSWORD", "test_password_123")
 
 # Rate limiting configuration
 MIN_REQUEST_DELAY = 0.5  # Minimum delay between requests

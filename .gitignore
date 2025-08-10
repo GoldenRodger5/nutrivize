@@ -7,32 +7,41 @@ backend/venv/
 backend/__pycache__/
 backend/*.pyc
 
-# Environment variables
+# Environment variables - CRITICAL: Never commit these
 .env
 .env.local
 .env.development
 .env.production
 *.env
 *.env.*
+# Except for example/template files
+!.env.example
+!.env.*.example
+!.env.template
+!.env.*.template
 
-# Firebase credentials
+# Firebase credentials - CRITICAL: Never commit these
 *firebase*.json
 firebase-adminsdk*.json
 food-tracker-*.json
+# Except for example/template files
+!*firebase*.example.json
+!*firebase*.template.json
 
-# API Keys and secrets (any file containing credentials)
+# API Keys and secrets - CRITICAL: Never commit these
 *credentials*.json
 *service-account*.json
 *.key
 *.pem
-
-# Additional secret patterns
 *secret*
 *password*
 *apikey*
 *api-key*
 *token*
 *auth*
+# Except for example/template files
+!*credentials*.example.json
+!*credentials*.template.json
 
 # Backup files that may contain secrets
 *.old

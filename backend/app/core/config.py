@@ -57,17 +57,15 @@ class DatabaseManager:
             if 'mongodb.net' in mongodb_url or 'mongodb+srv' in mongodb_url:
                 connection_options.update({
                     'ssl': True,
-                    'tlsAllowInvalidCertificates': False,
                     'tlsAllowInvalidHostnames': False,
                     'authSource': 'admin'
                 })
             
             # Try multiple connection attempts with different configurations
             connection_attempts = [
-                connection_options,  # Full options
-                {**connection_options, 'tlsAllowInvalidCertificates': True},  # Allow invalid certs
-                {'serverSelectionTimeoutMS': 30000, 'ssl': True},  # Minimal options
-                {}  # Default options only
+                connection_options,  # Full options with proper SSL
+                {**connection_options, 'ssl': True, 'serverSelectionTimeoutMS': 30000},  # Simplified with SSL
+                {'serverSelectionTimeoutMS': 30000},  # Minimal options
             ]
             
             for attempt, options in enumerate(connection_attempts, 1):

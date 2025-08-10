@@ -62,44 +62,6 @@ async def verify_token(current_user: UserResponse = Depends(get_current_user)):
     return {"valid": True, "user": current_user}
 
 
-@router.post("/test-with-uid")
-async def test_with_uid(login_data: UserLogin):
-    """Test endpoint - returns UID for manual token testing"""
-    try:
-        firebase_user = firebase_manager.get_user_by_email(login_data.email)
-        return {
-            "uid": firebase_user["uid"],
-            "message": "Use this UID as Bearer token for testing protected endpoints"
-        }
-    except Exception as e:
-        raise HTTPException(status_code=401, detail=str(e))
-
-
-async def get_current_user_by_uid(authorization: Optional[str] = Header(None)) -> UserResponse:
-    """Test dependency - treats token as UID"""
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Authorization header required")
-    
-    try:
-        uid = authorization.split(" ")[1]
-    except IndexError:
-        raise HTTPException(status_code=401, detail="Invalid authorization header format")
-    
-    try:
-        user = await user_service.get_user_by_uid(uid)
-        if not user:
-            raise HTTPException(status_code=401, detail="User not found")
-        return user
-    except Exception as e:
-        raise HTTPException(status_code=401, detail=str(e))
-
-
-@router.get("/test-me", response_model=UserResponse)
-async def test_me(current_user: UserResponse = Depends(get_current_user_by_uid)):
-    """Test endpoint using UID as token"""
-    return current_user
-
-
 @router.get("/profile")
 async def get_user_profile(current_user: UserResponse = Depends(get_current_user)):
     """Get user profile information"""
