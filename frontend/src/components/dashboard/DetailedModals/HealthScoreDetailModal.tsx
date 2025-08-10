@@ -44,9 +44,13 @@ interface HealthScoreDetailModalProps {
 }
 
 const HealthScoreDetailModal: React.FC<HealthScoreDetailModalProps> = ({ isOpen, onClose }) => {
+  // All hooks must be called at the top level, before any conditional returns
   const { enhancedHealthScore, loading, error, refreshHealthScore } = useEnhancedHealthScore()
   const bg = useColorModeValue('white', 'gray.800')
   const borderColor = useColorModeValue('gray.200', 'gray.600')
+  const trackColor = useColorModeValue('gray.100', 'gray.700')
+  const scoreBg = useColorModeValue('gray.50', 'gray.700')
+  const yellowBg = useColorModeValue('yellow.50', 'yellow.900')
   const isMobile = useBreakpointValue({ base: true, lg: false })
   
   const getScoreColor = (score: number) => {
@@ -145,7 +149,7 @@ const HealthScoreDetailModal: React.FC<HealthScoreDetailModalProps> = ({ isOpen,
                       size={isMobile ? "100px" : "120px"} 
                       thickness="8px"
                       color={`${colorScheme}.400`}
-                      trackColor={useColorModeValue('gray.100', 'gray.700')}
+                      trackColor={trackColor}
                     >
                       <CircularProgressLabel>
                         <VStack spacing={0}>
@@ -195,7 +199,7 @@ const HealthScoreDetailModal: React.FC<HealthScoreDetailModalProps> = ({ isOpen,
                 <Heading size={isMobile ? "sm" : "md"} mb={4}>Score Breakdown</Heading>
                 <SimpleGrid columns={{ base: 1, md: isMobile ? 1 : 2 }} spacing={4}>
                   {Object.entries(enhancedHealthScore.component_scores).map(([component, score]) => (
-                    <Box key={component} p={4} borderRadius="lg" bg={useColorModeValue('gray.50', 'gray.700')}>
+                    <Box key={component} p={4} borderRadius="lg" bg={scoreBg}>
                       <HStack justify="space-between" mb={2}>
                         <Text fontWeight="medium" textTransform="capitalize">
                           {component.replace('_', ' ')}
@@ -295,7 +299,7 @@ const HealthScoreDetailModal: React.FC<HealthScoreDetailModalProps> = ({ isOpen,
                         key={index} 
                         p={4} 
                         borderRadius="lg" 
-                        bg={useColorModeValue('yellow.50', 'yellow.900')}
+                        bg={yellowBg}
                         borderLeft="4px solid"
                         borderLeftColor="yellow.400"
                       >

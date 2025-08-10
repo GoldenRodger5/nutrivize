@@ -242,5 +242,5 @@ export function useAIHealthChat() {
   return { askQuestion, response, loading, error };
 }
 
-// Export existing hooks for backward compatibility
-export { useHealthScore, useAICoaching, useSmartNutrition } from './useAIDashboard';
+// Removed re-exports to prevent hook ordering conflicts
+// Import these directly from './useAIDashboard' where needed
